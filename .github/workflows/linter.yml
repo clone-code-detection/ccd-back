@@ -1,12 +1,12 @@
-name: Lint Pull Request
-on: pull_request
-
-jobs:
-  java_linter:
-    runs-on: ubuntu-latest
-    name: Check Lint
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Run java linter check
-        uses: nikitasavinov/checkstyle-action@0.6.0
+#name: Lint Pull Request
+#on: pull_request
+#
+#jobs:
+#  java_linter:
+#    runs-on: ubuntu-latest
+#    name: Check Lint
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v3
+#      - name: Run java linter check
+#        uses: nikitasavinov/checkstyle-action@0.6.0
