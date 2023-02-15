@@ -7,8 +7,6 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 public class ParserTest {
     @Test
     public void testParseTree() {
@@ -21,8 +19,7 @@ public class ParserTest {
 
         ParseTreeWalker walker = new ParseTreeWalker();
         ExtendListener javaParserListener = new ExtendListener();
-        walker.walk(javaParserListener, tree);
-
-        System.out.println(javaParserListener.tokenInsights);
+        walker.walk(javaParserListener , tree);
+        System.out.println(javaParserListener.getTokenInsights(javaClassContent));
     }
 }

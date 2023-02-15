@@ -1,6 +1,7 @@
 package github.clone_code_detection.server;
 
 import github.clone_code_detection.routers.AuthorInfoRouter;
+import github.clone_code_detection.routers.CSTProcessorRouter;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
@@ -16,8 +17,11 @@ public class HttpServerVerticle extends AbstractVerticle {
     private Router createServerRouter() {
         Router router = Router.router(this.vertx);
         Router authorInfoRouter = new AuthorInfoRouter(this.vertx);
+        Router cstProcessRouter = new CSTProcessorRouter(this.vertx);
         router.get("/api/info/*")
                 .subRouter(authorInfoRouter);
+        router.get("/api/cst/*")
+                .subRouter(cstProcessRouter);
         router.get("/*")
                 .handler(this::invalidRequestHandler);
         return router;
