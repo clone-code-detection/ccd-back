@@ -20,8 +20,9 @@ public class ParserTest {
 
 
         ParseTreeWalker walker = new ParseTreeWalker();
-        JavaParserListener javaParserListener = new ExtendListener();
+        ExtendListener javaParserListener = new ExtendListener();
         walker.walk(javaParserListener, tree);
-        assertThat(true);
+
+        System.out.println(javaParserListener.tokenInsights);
     }
 }
