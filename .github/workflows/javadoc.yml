@@ -4,6 +4,9 @@ on:
     branches:
       - master
       
+permissions:
+  contents: write
+  
 jobs:
   publish_javadoc:
     runs-on: ubuntu-latest
