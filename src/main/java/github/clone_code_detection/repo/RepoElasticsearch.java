@@ -25,13 +25,17 @@ public class RepoElasticsearch {
         return getAnalyzeTokens(document , "csharp-analyzer");
     }
 
+    public Collection<AnalyzeToken> analyzePythonTokens(String document) {
+        return getAnalyzeTokens(document , "python-tokenizer");
+    }
+
     public Collection<AnalyzeToken> analyzeJavaDocument(String document) {
         return getAnalyzeTokens(document , "java-tokenizer");
     }
 
     private List<AnalyzeToken> getAnalyzeTokens(String document , String tokenizerName) {
-        var analyzeRequest = new AnalyzeRequest.Builder()
-                .tokenizer(tokenizerBuilder -> tokenizerBuilder.name(tokenizerName))
+        var analyzeRequest = new AnalyzeRequest.Builder().tokenizer(
+                        tokenizerBuilder -> tokenizerBuilder.name(tokenizerName))
                 .text(document)
                 .build();
         try {

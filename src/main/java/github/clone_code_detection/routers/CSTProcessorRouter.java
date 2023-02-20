@@ -20,14 +20,12 @@ public class CSTProcessorRouter extends RouterImpl {
 
     public CSTProcessorRouter(Vertx vertx , RepoElasticsearch repoElasticsearch) {
         super(vertx);
-        Handler<RoutingContext> javaRoutingHandler =
-                getHandlingRequest(repoElasticsearch::analyzeJavaDocument);
         this.get("/analyze/java")
-                .handler(javaRoutingHandler);
-        Handler<RoutingContext> cSharpRoutingHandler =
-                getHandlingRequest(repoElasticsearch::analyzeCSharpTokens);
+                .handler(getHandlingRequest(repoElasticsearch::analyzeJavaDocument));
         this.get("/analyze/c-sharp")
-                .handler(cSharpRoutingHandler);
+                .handler(getHandlingRequest(repoElasticsearch::analyzeCSharpTokens));
+        this.get("/analyze/python")
+                .handler(getHandlingRequest(repoElasticsearch::analyzePythonTokens));
     }
 
     private Handler<RoutingContext> getHandlingRequest(
@@ -38,7 +36,7 @@ public class CSTProcessorRouter extends RouterImpl {
                     .map(Buffer::toString)
                     .map(analyzer)
                     .map(analyzeTokens -> analyzeTokens.stream()
-                            .map(AnalyzeToken::token)
+                            .map(AnalyzeToken::toString)
                             .collect(Collectors.toList()))
                     .otherwise(new ArrayList<>())
                     .onSuccess(routingContext::json)
