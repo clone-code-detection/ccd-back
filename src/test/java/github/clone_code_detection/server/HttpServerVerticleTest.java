@@ -1,5 +1,7 @@
 package github.clone_code_detection.server;
 
+import com.google.inject.Guice;
+import com.google.inject.Injector;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
@@ -23,7 +25,8 @@ class HttpServerVerticleTest {
 
     @Test
     void testHttpServer(Vertx vertx , VertxTestContext vertxTestContext) {
-        HttpServerVerticle httpServerVerticle = new HttpServerVerticle();
+        Injector injector = Guice.createInjector();
+        HttpServerVerticle httpServerVerticle = injector.getInstance(HttpServerVerticle.class);
         DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject());
         Checkpoint serverSucceeded = vertxTestContext.checkpoint();
         Checkpoint allSucceeded = vertxTestContext.checkpoint();
