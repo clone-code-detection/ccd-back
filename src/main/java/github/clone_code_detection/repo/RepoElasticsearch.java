@@ -34,8 +34,8 @@ public class RepoElasticsearch {
     }
 
     private List<AnalyzeToken> getAnalyzeTokens(String document , String tokenizerName) {
-        var analyzeRequest = new AnalyzeRequest.Builder().tokenizer(
-                        tokenizerBuilder -> tokenizerBuilder.name(tokenizerName))
+        var analyzeRequest = new AnalyzeRequest.Builder()
+                .tokenizer(tokenizerBuilder -> tokenizerBuilder.name(tokenizerName))
                 .text(document)
                 .build();
         try {
