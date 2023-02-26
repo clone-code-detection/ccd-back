@@ -3,30 +3,35 @@ package github.clone_code_detection.repo;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.indices.AnalyzeRequest;
 import co.elastic.clients.elasticsearch.indices.analyze.AnalyzeToken;
-import com.google.inject.Inject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+@Slf4j
+@Repository
 public class RepoElasticsearch {
     private final ElasticsearchClient elasticsearchClient;
-    private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @Inject
+    @Autowired
     public RepoElasticsearch(ElasticsearchClient elasticsearchClient) {
         this.elasticsearchClient = elasticsearchClient;
     }
 
     public Collection<AnalyzeToken> analyzeCSharpTokens(String document) {
-        return getAnalyzeTokens(document , "csharp-analyzer");
+        return getAnalyzeTokens(document , "csharp");
+    }
+
+    public Collection<AnalyzeToken> analyzePythonTokens(String document) {
+        return getAnalyzeTokens(document , "python");
     }
 
     public Collection<AnalyzeToken> analyzeJavaDocument(String document) {
-        return getAnalyzeTokens(document , "java-tokenizer");
+        return getAnalyzeTokens(document , "java");
     }
 
     private List<AnalyzeToken> getAnalyzeTokens(String document , String tokenizerName) {
@@ -38,10 +43,10 @@ public class RepoElasticsearch {
             List<AnalyzeToken> tokens = elasticsearchClient.indices()
                     .analyze(analyzeRequest)
                     .tokens();
-            logger.info("{}" , tokens);
+            log.info("{}" , tokens);
             return tokens;
         } catch (IOException e) {
-            logger.error("Error connecting to elasticsearch" , e);
+            log.error("Error connecting to elasticsearch" , e);
             return Collections.emptyList();
         }
     }
