@@ -1,4 +1,5 @@
 github.clone_code_detection
+github.clone_code_detection.controllers
+github.clone_code_detection.entity
 github.clone_code_detection.repo
-github.clone_code_detection.routers
-github.clone_code_detection.server
+github.clone_code_detection.util
