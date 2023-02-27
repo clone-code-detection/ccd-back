@@ -1,11 +1,10 @@
 package github.clone_code_detection.service;
 
-import co.elastic.clients.elasticsearch.core.IndexResponse;
-import github.clone_code_detection.entity.IndexDocument;
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import github.clone_code_detection.entity.QueryDocument;
 
-import java.util.Collection;
-import java.util.stream.Stream;
+import java.util.List;
 
 public interface IServiceQuery {
-    Collection<IndexResponse> indexAllDocuments(Stream<IndexDocument> documents);
+    List<ElasticsearchClient> search(QueryDocument queryDocument);
 }

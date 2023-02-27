@@ -2,7 +2,7 @@ package github.clone_code_detection.controllers;
 
 import co.elastic.clients.elasticsearch.indices.analyze.AnalyzeToken;
 import github.clone_code_detection.entity.ResponseUnified;
-import github.clone_code_detection.repo.RepoElasticsearch;
+import github.clone_code_detection.repo.RepoElasticsearchAnalyze;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,10 +19,10 @@ import java.util.function.Function;
 @RequestMapping(("/api/cst"))
 @Slf4j
 class CSTProcessorRouter {
-    final RepoElasticsearch repoElasticsearch;
+    final RepoElasticsearchAnalyze repoElasticsearch;
 
     @Autowired
-    public CSTProcessorRouter(RepoElasticsearch repoElasticsearch) {
+    public CSTProcessorRouter(RepoElasticsearchAnalyze repoElasticsearch) {
         this.repoElasticsearch = repoElasticsearch;
     }
 
