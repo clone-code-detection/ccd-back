@@ -2,4 +2,6 @@ github.clone_code_detection
 github.clone_code_detection.controllers
 github.clone_code_detection.entity
 github.clone_code_detection.repo
+github.clone_code_detection.service
+github.clone_code_detection.setup
 github.clone_code_detection.util
