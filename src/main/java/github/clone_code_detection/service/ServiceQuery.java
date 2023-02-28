@@ -1,8 +1,82 @@
 package github.clone_code_detection.service;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.MatchQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import github.clone_code_detection.entity.QueryDocument;
+import github.clone_code_detection.repo.RepoElasticsearchQuery;
+import lombok.SneakyThrows;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-@Service
-public class ServiceQuery {
+import java.util.*;
+import java.util.stream.Collectors;
 
+@Service
+public class ServiceQuery implements IServiceQuery {
+    private final RepoElasticsearchQuery repoElasticsearchQuery;
+
+    @Autowired
+    public ServiceQuery(RepoElasticsearchQuery repoElasticsearchQuery) {
+        this.repoElasticsearchQuery = repoElasticsearchQuery;
+    }
+
+    private static List<Query> buildMustQuery(QueryDocument queryDocument) {
+        String minimumShouldMatch = queryDocument.getMinimumShouldMatch()
+                .toString();
+        var matchQuery = MatchQuery.of(mq -> mq.field("source_code")
+                        .query(queryDocument.getContent())
+                        .minimumShouldMatch(minimumShouldMatch))
+                ._toQuery();
+        return Collections.singletonList(matchQuery);
+    }
+
+    // TODO: Some logic here
+    private static List<Query> buildFilterQuery(QueryDocument queryDocument) {
+        List<Query> queries = new ArrayList<>();
+        for (Map.Entry<String, Object> entry : queryDocument.getQueryMeta()
+                .entrySet()) {
+            String s = entry.getKey();
+            Object o = entry.getValue();
+            if (!(o instanceof String)) continue;
+
+            var filterQuery = TermQuery.of(tq -> tq.field(s)
+                            .value((String) o))
+                    ._toQuery();
+            queries.add(filterQuery);
+        }
+        return queries;
+    }
+
+    @SneakyThrows
+    @Override
+    public List<ElasticsearchClient> search(QueryDocument queryDocument) {
+        SearchRequest sr = buildSearchRequest(queryDocument);
+        return repoElasticsearchQuery.query(sr)
+                .hits()
+                .hits()
+                .stream()
+                .map(Hit::source)
+                .collect(Collectors.toList());
+    }
+
+    private List<String> mapIndexes(Collection<String> indexes) {
+        return indexes.stream()
+                .toList();
+    }
+
+    private SearchRequest buildSearchRequest(QueryDocument queryDocument) {
+        var indexes = mapIndexes(queryDocument.getLanguages());
+        List<Query> mustQuery = buildMustQuery(queryDocument);
+        List<Query> filterQuery = buildFilterQuery(queryDocument);
+        var boolQuery = BoolQuery.of(bq -> bq.filter(filterQuery)
+                        .must(mustQuery))
+                ._toQuery();
+        return SearchRequest.of(sr -> sr.index(indexes)
+                .query(boolQuery));
+    }
 }

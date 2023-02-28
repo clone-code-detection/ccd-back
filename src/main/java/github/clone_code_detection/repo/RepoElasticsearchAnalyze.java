@@ -14,11 +14,11 @@ import java.util.List;
 
 @Slf4j
 @Repository
-public class RepoElasticsearch {
+public class RepoElasticsearchAnalyze {
     private final ElasticsearchClient elasticsearchClient;
 
     @Autowired
-    public RepoElasticsearch(ElasticsearchClient elasticsearchClient) {
+    public RepoElasticsearchAnalyze(ElasticsearchClient elasticsearchClient) {
         this.elasticsearchClient = elasticsearchClient;
     }
 
