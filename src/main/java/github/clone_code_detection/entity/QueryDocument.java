@@ -13,8 +13,8 @@ import java.util.Map;
 @AllArgsConstructor
 @NoArgsConstructor
 public class QueryDocument {
-    private String content; // Content of that actual document
+        private String content; // Content of that actual document
     private Collection<String> languages; // Which languages this document should be matched in
     private Map<String, Object> queryMeta; // Other meta data for future api
-    private Double minimumShouldMatch; // Current feature api
+    private String minimumShouldMatch; // Current feature api
 }
