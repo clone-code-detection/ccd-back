@@ -1,42 +1,57 @@
 package github.clone_code_detection.service;
 
+import co.elastic.clients.elasticsearch.core.BulkResponse;
 import github.clone_code_detection.entity.CrawlGitHubDocument;
 import github.clone_code_detection.entity.IndexDocument;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+@Slf4j
+@Service
 public class ServiceGitHub {
-    public static Collection<String> unzipAndGetContents(MultipartFile file) {
-        byte[] buffer = new byte[1024];
+    private final ServiceIndex serviceIndex;
+
+    @Autowired
+    public ServiceGitHub(ServiceIndex serviceIndex) {
+        this.serviceIndex = serviceIndex;
+    }
+
+    public Collection<String> unzipAndGetContents(MultipartFile file) {
         ArrayList<String> contents = new ArrayList<>();
         try {
             ZipInputStream zipInputStream = new ZipInputStream(file.getInputStream());
             ZipEntry zipEntry = zipInputStream.getNextEntry();
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             while (zipEntry != null) {
-                StringBuilder content = new StringBuilder();
-                int length;
-                while ((length = zipInputStream.read(buffer)) > 0) {
-                    content.append(new String(buffer, 0, length));
-                }
-                zipInputStream.closeEntry();
+                byteArrayOutputStream.reset();
+                zipInputStream.transferTo(byteArrayOutputStream);
+                contents.add(byteArrayOutputStream.toString());
                 zipEntry = zipInputStream.getNextEntry();
-                contents.add(content.toString());
             }
             zipInputStream.closeEntry();
             zipInputStream.close();
         } catch (IOException e) {
+            log.error("Error parsing zip file" , e);
             throw new RuntimeException(e);
         }
         return contents;
     }
 
-    public static Collection<IndexDocument> buildRepositoryPayloads(Collection<String> contents, CrawlGitHubDocument body) {
-        return contents.stream().map(content -> new IndexDocument(content, body.getTarget(), body.getMeta())).collect(Collectors.toCollection(ArrayList::new));
+    public BulkResponse buildRepositoryPayloads(Collection<String> contents ,
+                                                CrawlGitHubDocument body) {
+        Stream<IndexDocument> documents = contents
+                .stream()
+                .map(content -> new IndexDocument(content , body.getTarget() , body.getMeta()));
+        return serviceIndex.indexAllDocuments(documents);
     }
 }

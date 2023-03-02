@@ -1,15 +1,16 @@
 package github.clone_code_detection.service;
 
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.MatchQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.search.Hit;
+import github.clone_code_detection.entity.ElasticsearchDocument;
 import github.clone_code_detection.entity.QueryDocument;
 import github.clone_code_detection.repo.RepoElasticsearchQuery;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +18,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class ServiceQuery implements IServiceQuery {
     private final RepoElasticsearchQuery repoElasticsearchQuery;
 
@@ -26,8 +28,7 @@ public class ServiceQuery implements IServiceQuery {
     }
 
     private static List<Query> buildMustQuery(QueryDocument queryDocument) {
-        String minimumShouldMatch = queryDocument.getMinimumShouldMatch()
-                .toString();
+        String minimumShouldMatch = queryDocument.getMinimumShouldMatch();
         var matchQuery = MatchQuery.of(mq -> mq.field("source_code")
                         .query(queryDocument.getContent())
                         .minimumShouldMatch(minimumShouldMatch))
@@ -54,8 +55,9 @@ public class ServiceQuery implements IServiceQuery {
 
     @SneakyThrows
     @Override
-    public List<ElasticsearchClient> search(QueryDocument queryDocument) {
+    public List<ElasticsearchDocument> search(QueryDocument queryDocument) {
         SearchRequest sr = buildSearchRequest(queryDocument);
+        log.info("{}" , sr.toString());
         return repoElasticsearchQuery.query(sr)
                 .hits()
                 .hits()
