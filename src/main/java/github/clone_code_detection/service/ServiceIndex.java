@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch.core.IndexRequest;
 import github.clone_code_detection.entity.ElasticsearchDocument;
 import github.clone_code_detection.entity.IndexDocument;
 import github.clone_code_detection.repo.RepoElasticsearchIndex;
+import github.clone_code_detection.util.UtilLanguageMap;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -29,18 +30,14 @@ public class ServiceIndex implements IServiceIndex {
     @SneakyThrows
     @Override
     public BulkResponse indexAllDocuments(Stream<IndexDocument> documents) {
-        Stream<IndexRequest<ElasticsearchDocument>> requestStream =
-                documents.flatMap(indexDocument -> {
-                    Collection<String> languages = indexDocument.getLanguages();
-                    ElasticsearchDocument value = ElasticsearchDocument.builder()
-                            .sourceCode(indexDocument.getContent())
-                            .build();
-                    return languages.stream()
-                            .map(this::resolveLanguage)
-                            .filter(Objects::nonNull)
-                            .map(lang -> IndexRequest.of(ir -> ir.index(lang)
-                                    .document(value)));
-                });
+        Stream<IndexRequest<ElasticsearchDocument>> requestStream = documents.map(indexDocument -> {
+            String language = indexDocument.getLanguage();
+            ElasticsearchDocument value = ElasticsearchDocument.builder()
+                                                               .sourceCode(indexDocument.getContent())
+                                                               .build();
+            return IndexRequest.of(ir -> ir.index(language)
+                                           .document(value));
+        });
         return repoElasticsearchIndex.indexDocuments(requestStream);
     }
 }

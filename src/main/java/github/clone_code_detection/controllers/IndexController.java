@@ -3,6 +3,7 @@ package github.clone_code_detection.controllers;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import github.clone_code_detection.entity.CrawlGitHubDocument;
 import github.clone_code_detection.entity.ResponseUnified;
+import github.clone_code_detection.entity.SourceCodeDocument;
 import github.clone_code_detection.service.ServiceGitHub;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
@@ -29,7 +30,7 @@ public class IndexController {
     public ResponseUnified<BulkResponse> indexGitHubRepository(
             @RequestPart("body") CrawlGitHubDocument crawlGitHubBody ,
             @RequestPart("file") MultipartFile file) {
-        Collection<String> contents = serviceGitHub.unzipAndGetContents(file);
+        Collection<SourceCodeDocument> contents = serviceGitHub.unzipAndGetContents(file);
         BulkResponse br = serviceGitHub.buildRepositoryPayloads(contents , crawlGitHubBody);
         return new ResponseUnified<>("success" , HttpServletResponse.SC_OK , br);
     }

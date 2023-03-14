@@ -14,7 +14,7 @@ import java.util.Map;
 @AllArgsConstructor
 public class IndexDocument {
     private String content; // Content of that actual document
-    private Collection<String> languages; // Which languages this document should be indexed for
+    private String language; // Which languages this document should be indexed for
     private Map<String, Object> meta;
     // All other fields, like location of that document in storage
     // Author
