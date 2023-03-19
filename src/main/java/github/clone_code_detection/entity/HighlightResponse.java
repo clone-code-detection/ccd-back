@@ -11,5 +11,6 @@ import java.util.Collection;
 public class HighlightResponse {
     @JsonProperty("total_count")
     int totalCount;
-    Collection<HighlightDocument> documents;
+    Collection<ElasticsearchDocument> documents;
+    ElasticsearchDocument origin;
 }
