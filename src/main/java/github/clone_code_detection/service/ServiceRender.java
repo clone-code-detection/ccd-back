@@ -1,6 +1,5 @@
 package github.clone_code_detection.service;
 
-import co.elastic.clients.util.Pair;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import github.clone_code_detection.entity.HighlightReport;
 import github.clone_code_detection.entity.HighlightResponse;
@@ -13,8 +12,10 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.MissingResourceException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -29,27 +30,27 @@ public class ServiceRender {
         this.repository = repository;
     }
 
-    public Pair<RenderDocument, Integer> getRenderDocument(int id) {
+    public RenderDocument getRenderDocument(int id) throws Exception {
         // Get report by id
         HighlightReport report = repository.findById(id).orElse(null);
         if (report == null) {
             log.error("Report not found");
-            return new Pair<>(null, 1);
+            throw new SQLException("Report not found");
         }
         // Get file content and parse to sources
         RenderDocument renderDocument = RenderDocument.builder().report(report).build();
         // Check whether there are any report files has been highlighted yet
         if (report.getExtraData().isEmpty()) {
             log.error("No report files found");
-            return new Pair<>(renderDocument, 0);
+            throw new NegativeArraySizeException("No report files found");
         }
         Set<RenderData> data = getReportFileContent(report.getUri());
         if (data == null) {
             log.error("Can not load report files");
-            return new Pair<>(null, 2);
+            throw new MissingResourceException("Can not load report files", "Render data", "report files");
         }
         renderDocument.setSources(data);
-        return new Pair<>(renderDocument, 0);
+        return renderDocument;
     }
 
     private Set<RenderData> getReportFileContent(String path) {
