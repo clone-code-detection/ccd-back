@@ -1,13 +1,17 @@
 package github.clone_code_detection.entity;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.Collection;
 import java.util.Map;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class HighlightDocument {
     String content; // Content of that actual document
     Collection<String> languages; // Which languages this document should be matched in
