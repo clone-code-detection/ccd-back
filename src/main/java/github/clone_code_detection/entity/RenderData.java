@@ -9,13 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class HighlightMetadata {
-    String author;
-    String organization;
-    int semester;
-    String course;
+public class RenderData {
     String filename;
-    int year;
-    String project;
-    String assigner;
+    HighlightResponse source;
 }

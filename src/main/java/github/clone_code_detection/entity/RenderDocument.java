@@ -5,17 +5,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Set;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class HighlightMetadata {
-    String author;
-    String organization;
-    int semester;
-    String course;
-    String filename;
-    int year;
-    String project;
-    String assigner;
+public class RenderDocument {
+    HighlightReport report;
+    Set<RenderData> sources;
 }
