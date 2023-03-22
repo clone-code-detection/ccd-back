@@ -4,7 +4,6 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
-import io.jsonwebtoken.security.Keys;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,14 +20,6 @@ public class BeanProvider {
 
     @Value("${elasticsearch.port}")
     Integer port;
-
-    @Value("${app.secret}")
-    String secret;
-
-    @Bean
-    public SecretKey secreteKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes());
-    }
 
     @Bean
     public ElasticsearchClient getElasticsearchClient() {
