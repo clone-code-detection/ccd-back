@@ -27,7 +27,7 @@ public class ServiceQuery implements IServiceQuery {
         this.repoElasticsearchQuery = repoElasticsearchQuery;
     }
 
-    private static List<Query> buildMustQuery(QueryDocument queryDocument) {
+    protected static List<Query> buildMustQuery(QueryDocument queryDocument) {
         String minimumShouldMatch = queryDocument.getMinimumShouldMatch();
         var matchQuery = MatchQuery.of(mq -> mq.field("source_code")
                         .query(queryDocument.getContent())
@@ -37,7 +37,7 @@ public class ServiceQuery implements IServiceQuery {
     }
 
     // TODO: Some logic here
-    private static List<Query> buildFilterQuery(QueryDocument queryDocument) {
+    protected static List<Query> buildFilterQuery(QueryDocument queryDocument) {
         List<Query> queries = new ArrayList<>();
         for (Map.Entry<String, Object> entry : queryDocument.getQueryMeta()
                 .entrySet()) {
@@ -57,7 +57,7 @@ public class ServiceQuery implements IServiceQuery {
     @Override
     public List<ElasticsearchDocument> search(QueryDocument queryDocument) {
         SearchRequest sr = buildSearchRequest(queryDocument);
-        log.info("{}" , sr.toString());
+        log.info("{}", sr.toString());
         return repoElasticsearchQuery.query(sr)
                 .hits()
                 .hits()
