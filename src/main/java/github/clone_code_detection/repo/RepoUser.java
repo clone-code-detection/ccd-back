@@ -8,12 +8,17 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.CollectionUtils;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.Map;
 
 @Slf4j
 @Repository
 public class RepoUser {
+    public static final String saveUserByNameAndPassword = "insert into authen.user(username, password) values (:username, :password)";
+    public static final String findUserByName = "select * from authen.user where username = (:username)";
     private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
     @Autowired
@@ -21,21 +26,20 @@ public class RepoUser {
         this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
     }
 
-    public UserImpl findUserByName(String name) {
-        try {
-            List<UserImpl> users = namedParameterJdbcTemplate.query(
-                    "select * from authen.\"user\" where username = (:username)",
-                    Map.of("username", name),
-                    BeanPropertyRowMapper.newInstance(UserImpl.class));
-            assert !CollectionUtils.isEmpty(users);
-            return users.get(0);
-        } catch (Exception e) {
-            System.out.println(e);
-            return null;
-        }
+    @Nullable
+    public UserImpl findUserByName(@Nonnull String name) {
+        List<UserImpl> users = namedParameterJdbcTemplate.query(findUserByName, Map.of("username", name),
+                                                                BeanPropertyRowMapper.newInstance(UserImpl.class));
+        if (CollectionUtils.isEmpty(users)) return null;
+        return users.get(0);
     }
 
-    public boolean create(UserImpl user) {
-        return true;
+    public boolean create(@Nonnull UserImpl user) {
+        Integer executeResult = namedParameterJdbcTemplate.execute(saveUserByNameAndPassword,
+                                                                   Map.of("username", user.getUsername(), "password",
+                                                                          user.getPassword()),
+                                                                   PreparedStatement::executeUpdate);
+        assert executeResult != null;
+        return executeResult.equals(1);
     }
 }
