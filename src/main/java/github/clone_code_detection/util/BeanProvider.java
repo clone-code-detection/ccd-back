@@ -10,6 +10,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import javax.crypto.SecretKey;
+
+
 @Configuration
 public class BeanProvider {
     @Value("${elasticsearch.host}")
@@ -21,9 +24,9 @@ public class BeanProvider {
     @Bean
     public ElasticsearchClient getElasticsearchClient() {
         RestClient restClient = RestClient.builder(new HttpHost(host, port))
-                .build();
+                                          .build();
         ElasticsearchTransport transport =
-                new RestClientTransport(restClient , new JacksonJsonpMapper());
+                new RestClientTransport(restClient, new JacksonJsonpMapper());
         return new ElasticsearchClient(transport);
     }
 }
