@@ -3,6 +3,7 @@ package github.clone_code_detection.controllers;
 import github.clone_code_detection.entity.ResponseUnified;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.ValidationException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindException;
@@ -17,6 +18,7 @@ import java.text.MessageFormat;
 
 
 @RestControllerAdvice
+@Slf4j
 class GlobalAdvice {
     @ExceptionHandler(value = {AuthenticationException.class})
     public ResponseUnified<String> handleAuthentication(RuntimeException ex) {
@@ -52,6 +54,7 @@ class GlobalAdvice {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ResponseUnified<String> handleUnwantedException(Exception ex) {
+        log.error("Internal error", ex);
         return ResponseUnified.<String>builder()
                               .code(-3)
                               .data(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())

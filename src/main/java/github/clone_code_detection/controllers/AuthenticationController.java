@@ -9,7 +9,6 @@ import github.clone_code_detection.service.ServiceAuthentication;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -19,9 +18,11 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.AuthenticationEntryPoint;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
 
-import javax.print.attribute.standard.Media;
 import java.io.IOException;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -51,7 +52,7 @@ public class AuthenticationController implements AuthenticationEntryPoint {
     }
 
     @RequestMapping(path = "/signup", method = RequestMethod.POST, consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
-    public ResponseEntity<ResponseUnified<UserAuthenticateResponse>> signUp(@Valid SignUpRequest request) {
+    public ResponseEntity<ResponseUnified<UserAuthenticateResponse>> signUp(@Validated SignUpRequest request) {
         assert request != null : new RuntimeException("Invalid request");
         UserImpl user = serviceAuthentication.create(request);
         UserAuthenticateResponse authenticateResponse = new UserAuthenticateResponse(user);
@@ -62,7 +63,7 @@ public class AuthenticationController implements AuthenticationEntryPoint {
     }
 
     @RequestMapping(path = "/signin", method = RequestMethod.POST, consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
-    public ResponseEntity<ResponseUnified<UserAuthenticateResponse>> signIn(@Valid SignInRequest request) {
+    public ResponseEntity<ResponseUnified<UserAuthenticateResponse>> signIn(@Validated SignInRequest request) {
         assert request != null : new RuntimeException("Invalid request");
         UserDetails userDetails = serviceAuthentication.signIn(request);
         UserAuthenticateResponse authenticateResponse = new UserAuthenticateResponse(userDetails);

@@ -11,22 +11,29 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Builder
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class UserImpl implements UserDetails {
+    private UUID id;
     private String username;
     private String password;
-    private List<String> authorities = new ArrayList<>();
+    private String[] authorities = new String[0];
+    private String[] roles = new String[0];
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return authorities.stream()
-                          .map(SimpleGrantedAuthority::new)
-                          .collect(Collectors.toList());
+        List<SimpleGrantedAuthority> grantedAuthorities = new ArrayList<>();
+        for (String authority : authorities) {
+            grantedAuthorities.add(new SimpleGrantedAuthority(authority));
+        }
+        for (String role : roles) {
+            grantedAuthorities.add(new SimpleGrantedAuthority(role));
+        }
+        return grantedAuthorities;
     }
 
     @Override
