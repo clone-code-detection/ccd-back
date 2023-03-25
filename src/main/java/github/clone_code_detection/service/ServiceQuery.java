@@ -78,7 +78,7 @@ public class ServiceQuery implements IServiceQuery {
         var boolQuery = BoolQuery.of(bq -> bq.filter(filterQuery)
                         .must(mustQuery))
                 ._toQuery();
-        return SearchRequest.of(sr -> sr.index(indexes)
+        return SearchRequest.of(sr -> sr.index(indexes).size(queryDocument.getSize())
                 .query(boolQuery));
     }
 }

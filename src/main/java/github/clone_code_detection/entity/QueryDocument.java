@@ -17,4 +17,6 @@ public class QueryDocument {
     private Collection<String> languages; // Which languages this document should be matched in
     private Map<String, Object> queryMeta; // Other meta data for future api
     private String minimumShouldMatch; // Current feature api
+    @Builder.Default
+    private int size = 10; // the maximum number of return documents from hits
 }
