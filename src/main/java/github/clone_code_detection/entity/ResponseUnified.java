@@ -10,13 +10,11 @@ import javax.annotation.Nullable;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ResponseUnified<T> {
-    @JsonProperty("message")
-    @NonNull
+    @JsonProperty(value = "message", required = true)
     private String message;
 
-    @JsonProperty("code")
-    @NonNull
-    private Integer code;
+    @JsonProperty(value = "code", required = true)
+    private Integer code = 0;
 
     @JsonProperty("data")
     @Nullable
