@@ -15,11 +15,17 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 @EnableTransactionManagement
-//@Profile("security")
+@Profile("security")
 public class ApplicationSecurity {
     /**
      * @implNote Autowired to UserDetailsServiceImpl
@@ -48,17 +54,33 @@ public class ApplicationSecurity {
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            @Autowired AuthenticationManager authenticationManager) throws Exception {
 
-        http
-                .csrf()
-                .disable()
-                .authorizeHttpRequests()
-//                .requestMatchers("/authentication/**")
-//                .anonymous()
-                .anyRequest()
-                .anonymous()
-//                .and()
-//                .authenticationManager(authenticationManager)
-        ;
+        http.csrf()
+            .disable()
+            .cors()
+            .configurationSource(corsConfigurationSource())
+            .and()
+            .authorizeHttpRequests()
+            .requestMatchers("/authentication/**", "/api/authors/**")
+            .permitAll()
+
+            .anyRequest()
+            .authenticated()
+
+            .and()
+            .authenticationManager(authenticationManager);
         return http.build();
+    }
+
+    // https://stackoverflow.com/questions/51719889/spring-boot-cors-issue
+    @Bean
+    CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type"));
+        configuration.setAllowedOrigins(List.of("*"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PUT","OPTIONS","PATCH", "DELETE"));
+        configuration.setAllowCredentials(false);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }

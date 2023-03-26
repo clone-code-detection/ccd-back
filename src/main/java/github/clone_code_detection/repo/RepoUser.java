@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.CollectionUtils;
 
@@ -17,8 +18,10 @@ import javax.annotation.Nullable;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.MessageFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Slf4j
 @Repository
@@ -49,24 +52,27 @@ public class RepoUser {
         this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
     }
 
-    @Nullable
+    @Nonnull
     public UserImpl findUserByName(@Nonnull String name) {
         try {
-            return namedParameterJdbcTemplate.queryForObject(findUserByName,
-                                                             Map.of("username", name),
-                                                             (rs, rowNum) -> UserImpl.builder()
-                                                                                     .username(rs.getString("username"))
-                                                                                     .password(rs.getString("password"))
-                                                                                     .roles((String[]) rs.getArray(
-                                                                                                                 "roles")
-                                                                                                         .getArray())
-                                                                                     .authorities(
-                                                                                             (String[]) rs.getArray(
-                                                                                                                  "authorities")
+            return Objects.requireNonNull(
+                    namedParameterJdbcTemplate.queryForObject(findUserByName, Map.of("username", name),
+                                                              (rs, rowNum) -> UserImpl.builder()
+                                                                                      .username(
+                                                                                              rs.getString("username"))
+                                                                                      .password(
+                                                                                              rs.getString("password"))
+
+                                                                                      .roles((String[]) rs.getArray(
+                                                                                                                  "roles")
                                                                                                           .getArray())
-                                                                                     .build());
+                                                                                      .authorities(
+                                                                                              (String[]) rs.getArray(
+                                                                                                                   "authorities")
+                                                                                                           .getArray())
+                                                                                      .build()));
         } catch (EmptyResultDataAccessException ex) {
-            return null;
+            throw new UsernameNotFoundException(MessageFormat.format("User {0} not found", name));
         }
     }
 
