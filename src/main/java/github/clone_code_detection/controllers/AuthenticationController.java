@@ -60,7 +60,7 @@ public class AuthenticationController {
     }
 
     @ExceptionHandler({UserExistedException.class})
-    @ResponseStatus(HttpStatus.CONTINUE)
+    @ResponseStatus(HttpStatus.CONFLICT)
     public ProblemDetail handleException(UserExistedException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
