@@ -1,12 +1,14 @@
 package github.clone_code_detection.controllers;
 
 import github.clone_code_detection.entity.*;
+import github.clone_code_detection.exceptions.highlight.HighlightLanguageException;
 import github.clone_code_detection.service.ServiceHighlight;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
+import javax.print.AttributeException;
 import java.util.Collection;
 
 @RestController
@@ -21,14 +23,14 @@ public class HighlightController {
 
     @CrossOrigin(origins = "*")
     @RequestMapping(path = "/file", method = RequestMethod.POST, consumes = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseUnified<HighlightReport> highlightFile(@RequestBody HighlightDocument request) {
+    public HighlightReport highlightFile(@RequestBody HighlightDocument request) {
         // Validate document's languages, it muse be 1 at size
-        if (request.getLanguages().size() != 1)
-            return new ResponseUnified<>("To highlight a file / code fragment, only 1 language is accepted", HttpServletResponse.SC_BAD_REQUEST, null);
+        if (request.getLanguages()
+                   .size() != 1)
+            throw new HighlightLanguageException("To highlight a file / code fragment, only 1 language is accepted");
         Collection<ElasticsearchDocument> documents = serviceHighlight.highlight(request.toQuery());
         HighlightReport report = serviceHighlight.generateHighlightReport(documents, request);
-        if (report == null)
-            return new ResponseUnified<>("Can not create report", HttpServletResponse.SC_INTERNAL_SERVER_ERROR, null);
-        return new ResponseUnified<>("success", HttpServletResponse.SC_OK, report);
+        assert report != null : "Internal server error";
+        return report;
     }
 }

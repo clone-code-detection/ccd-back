@@ -11,10 +11,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.text.MessageFormat;
 
 @Service
+@Transactional
 public class ServiceAuthentication {
     private final PasswordEncoder passwordEncoder;
     private final RepoUser repo;
@@ -42,7 +44,8 @@ public class ServiceAuthentication {
 
     public UserImpl create(SignUpRequest request) {
         assert request.getPassword()
-                      .equals(request.getRepeatPassword()) : "Repeat password field does not match";
+                      .equals(request.getRepeat()) : "Repeat password field does not match";
+
         if (this.usernameExists(request.getUsername()))
             throw new UserExistedException(MessageFormat.format("User {0} already existed", request.getPassword()));
         String encodedPassword = passwordEncoder.encode(request.getPassword());
@@ -51,7 +54,8 @@ public class ServiceAuthentication {
                                 .username(request.getUsername())
                                 .password(encodedPassword)
                                 .build();
-        repo.create(user);
+        if (request.getIsStandalone()) repo.createStandaloneUser(user);
+        else repo.createOrgUser(user);
         return user;
     }
 }
