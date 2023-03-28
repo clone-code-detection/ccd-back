@@ -19,12 +19,6 @@ import java.text.MessageFormat;
 @RestControllerAdvice
 @Slf4j
 class GlobalAdvice {
-    @ExceptionHandler(value = {AuthenticationException.class})
-    @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public ProblemDetail handleAuthentication(RuntimeException ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
-    }
-
     @ExceptionHandler(value = {ConstraintViolationException.class, ValidationException.class,
             MethodArgumentNotValidException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
@@ -46,6 +40,7 @@ class GlobalAdvice {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ProblemDetail handleUnwantedException(Exception ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Abstract internal error");
+        return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+                                                "Abstract internal error");
     }
 }

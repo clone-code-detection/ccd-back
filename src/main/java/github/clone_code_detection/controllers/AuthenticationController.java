@@ -6,12 +6,14 @@ import github.clone_code_detection.entity.authenication.SignUpRequest;
 import github.clone_code_detection.entity.authenication.UserImpl;
 import github.clone_code_detection.exceptions.authen.UserExistedException;
 import github.clone_code_detection.service.ServiceAuthentication;
+import github.clone_code_detection.util.ProblemDetailUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -64,4 +66,13 @@ public class AuthenticationController {
     public ProblemDetail handleException(UserExistedException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
+
+    @ExceptionHandler(value = {AuthenticationException.class})
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ProblemDetail handleAuthentication(RuntimeException ex) {
+        return ProblemDetailUtil.forTypeAndStatusAndDetail(
+                "https://clone-code-detection.atlassian.net/wiki/spaces/CCD/pages/6914069/Authentication#Bad-credential",
+                HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
 }
