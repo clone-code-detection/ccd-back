@@ -14,6 +14,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -50,24 +51,33 @@ public class ApplicationSecurity {
         return new ProviderManager(authProvider);
     }
 
+    /**
+     * @param http
+     * @param authenticationManager
+     * @return
+     * @throws Exception
+     * @implNote https://stackoverflow.com/questions/25230861/spring-security-get-user-info-in-rest-service-for-authenticated-and-not-authent/25280897#25280897
+     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            @Autowired AuthenticationManager authenticationManager) throws Exception {
 
-        http.csrf()
-            .disable()
-            .cors()
-            .configurationSource(corsConfigurationSource())
-            .and()
-            .authorizeHttpRequests()
-            .requestMatchers("/authentication/**", "/api/authors/**")
+        http
+                .csrf()
+                .ignoringRequestMatchers("/authentication/**")
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .and()
+                .cors()
+                .configurationSource(corsConfigurationSource());
+        http.authorizeHttpRequests()
+            .requestMatchers("/api/authors/**", "/authentication/**")
             .permitAll()
 
             .anyRequest()
             .authenticated()
 
-            .and()
-            .authenticationManager(authenticationManager);
+        ;
+        http.authenticationManager(authenticationManager);
         return http.build();
     }
 
@@ -77,7 +87,7 @@ public class ApplicationSecurity {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type"));
         configuration.setAllowedOrigins(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PUT","OPTIONS","PATCH", "DELETE"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PUT", "OPTIONS", "PATCH", "DELETE"));
         configuration.setAllowCredentials(false);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
