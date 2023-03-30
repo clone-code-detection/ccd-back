@@ -1,6 +1,7 @@
-package github.clone_code_detection.entity;
+package github.clone_code_detection.entity.highlight;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import github.clone_code_detection.entity.ElasticsearchDocument;
 import lombok.Builder;
 import lombok.Data;
 

@@ -1,4 +1,4 @@
-package github.clone_code_detection.entity;
+package github.clone_code_detection.entity.highlight;
 
 import lombok.Builder;
 import lombok.Data;

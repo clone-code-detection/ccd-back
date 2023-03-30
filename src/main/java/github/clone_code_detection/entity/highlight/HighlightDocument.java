@@ -1,5 +1,6 @@
-package github.clone_code_detection.entity;
+package github.clone_code_detection.entity.highlight;
 
+import github.clone_code_detection.entity.query.QueryDocument;
 import lombok.Builder;
 import lombok.Data;
 

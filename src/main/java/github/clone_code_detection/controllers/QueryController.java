@@ -1,7 +1,7 @@
 package github.clone_code_detection.controllers;
 
 import github.clone_code_detection.entity.ElasticsearchDocument;
-import github.clone_code_detection.entity.QueryDocument;
+import github.clone_code_detection.entity.query.QueryDocument;
 import github.clone_code_detection.service.ServiceQuery;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;

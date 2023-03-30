@@ -1,14 +1,14 @@
 package github.clone_code_detection.controllers;
 
 import github.clone_code_detection.entity.*;
+import github.clone_code_detection.entity.highlight.HighlightDocument;
+import github.clone_code_detection.entity.highlight.HighlightReport;
 import github.clone_code_detection.exceptions.highlight.HighlightLanguageException;
 import github.clone_code_detection.service.ServiceHighlight;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
-import javax.print.AttributeException;
 import java.util.Collection;
 
 @RestController

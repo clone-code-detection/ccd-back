@@ -3,23 +3,14 @@ package github.clone_code_detection.repo;
 import github.clone_code_detection.entity.authenication.UserImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
-import org.springframework.jdbc.core.ResultSetExtractor;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Repository;
-import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.text.MessageFormat;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -76,7 +67,7 @@ public class RepoUser {
         }
     }
 
-    private void createUserWithRole(@Nonnull UserImpl user, String role) {
+    private UserImpl createUserWithRole(@Nonnull UserImpl user, String role) {
         Integer executeResult = namedParameterJdbcTemplate.execute(saveUserWithNameAndPassword,
                                                                    Map.of("username", user.getUsername(), "password",
                                                                           user.getPassword(), "role", role),
@@ -88,13 +79,18 @@ public class RepoUser {
                                                                    Map.of("username", user.getUsername(), "role", role),
                                                                    PreparedStatement::executeUpdate);
         assert addRoleResult != null;
+
+        return this.findUserByName(user.getUsername());
     }
 
-    public void createOrgUser(@Nonnull UserImpl user) {
-        this.createUserWithRole(user, "admin");
+    @Nonnull
+    public UserImpl createOrgUser(@Nonnull UserImpl user) {
+
+        return this.createUserWithRole(user, "admin");
     }
 
-    public void createStandaloneUser(@Nonnull UserImpl user) {
-        this.createUserWithRole(user, "standalone");
+    @Nonnull
+    public UserImpl createStandaloneUser(@Nonnull UserImpl user) {
+        return this.createUserWithRole(user, "standalone");
     }
 }

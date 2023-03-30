@@ -16,9 +16,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -52,6 +50,8 @@ public class AuthenticationController {
             this.authorities = userDetails.getAuthorities()
                                           .stream()
                                           .map(GrantedAuthority::getAuthority)
+                                          .filter(s -> s.startsWith("ROLE_"))
+                                          .map(s -> s.replaceFirst("ROLE_", ""))
                                           .collect(
                                                   Collectors.toList());
             this.authenticated = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));

@@ -7,7 +7,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import github.clone_code_detection.entity.ElasticsearchDocument;
-import github.clone_code_detection.entity.QueryDocument;
+import github.clone_code_detection.entity.query.QueryDocument;
 import github.clone_code_detection.repo.RepoElasticsearchQuery;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;

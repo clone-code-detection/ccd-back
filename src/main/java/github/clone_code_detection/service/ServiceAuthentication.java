@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.stereotype.Service;
@@ -34,7 +35,12 @@ public class ServiceAuthentication {
     }
 
     public boolean usernameExists(String username) {
-        return repo.findUserByName(username) != null;
+        try {
+            repo.findUserByName(username);
+        } catch (UsernameNotFoundException ignore) {
+            return false;
+        }
+        return true;
     }
 
     // https://stackoverflow.com/questions/5428654/spring-security-auto-login-not-persisted-in-httpsession
@@ -44,8 +50,7 @@ public class ServiceAuthentication {
                              .setAuthentication(authentication);
         httpServletRequest.getSession()
                           .setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
-                                        SecurityContextHolder.getContext()
-                          );
+                                        SecurityContextHolder.getContext());
         return (UserImpl) authentication.getPrincipal();
     }
 
@@ -54,15 +59,15 @@ public class ServiceAuthentication {
                       .equals(request.getRepeat()) : "Repeat password field does not match";
 
         if (this.usernameExists(request.getUsername()))
-            throw new UserExistedException(MessageFormat.format("User {0} already existed", request.getPassword()));
+            throw new UserExistedException(MessageFormat.format("User {0} already existed", request.getUsername()));
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         // Create new user's account
         UserImpl user = UserImpl.builder()
                                 .username(request.getUsername())
                                 .password(encodedPassword)
                                 .build();
-        if (request.getIsStandalone()) repo.createStandaloneUser(user);
-        else repo.createOrgUser(user);
+        if (request.getIsStandalone()) user = repo.createStandaloneUser(user);
+        else user = repo.createOrgUser(user);
         return user;
     }
 }
