@@ -4,6 +4,7 @@ import github.clone_code_detection.entity.authenication.UserImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
+
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Repository;
@@ -79,7 +80,6 @@ public class RepoUser {
                                                                    Map.of("username", user.getUsername(), "role", role),
                                                                    PreparedStatement::executeUpdate);
         assert addRoleResult != null;
-
         return this.findUserByName(user.getUsername());
     }
 

@@ -68,6 +68,7 @@ public class ServiceAuthentication {
                                 .build();
         if (request.getIsStandalone()) user = repo.createStandaloneUser(user);
         else user = repo.createOrgUser(user);
+
         return user;
     }
 }
