@@ -1,6 +1,7 @@
 package github.clone_code_detection.controllers;
 
-import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -9,13 +10,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/csrf")
 public class CsrfController {
-
     @GetMapping
-    public void getCsrfToken(HttpServletRequest request) {
-        // https://github.com/spring-projects/spring-security/issues/12094#issuecomment-1294150717
-        CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
-        String token = csrfToken.getToken();
-        System.out.println(token);
+    public CsrfToken getCsrfToken(CsrfToken csrfToken, HttpServletResponse response) {
+        Cookie cookie = new Cookie("CSRF-COOKIE", csrfToken.getToken());
+        cookie.setHttpOnly(false);
+        response.addCookie(cookie);
+        return csrfToken;
     }
-
 }

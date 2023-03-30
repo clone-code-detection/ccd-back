@@ -5,11 +5,13 @@ import github.clone_code_detection.entity.authenication.SignUpRequest;
 import github.clone_code_detection.entity.authenication.UserImpl;
 import github.clone_code_detection.exceptions.authen.UserExistedException;
 import github.clone_code_detection.repo.RepoUser;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,10 +37,15 @@ public class ServiceAuthentication {
         return repo.findUserByName(username) != null;
     }
 
-    public UserImpl signIn(SignInRequest request) {
+    // https://stackoverflow.com/questions/5428654/spring-security-auto-login-not-persisted-in-httpsession
+    public UserImpl signIn(SignInRequest request, HttpServletRequest httpServletRequest) {
         Authentication authentication = authenticationManager.authenticate(request.toUsernamePasswordToken());
         SecurityContextHolder.getContext()
                              .setAuthentication(authentication);
+        httpServletRequest.getSession()
+                          .setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                                        SecurityContextHolder.getContext()
+                          );
         return (UserImpl) authentication.getPrincipal();
     }
 
