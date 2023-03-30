@@ -1,7 +1,7 @@
 package github.clone_code_detection.service;
 
 import github.clone_code_detection.entity.ElasticsearchDocument;
-import github.clone_code_detection.entity.QueryDocument;
+import github.clone_code_detection.entity.query.QueryDocument;
 
 import java.util.List;
 

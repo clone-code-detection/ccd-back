@@ -3,7 +3,7 @@ package github.clone_code_detection.service;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
 import github.clone_code_detection.entity.ElasticsearchDocument;
-import github.clone_code_detection.entity.IndexDocument;
+import github.clone_code_detection.entity.index.IndexDocument;
 import github.clone_code_detection.repo.RepoElasticsearchIndex;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;

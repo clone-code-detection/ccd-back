@@ -34,4 +34,10 @@ public class AuthorController {
     public String getAuthorsInfo() {
         return "We are two students from Ho Chi Minh city University of Science.";
     }
+
+    @RequestMapping(path = "/upload", method = RequestMethod.POST)
+    @ResponseStatus(HttpStatus.OK)
+    public String testPost() {
+        return "Success.";
+    }
 }

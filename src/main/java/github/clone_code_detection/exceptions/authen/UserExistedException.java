@@ -8,7 +8,8 @@ import java.net.URISyntaxException;
 
 public class UserExistedException extends ExceptionBase {
     //TODO: Add documentation
-    private static final URI uri = URI.create(null);
+    private static final URI uri = URI.create("https://www.baeldung.com/articles");
+
 
     public UserExistedException(final String msg) {
         super(uri, msg);
