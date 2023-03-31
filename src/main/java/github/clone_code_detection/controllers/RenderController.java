@@ -32,6 +32,7 @@ public class RenderController {
             if (response == null)
                 throw new NullPointerException("Can not get render data");
             return new ResponseUnified<>("Success", HttpServletResponse.SC_OK, response);
+
         } catch (Exception e) {
             if (e.getClass() == SQLException.class || e.getClass() == NegativeArraySizeException.class)
                 new ResponseUnified<>(e.getMessage(), HttpServletResponse.SC_BAD_REQUEST, null);

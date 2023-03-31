@@ -34,6 +34,7 @@ public class ServiceIndex implements IServiceIndex {
                     Collection<String> languages = indexDocument.getLanguages();
                     ElasticsearchDocument value = ElasticsearchDocument.builder()
                             .sourceCode(indexDocument.getContent())
+                            .meta(indexDocument.getMeta())
                             .build();
                     return languages.stream()
                             .map(this::resolveLanguage)
