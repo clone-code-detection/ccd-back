@@ -1,6 +1,7 @@
 package github.clone_code_detection.service;
 
 import github.clone_code_detection.entity.CrawlGitHubDocument;
+import github.clone_code_detection.entity.FileDocument;
 import github.clone_code_detection.entity.index.IndexDocument;
 import github.clone_code_detection.service.index.ServiceIndex;
 import lombok.extern.slf4j.Slf4j;
@@ -27,8 +28,8 @@ public class ServiceGitHub {
         this.serviceIndex = serviceIndex;
     }
 
-    public Collection<String> unzipAndGetContents(MultipartFile file) {
-        ArrayList<String> contents = new ArrayList<>();
+    public Collection<FileDocument> unzipAndGetContents(MultipartFile file) {
+        ArrayList<FileDocument> contents = new ArrayList<>();
         try {
             ZipInputStream zipInputStream = new ZipInputStream(file.getInputStream());
             ZipEntry zipEntry = zipInputStream.getNextEntry();
@@ -36,23 +37,28 @@ public class ServiceGitHub {
             while (zipEntry != null) {
                 byteArrayOutputStream.reset();
                 zipInputStream.transferTo(byteArrayOutputStream);
-                contents.add(byteArrayOutputStream.toString());
+                FileDocument fileDocument = FileDocument.builder()
+                                                        .content(byteArrayOutputStream.toString())
+                                                        .fileName(zipEntry.getName())
+                                                        .build();
+                contents.add(fileDocument);
                 zipEntry = zipInputStream.getNextEntry();
             }
             zipInputStream.closeEntry();
             zipInputStream.close();
         } catch (IOException e) {
-            log.error("Error parsing zip file" , e);
+            log.error("Error parsing zip file", e);
             throw new RuntimeException(e);
         }
         return contents;
     }
 
-    public BulkResponse buildRepositoryPayloads(Collection<String> contents ,
-                                                CrawlGitHubDocument body) {
-        Stream<IndexDocument> documents = contents
-                .stream()
-                .map(content -> new IndexDocument(content , body.getTarget() , body.getMeta()));
+    public BulkResponse buildRepositoryPayloads(Collection<FileDocument> files, CrawlGitHubDocument body) {
+        Stream<IndexDocument> documents = files.stream()
+                                               .map(content -> IndexDocument.builder()
+                                                                            .fileDocument(content)
+                                                                            .meta(body.getMeta())
+                                                                            .build());
         return serviceIndex.indexAllDocuments(documents);
     }
 }

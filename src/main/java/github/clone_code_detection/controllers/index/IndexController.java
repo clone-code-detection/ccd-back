@@ -1,6 +1,7 @@
 package github.clone_code_detection.controllers.index;
 
 import github.clone_code_detection.entity.CrawlGitHubDocument;
+import github.clone_code_detection.entity.FileDocument;
 import github.clone_code_detection.service.ServiceGitHub;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.springframework.http.MediaType;
@@ -25,7 +26,7 @@ public class IndexController {
             MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     public BulkResponse indexGitHubRepository(CrawlGitHubDocument crawlGitHubBody,
                                               @RequestParam("file") MultipartFile file) {
-        Collection<String> contents = serviceGitHub.unzipAndGetContents(file);
+        Collection<FileDocument> contents = serviceGitHub.unzipAndGetContents(file);
         return serviceGitHub.buildRepositoryPayloads(contents, crawlGitHubBody);
     }
 }

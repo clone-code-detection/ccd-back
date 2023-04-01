@@ -1,7 +1,6 @@
 package github.clone_code_detection.entity.highlight;
 
-import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NonNull;
 import org.springframework.data.util.Pair;
 
@@ -9,8 +8,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Builder
-@Data
+import static java.lang.Integer.parseInt;
+
+@Getter
 class OffsetResponse {
     private Integer startSnippetOffset;
     private Integer endSnippetOffset;
@@ -25,14 +25,14 @@ class OffsetResponse {
      * @link https://github.com/wikimedia/search-highlighter
      */
     public static OffsetResponse fromString(String response) {
-        OffsetResponseBuilder builder = OffsetResponse.builder();
+        OffsetResponse builder = new OffsetResponse();
         String[] strings = response.split(":");
         assert strings.length == 3 : "Invalid response format";
-        builder.startSnippetOffset(Integer.parseInt(strings[0]));
-        builder.endSnippetOffset(Integer.parseInt(strings[2]));
-        builder.matches(OffsetResponse.matchesFromString(strings[1]));
+        builder.startSnippetOffset = parseInt(strings[0]);
+        builder.endSnippetOffset = parseInt(strings[2]);
+        builder.matches = OffsetResponse.matchesFromString(strings[1]);
 
-        return builder.build();
+        return builder;
     }
 
     private static List<Pair<Integer, Integer>> matchesFromString(String matches) {
@@ -45,6 +45,6 @@ class OffsetResponse {
     private static Pair<Integer, Integer> matchFromString(String match) {
         String[] arr = match.split("-");
         assert arr.length == 2;
-        return Pair.of(Integer.parseInt(arr[0]), Integer.parseInt(arr[1]));
+        return Pair.of(parseInt(arr[0]), parseInt(arr[1]));
     }
 }

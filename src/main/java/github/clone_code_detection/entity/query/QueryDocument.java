@@ -1,23 +1,30 @@
 package github.clone_code_detection.entity.query;
 
 import github.clone_code_detection.entity.FileDocument;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import github.clone_code_detection.util.LanguageUtil;
+import lombok.*;
 
+import javax.annotation.Nonnull;
 import java.util.Map;
 
 @Builder
 @Data
 @AllArgsConstructor
-@NoArgsConstructor
 public class QueryDocument {
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    @Nonnull
     private FileDocument fileDocument;
-    private Map<String, Object> queryMeta; // Other meta data for future api
+    @Nonnull
     private String minimumShouldMatch; // Current feature api
+    private Map<String, Object> queryMeta; // Other meta data for future api
 
     public String getLanguage() {
-        return fileDocument.getFileName();
+        return LanguageUtil.getInstance()
+                           .getIndexFromFileName(fileDocument.getFileName());
+    }
+
+    public String getContent() {
+        return fileDocument.getContent();
     }
 }

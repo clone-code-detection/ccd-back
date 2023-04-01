@@ -17,6 +17,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Nonnull;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -32,8 +33,7 @@ public class ServiceQuery implements IServiceQuery {
 
     protected static List<QueryBuilder> buildMustQuery(QueryDocument queryDocument) {
         String minimumShouldMatch = queryDocument.getMinimumShouldMatch();
-        return Collections.singletonList(QueryBuilders.matchQuery("source_code", queryDocument.getFileDocument()
-                                                                                              .getContent())
+        return Collections.singletonList(QueryBuilders.matchQuery("source_code", queryDocument.getContent())
                                                       .minimumShouldMatch(minimumShouldMatch));
     }
 
@@ -52,7 +52,7 @@ public class ServiceQuery implements IServiceQuery {
 
     @SneakyThrows
     @Override
-    public List<ElasticsearchDocument> search(QueryDocument queryDocument) {
+    public List<ElasticsearchDocument> search(@Nonnull QueryDocument queryDocument) {
         SearchRequest sr = buildSearchRequest(queryDocument);
         log.info("{}", sr.toString());
         return Arrays.stream(repoElasticsearchQuery.query(sr)

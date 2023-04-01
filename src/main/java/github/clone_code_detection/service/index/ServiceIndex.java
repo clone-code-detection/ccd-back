@@ -3,6 +3,7 @@ package github.clone_code_detection.service.index;
 import github.clone_code_detection.entity.ElasticsearchDocument;
 import github.clone_code_detection.entity.index.IndexDocument;
 import github.clone_code_detection.repo.RepoElasticsearchIndex;
+import lombok.NonNull;
 import lombok.SneakyThrows;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,7 +35,7 @@ public class ServiceIndex implements IServiceIndex {
 
     @SneakyThrows
     @Override
-    public BulkResponse indexAllDocuments(Stream<IndexDocument> documents) {
+    public BulkResponse indexAllDocuments(@NonNull Stream<IndexDocument> documents) {
         Stream<Pair<String, ElasticsearchDocument>> requestStream = documents.map(ServiceIndex::apply);
         return repoElasticsearchIndex.indexDocuments(requestStream);
     }

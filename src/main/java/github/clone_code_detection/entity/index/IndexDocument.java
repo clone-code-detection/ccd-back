@@ -1,22 +1,32 @@
 package github.clone_code_detection.entity.index;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import github.clone_code_detection.entity.FileDocument;
+import github.clone_code_detection.util.LanguageUtil;
+import lombok.*;
 
+import javax.annotation.Nonnull;
 import java.util.Map;
 
 @Data
 @Builder
-@NoArgsConstructor
 @AllArgsConstructor
 public class IndexDocument {
-    private String content; // Content of that actual document
-    private String language; // Which language this document should be indexed for
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    @Nonnull
+    private FileDocument fileDocument;
     private Map<String, Object> meta;
     // All other fields, like location of that document in storage
     // Author
     // Created time
     // Crawled time
+
+    public String getLanguage() {
+        return LanguageUtil.getInstance()
+                           .getIndexFromFileName(fileDocument.getFileName());
+    }
+
+    public String getContent() {
+        return fileDocument.getContent();
+    }
 }
