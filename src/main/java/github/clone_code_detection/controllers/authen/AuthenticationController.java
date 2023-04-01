@@ -8,13 +8,11 @@ import github.clone_code_detection.exceptions.authen.UserExistedException;
 import github.clone_code_detection.service.user.ServiceAuthentication;
 import github.clone_code_detection.util.ProblemDetailUtil;
 import jakarta.servlet.http.HttpServletRequest;
-
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -33,8 +31,7 @@ public class AuthenticationController {
     private final ServiceAuthentication serviceAuthentication;
 
     @Autowired
-    public AuthenticationController(AuthenticationManager authenticationManager,
-                                    ServiceAuthentication serviceAuthentication) {
+    public AuthenticationController(ServiceAuthentication serviceAuthentication) {
         this.serviceAuthentication = serviceAuthentication;
     }
 

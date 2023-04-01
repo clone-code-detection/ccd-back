@@ -50,7 +50,7 @@ public class ServiceAuthentication {
                              .setAuthentication(authentication);
         httpServletRequest.getSession()
                           .setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
-                                        SecurityContextHolder.getContext());
+                                  SecurityContextHolder.getContext());
         return (UserImpl) authentication.getPrincipal();
     }
 

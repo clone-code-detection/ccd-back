@@ -1,7 +1,6 @@
 package github.clone_code_detection.controllers.index;
 
 import github.clone_code_detection.entity.CrawlGitHubDocument;
-import github.clone_code_detection.entity.FileDocument;
 import github.clone_code_detection.service.ServiceGitHub;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.springframework.http.MediaType;
@@ -10,8 +9,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.Collection;
 
 @RestController
 @RequestMapping("/api/index")
@@ -22,11 +19,10 @@ public class IndexController {
         this.serviceGitHub = serviceGitHub;
     }
 
-    @RequestMapping(path = "/zip", method = RequestMethod.POST, consumes = {MediaType.APPLICATION_JSON_VALUE,
-            MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
-    public BulkResponse indexGitHubRepository(CrawlGitHubDocument crawlGitHubBody,
-                                              @RequestParam("file") MultipartFile file) {
-        Collection<FileDocument> contents = serviceGitHub.unzipAndGetContents(file);
-        return serviceGitHub.buildRepositoryPayloads(contents, crawlGitHubBody);
+    @RequestMapping(path = "/zip",
+            method = RequestMethod.POST,
+            consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
+    public BulkResponse indexGitHubRepository(CrawlGitHubDocument crawlGitHubBody, @RequestParam("file") MultipartFile file) {
+        return serviceGitHub.buildRepositoryPayloads(file, crawlGitHubBody);
     }
 }
