@@ -1,4 +1,4 @@
-package github.clone_code_detection.service;
+package github.clone_code_detection.service.user;
 
 import github.clone_code_detection.repo.RepoUser;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,11 +8,11 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Nonnull;
 
 @Service
-public class UserDetailsServiceImpl implements org.springframework.security.core.userdetails.UserDetailsService {
+public class ServiceUserDetailsImpl implements org.springframework.security.core.userdetails.UserDetailsService {
     private final RepoUser repoUserDetails;
 
     @Autowired
-    public UserDetailsServiceImpl(RepoUser repoUserDetails) {
+    public ServiceUserDetailsImpl(RepoUser repoUserDetails) {
         this.repoUserDetails = repoUserDetails;
     }
 

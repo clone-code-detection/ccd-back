@@ -1,4 +1,4 @@
-package github.clone_code_detection.controllers;
+package github.clone_code_detection.controllers.utils;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;

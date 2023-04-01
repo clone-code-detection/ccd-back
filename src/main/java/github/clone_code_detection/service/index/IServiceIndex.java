@@ -1,7 +1,7 @@
-package github.clone_code_detection.service;
+package github.clone_code_detection.service.index;
 
-import co.elastic.clients.elasticsearch.core.BulkResponse;
 import github.clone_code_detection.entity.index.IndexDocument;
+import org.elasticsearch.action.bulk.BulkResponse;
 
 import java.util.stream.Stream;
 

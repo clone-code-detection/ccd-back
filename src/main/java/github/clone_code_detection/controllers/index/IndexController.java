@@ -1,4 +1,4 @@
-package github.clone_code_detection.controllers;
+package github.clone_code_detection.controllers.index;
 
 import github.clone_code_detection.entity.CrawlGitHubDocument;
 import github.clone_code_detection.service.ServiceGitHub;

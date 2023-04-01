@@ -1,4 +1,4 @@
-package github.clone_code_detection.exceptions.highlight;
+package github.clone_code_detection.exceptions.es.highlight;
 
 import github.clone_code_detection.exceptions.ExceptionBase;
 

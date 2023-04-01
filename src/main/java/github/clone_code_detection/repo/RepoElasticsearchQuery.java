@@ -1,10 +1,10 @@
 package github.clone_code_detection.repo;
 
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch.core.SearchRequest;
-import co.elastic.clients.elasticsearch.core.SearchResponse;
-import github.clone_code_detection.entity.ElasticsearchDocument;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
@@ -13,15 +13,15 @@ import java.io.IOException;
 @Slf4j
 @Repository
 public class RepoElasticsearchQuery {
-    private final ElasticsearchClient elasticsearchClient;
+    private final RestHighLevelClient elasticsearchClient;
 
     @Autowired
-    public RepoElasticsearchQuery(ElasticsearchClient elasticsearchClient) {
+    public RepoElasticsearchQuery(RestHighLevelClient elasticsearchClient) {
         this.elasticsearchClient = elasticsearchClient;
     }
 
-    public SearchResponse<ElasticsearchDocument> query(SearchRequest searchRequest) throws
+    public SearchResponse query(SearchRequest searchRequest) throws
             IOException {
-        return elasticsearchClient.search(searchRequest , ElasticsearchDocument.class);
+        return elasticsearchClient.search(searchRequest, RequestOptions.DEFAULT);
     }
 }

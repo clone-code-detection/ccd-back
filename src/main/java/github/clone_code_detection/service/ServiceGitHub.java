@@ -1,9 +1,10 @@
 package github.clone_code_detection.service;
 
-import co.elastic.clients.elasticsearch.core.BulkResponse;
 import github.clone_code_detection.entity.CrawlGitHubDocument;
 import github.clone_code_detection.entity.index.IndexDocument;
+import github.clone_code_detection.service.index.ServiceIndex;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;

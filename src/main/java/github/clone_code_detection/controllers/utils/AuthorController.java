@@ -1,4 +1,4 @@
-package github.clone_code_detection.controllers;
+package github.clone_code_detection.controllers.utils;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;

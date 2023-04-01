@@ -1,6 +1,7 @@
-package github.clone_code_detection.service;
+package github.clone_code_detection.service.mail;
 
-import github.clone_code_detection.entity.BaseEmail;
+import github.clone_code_detection.entity.mail.BaseEmail;
+import github.clone_code_detection.service.mail.IServiceMail;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;

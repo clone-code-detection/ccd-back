@@ -1,11 +1,11 @@
-package github.clone_code_detection.controllers;
+package github.clone_code_detection.controllers.authen;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import github.clone_code_detection.entity.authenication.SignInRequest;
 import github.clone_code_detection.entity.authenication.SignUpRequest;
 import github.clone_code_detection.entity.authenication.UserImpl;
 import github.clone_code_detection.exceptions.authen.UserExistedException;
-import github.clone_code_detection.service.ServiceAuthentication;
+import github.clone_code_detection.service.user.ServiceAuthentication;
 import github.clone_code_detection.util.ProblemDetailUtil;
 import jakarta.servlet.http.HttpServletRequest;
 

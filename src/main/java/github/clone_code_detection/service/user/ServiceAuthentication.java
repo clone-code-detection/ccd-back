@@ -1,4 +1,4 @@
-package github.clone_code_detection.service;
+package github.clone_code_detection.service.user;
 
 import github.clone_code_detection.entity.authenication.SignInRequest;
 import github.clone_code_detection.entity.authenication.SignUpRequest;

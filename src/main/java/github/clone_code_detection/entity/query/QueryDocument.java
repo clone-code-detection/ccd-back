@@ -1,11 +1,11 @@
 package github.clone_code_detection.entity.query;
 
+import github.clone_code_detection.entity.FileDocument;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Collection;
 import java.util.Map;
 
 @Builder
@@ -13,8 +13,11 @@ import java.util.Map;
 @AllArgsConstructor
 @NoArgsConstructor
 public class QueryDocument {
-    private String content; // Content of that actual document
-    private Collection<String> languages; // Which languages this document should be matched in
+    private FileDocument fileDocument;
     private Map<String, Object> queryMeta; // Other meta data for future api
     private String minimumShouldMatch; // Current feature api
+
+    public String getLanguage() {
+        return fileDocument.getFileName();
+    }
 }
