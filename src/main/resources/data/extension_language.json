@@ -1,0 +1,34 @@
+[
+  {
+    "lang": "Java",
+    "index": "java",
+    "ext": [
+      "jav",
+      "java"
+    ]
+  },
+  {
+    "lang": "Python",
+    "index": "python",
+    "ext": [
+      "py",
+      "cgi",
+      "fcgi",
+      "gyp",
+      "gypi",
+      "lmi",
+      "py3",
+      "pyde",
+      "pyi",
+      "pyp",
+      "pyt",
+      "pyw",
+      "rpy",
+      "smk",
+      "spec",
+      "tac",
+      "wsgi",
+      "xpy"
+    ]
+  }
+],
