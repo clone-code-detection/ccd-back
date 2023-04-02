@@ -72,13 +72,13 @@ public class ServiceQuery implements IServiceQuery {
     }
 
     private SearchRequest buildSearchRequest(QueryDocument queryDocument) {
-//        List<String> indexes = mapIndexes(queryDocument.getLanguages());
+        List<String> indexes = mapIndexes(queryDocument.getLanguages());
         List<Query> mustQuery = buildMustQuery(queryDocument);
         List<Query> filterQuery = buildFilterQuery(queryDocument);
         var boolQuery = BoolQuery.of(bq -> bq.filter(filterQuery)
                         .must(mustQuery))
                 ._toQuery();
-        return SearchRequest.of(sr -> sr.index(List.of("java_method")).size(queryDocument.getSize())
+        return SearchRequest.of(sr -> sr.index(indexes).size(queryDocument.getSize())
                 .query(boolQuery));
     }
 }

@@ -11,7 +11,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -34,12 +37,12 @@ public class ServiceGitHub {
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             while (zipEntry != null) {
                 String[] params = zipEntry.getName().split("~");
-                Map<String, String> meta = new HashMap<>(){{
-                   put("directory", params[0]);
-                   put("sub_directory", params[1]);
-                   put("start_line", params[2]);
-                   put("end_line", params[3]);
-                   put("filename", params[4]);
+                Map<String, String> meta = new HashMap<>() {{
+                    put("directory", params[0]);
+                    put("sub_directory", params[1]);
+                    put("start_line", params[2]);
+                    put("end_line", params[3]);
+                    put("filename", params[4]);
                 }};
                 byteArrayOutputStream.reset();
                 zipInputStream.transferTo(byteArrayOutputStream);
@@ -49,17 +52,17 @@ public class ServiceGitHub {
             zipInputStream.closeEntry();
             zipInputStream.close();
         } catch (IOException e) {
-            log.error("Error parsing zip file" , e);
+            log.error("Error parsing zip file", e);
             throw new RuntimeException(e);
         }
         return contents;
     }
 
-    public BulkResponse buildRepositoryPayloads(Collection<ElasticsearchDocument> contents ,
+    public BulkResponse buildRepositoryPayloads(Collection<ElasticsearchDocument> contents,
                                                 CrawlGitHubDocument body) {
         Stream<IndexDocument> documents = contents
                 .stream()
-                .map(content -> new IndexDocument(content.getSourceCode() , body.getTarget() , content.getMeta()));
+                .map(content -> new IndexDocument(content.getSourceCode(), body.getTarget(), content.getMeta()));
         return serviceIndex.indexAllDocuments(documents);
     }
 }
