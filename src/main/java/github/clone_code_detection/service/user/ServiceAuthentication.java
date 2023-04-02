@@ -36,7 +36,7 @@ public class ServiceAuthentication {
 
     public boolean usernameExists(String username) {
         try {
-            repo.findUserByName(username);
+            repo.findUserImplByUsername(username);
         } catch (UsernameNotFoundException ignore) {
             return false;
         }

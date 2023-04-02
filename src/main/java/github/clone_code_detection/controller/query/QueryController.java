@@ -1,4 +1,4 @@
-package github.clone_code_detection.controllers.query;
+package github.clone_code_detection.controller.query;
 
 import github.clone_code_detection.entity.ElasticsearchDocument;
 import github.clone_code_detection.entity.query.QueryDocument;

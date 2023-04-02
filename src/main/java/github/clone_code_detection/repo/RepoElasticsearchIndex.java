@@ -30,7 +30,9 @@ public class RepoElasticsearchIndex {
         String lang = langAndDoc.getFirst();
         ElasticsearchDocument doc = langAndDoc.getSecond();
         try {
-            return new IndexRequest(lang).source(doc.asJson());
+            IndexRequest source = new IndexRequest(lang).source(doc.asJson());
+            if (doc.getId() != null) source.id(doc.getId());
+            return source;
         } catch (JsonProcessingException e) {
             throw new ElasticsearchRequestBuildException("Failed to build index request");
         }

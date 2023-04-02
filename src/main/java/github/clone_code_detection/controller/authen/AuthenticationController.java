@@ -1,4 +1,4 @@
-package github.clone_code_detection.controllers.authen;
+package github.clone_code_detection.controller.authen;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import github.clone_code_detection.entity.authenication.SignInRequest;

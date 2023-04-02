@@ -1,6 +1,7 @@
 package github.clone_code_detection.util;
 
 import github.clone_code_detection.entity.FileDocument;
+import github.clone_code_detection.exceptions.highlight.FileHandleException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -23,7 +24,7 @@ public class ZipUtil {
                 byteArrayOutputStream.reset();
                 zipInputStream.transferTo(byteArrayOutputStream);
                 FileDocument fileDocument = FileDocument.builder()
-                                                        .content(byteArrayOutputStream.toString())
+                                                        .content(byteArrayOutputStream.toByteArray())
                                                         .fileName(zipEntry.getName())
                                                         .build();
                 contents.add(fileDocument);
@@ -32,8 +33,7 @@ public class ZipUtil {
             zipInputStream.closeEntry();
             zipInputStream.close();
         } catch (IOException e) {
-            log.error("Error parsing zip file", e);
-            throw new RuntimeException(e);
+            throw new FileHandleException("Error parsing zip file");
         }
         return contents;
     }

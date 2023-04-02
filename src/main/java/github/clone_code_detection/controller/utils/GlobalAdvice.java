@@ -1,4 +1,4 @@
-package github.clone_code_detection.controllers.utils;
+package github.clone_code_detection.controller.utils;
 
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.ValidationException;

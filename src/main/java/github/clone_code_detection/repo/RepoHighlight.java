@@ -15,5 +15,4 @@ public class RepoHighlight {
     @Autowired
     public RepoHighlight(RestHighLevelClient client) {this.client = client;}
 
-    public UUID
 }

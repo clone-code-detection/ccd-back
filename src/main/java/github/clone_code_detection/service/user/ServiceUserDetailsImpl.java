@@ -18,6 +18,6 @@ public class ServiceUserDetailsImpl implements org.springframework.security.core
 
     @Override
     public UserDetails loadUserByUsername(@Nonnull String username) {
-        return repoUserDetails.findUserByName(username);
+        return repoUserDetails.findUserImplByUsername(username);
     }
 }
