@@ -5,14 +5,15 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
-import java.util.UUID;
-
 @Slf4j
 @Repository
-public class RepoHighlight {
+public class RepoElasticsearchHighlight {
     private final RestHighLevelClient client;
+    private final RepoFileDocument repoFileDocument;
 
     @Autowired
-    public RepoHighlight(RestHighLevelClient client) {this.client = client;}
-
+    public RepoElasticsearchHighlight(RestHighLevelClient client, RepoFileDocument repoFileDocument) {
+        this.client = client;
+        this.repoFileDocument = repoFileDocument;
+    }
 }

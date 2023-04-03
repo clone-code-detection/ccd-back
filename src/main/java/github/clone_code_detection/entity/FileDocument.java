@@ -18,7 +18,8 @@ import java.util.UUID;
 @Table(name = "file", schema = "file")
 public class FileDocument {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(name = "content", nullable = false)

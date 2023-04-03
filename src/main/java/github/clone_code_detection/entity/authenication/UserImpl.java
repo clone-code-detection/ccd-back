@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Formula;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -14,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Builder
 @Data
@@ -33,36 +33,24 @@ public class UserImpl implements UserDetails {
     @Column(name = "password")
     private String password;
 
-
-    // language=PostgreSQL
-    @Formula("select " +
-            "distinct (concat('ROLE_', role.name))\n" +
-            "from authen.\"user\"\n" +
-            "         join authen.relation_user_role rur on \"user\".id = rur.user_id\n" +
-            "         join authen.relation_role_authority rra on rur.role_id = rra.role_id\n" +
-            "         join authen.role on rra.role_id = role.id\n" +
-            "         join authen.authority on rra.authority_id = authority.id\n" +
-            "where authen.\"user\".id = :id\n" +
-            "\n" +
-            "UNION ALL\n" +
-            "\n" +
-            "select distinct authority.name as authorities\n" +
-            "from authen.\"user\"\n" +
-            "         join authen.relation_user_role rur on \"user\".id = rur.user_id\n" +
-            "         join authen.relation_role_authority rra on rur.role_id = rra.role_id\n" +
-            "         join authen.role on rra.role_id = role.id\n" +
-            "         join authen.authority on rra.authority_id = authority.id\n" +
-            "where authen.\"user\".id = :id;")
-    @ElementCollection(targetClass = String.class)
-    Collection<String> authorities;
+    @ManyToMany
+    @JoinTable(name = "relation_user_role", schema = "authen", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
+    private Collection<Role> roles;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        List<SimpleGrantedAuthority> grantedAuthorities = new ArrayList<>();
-        for (String authority : authorities) {
-            grantedAuthorities.add(new SimpleGrantedAuthority(authority));
+        List<String> authorities = new ArrayList<>();
+        for (Role role : roles) {
+            String roleName = "ROLE_" + role.getRole();
+            authorities.add(roleName);
+            for (Authority authority : role.getAuthorities()) {
+                String authorityName = authority.getAuthority();
+                authorities.add(authorityName);
+            }
         }
-        return grantedAuthorities;
+        return authorities.stream()
+                          .map(SimpleGrantedAuthority::new)
+                          .collect(Collectors.toList());
     }
 
     @Override

@@ -32,14 +32,15 @@ class GlobalAdvice {
                                 .get(0);
 
         return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
-                                                MessageFormat.format("{0} : {1}", message.getObjectName(),
-                                                                     message.getDefaultMessage()));
+                MessageFormat.format("{0} : {1}", message.getObjectName(),
+                        message.getDefaultMessage()));
     }
 
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ProblemDetail handleUnwantedException(Exception ex) {
+        log.error("Abstract error", ex);
         return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
-                                                "Abstract internal error");
+                "Abstract internal error");
     }
 }

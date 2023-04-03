@@ -1,9 +1,14 @@
 package github.clone_code_detection.entity.highlight;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NonNull;
 import org.springframework.data.util.Pair;
+import org.springframework.util.CollectionUtils;
+import org.springframework.validation.annotation.Validated;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -11,9 +16,12 @@ import java.util.stream.Collectors;
 import static java.lang.Integer.parseInt;
 
 @Getter
-class OffsetResponse {
+public class OffsetResponse {
+    @NotNull
     private Integer startSnippetOffset;
+    @NotNull
     private Integer endSnippetOffset;
+    @NotNull
     private List<Pair<Integer, Integer>> matches;
 
     private OffsetResponse() {}
@@ -33,6 +41,20 @@ class OffsetResponse {
         builder.matches = OffsetResponse.matchesFromString(strings[1]);
 
         return builder;
+    }
+
+    @Validated
+    @NonNull
+    public OffsetResponse union(@NotNull @Valid OffsetResponse other) {
+        assert this.startSnippetOffset != null;
+        assert this.endSnippetOffset != null;
+        assert !CollectionUtils.isEmpty(this.matches);
+        OffsetResponse offsetResponse = new OffsetResponse();
+        offsetResponse.startSnippetOffset = Math.min(this.startSnippetOffset, other.startSnippetOffset);
+        offsetResponse.endSnippetOffset = Math.max(this.endSnippetOffset, other.endSnippetOffset);
+        offsetResponse.matches = new ArrayList<>(this.matches);
+        offsetResponse.matches.addAll(other.matches);
+        return offsetResponse;
     }
 
     private static List<Pair<Integer, Integer>> matchesFromString(String matches) {

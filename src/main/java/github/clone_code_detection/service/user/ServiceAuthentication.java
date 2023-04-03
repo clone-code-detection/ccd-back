@@ -7,6 +7,7 @@ import github.clone_code_detection.exceptions.authen.UserExistedException;
 import github.clone_code_detection.repo.RepoUser;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.text.MessageFormat;
 
 @Service
+@Profile("security")
 @Transactional
 public class ServiceAuthentication {
     private final PasswordEncoder passwordEncoder;
@@ -36,11 +38,10 @@ public class ServiceAuthentication {
 
     public boolean usernameExists(String username) {
         try {
-            repo.findUserImplByUsername(username);
+            return repo.findUserImplByUsername(username) != null;
         } catch (UsernameNotFoundException ignore) {
             return false;
         }
-        return true;
     }
 
     // https://stackoverflow.com/questions/5428654/spring-security-auto-login-not-persisted-in-httpsession

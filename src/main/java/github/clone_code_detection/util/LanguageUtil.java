@@ -2,10 +2,12 @@ package github.clone_code_detection.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import github.clone_code_detection.entity.LanguageInfo;
+import github.clone_code_detection.exceptions.UnsupportedLanguage;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
@@ -43,12 +45,18 @@ public class LanguageUtil {
         }
     }
 
+    @Nonnull
     public String getIndexFromFileName(String fileName) {
         String extension = FilenameUtils.getExtension(fileName);
         return this.getIndexFromExtension(extension);
     }
 
+    @Nonnull
     public String getIndexFromExtension(String extension) {
-        return onMemExtensionLanguageMapping.get(extension);
+        String s = onMemExtensionLanguageMapping.get(extension);
+        if (s == null) {
+            throw new UnsupportedLanguage("Unsupported language");
+        }
+        return s;
     }
 }

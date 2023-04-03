@@ -9,6 +9,7 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Repository;
@@ -26,11 +27,11 @@ public class RepoElasticsearchIndex {
         this.elasticsearchClient = elasticsearchClient;
     }
 
-    private static IndexRequest apply(Pair<String, ElasticsearchDocument> langAndDoc) {
+    private static IndexRequest getIndexAndDoc(Pair<String, ElasticsearchDocument> langAndDoc) {
         String lang = langAndDoc.getFirst();
         ElasticsearchDocument doc = langAndDoc.getSecond();
         try {
-            IndexRequest source = new IndexRequest(lang).source(doc.asJson());
+            IndexRequest source = new IndexRequest(lang).source(doc.asJson(), XContentType.JSON);
             if (doc.getId() != null) source.id(doc.getId());
             return source;
         } catch (JsonProcessingException e) {
@@ -40,7 +41,7 @@ public class RepoElasticsearchIndex {
 
     public BulkResponse indexDocuments(Stream<Pair<String, ElasticsearchDocument>> requests) throws IOException {
         BulkRequest request = new BulkRequest();
-        requests.map(RepoElasticsearchIndex::apply)
+        requests.map(RepoElasticsearchIndex::getIndexAndDoc)
                 .forEach(request::add);
         return elasticsearchClient.bulk(request, RequestOptions.DEFAULT);
     }

@@ -19,7 +19,7 @@ public class IndexController {
     }
 
     @RequestMapping(path = "/zip", method = RequestMethod.POST, consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
-    public void indexGitHubRepository(IndexInstruction crawlGitHubBody, @RequestParam("file") MultipartFile file) {
-        serviceIndex.indexAllDocuments(file, crawlGitHubBody);
+    public void index(IndexInstruction instruction, @RequestParam("file") MultipartFile file) {
+        serviceIndex.indexAllDocuments(file, instruction);
     }
 }

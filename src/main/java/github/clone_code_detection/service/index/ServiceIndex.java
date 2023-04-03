@@ -3,16 +3,14 @@ package github.clone_code_detection.service.index;
 import github.clone_code_detection.entity.ElasticsearchDocument;
 import github.clone_code_detection.entity.FileDocument;
 import github.clone_code_detection.entity.index.IndexInstruction;
-import github.clone_code_detection.entity.index.IndexDocument;
 import github.clone_code_detection.exceptions.highlight.ElasticsearchIndexException;
 import github.clone_code_detection.exceptions.highlight.FileNotSupportedException;
 import github.clone_code_detection.repo.RepoElasticsearchIndex;
 import github.clone_code_detection.repo.RepoFileDocument;
 import github.clone_code_detection.util.FileSystemUtil;
 import github.clone_code_detection.util.LanguageUtil;
-import github.clone_code_detection.util.ZipUtil;
 import lombok.NonNull;
-import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -25,10 +23,10 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.Collection;
-import java.util.List;
 import java.util.stream.Stream;
 
 @Service
+@Slf4j
 public class ServiceIndex implements IServiceIndex {
     private final RepoElasticsearchIndex repoElasticsearchIndex;
     private final RepoFileDocument repoFile;
@@ -39,14 +37,12 @@ public class ServiceIndex implements IServiceIndex {
         this.repoFile = repoFile;
     }
 
-    private static Pair<String, ElasticsearchDocument> apply(IndexDocument indexDocument) {
-        ElasticsearchDocument elasticsearchDocument = ElasticsearchDocument.fromIndexDocument(indexDocument);
-        String language = resolveLanguage(indexDocument.getLanguage());
-        return Pair.of(language, elasticsearchDocument);
-    }
-
-    private static String resolveLanguage(String languageRequest) {
-        return languageRequest;
+    @NonNull
+    private static Pair<String, ElasticsearchDocument> getLangAndElasticsearchDoc(@Nonnull FileDocument fileDocument) {
+        String index = LanguageUtil.getInstance()
+                                   .getIndexFromFileName(fileDocument.getFileName());
+        ElasticsearchDocument document = ElasticsearchDocument.fromFileDocument(fileDocument);
+        return Pair.of(index, document);
     }
 
     /**
@@ -54,8 +50,9 @@ public class ServiceIndex implements IServiceIndex {
      * @implNote accept zip and single file
      */
     private void validate(MultipartFile file) {
-        String fileName = file.getName();
+        String fileName = file.getOriginalFilename();
         String extension = FilenameUtils.getExtension(fileName);
+        assert extension != null;
         if (extension.endsWith("zip")) {
             return;
         }
@@ -68,47 +65,20 @@ public class ServiceIndex implements IServiceIndex {
         }
     }
 
-    /**
-     * @param file
-     * @return
-     * @implNote extract from zip if exists or single-content-collection
-     */
-    private Collection<FileDocument> extractDocuments(MultipartFile file) {
-        String fileName = file.getName();
-        String extension = FilenameUtils.getExtension(fileName);
-        if (extension.endsWith("zip")) {
-            return ZipUtil.unzipAndGetContents(file);
-        } else {
-            byte[] content;
-            content = FileSystemUtil.getContent(file);
-            return List.of(FileDocument.builder()
-                                       .fileName(fileName)
-                                       .content(content)
-                                       .build());
-        }
-    }
-
     private static void validateBulkResponse(@Nonnull BulkResponse bulkResponse) {
         for (BulkItemResponse indexDocument : bulkResponse) {
             if (indexDocument.isFailed()) {
+                log.info("[Service index] index single document: {}", indexDocument.getFailureMessage());
                 throw new ElasticsearchIndexException(
                         MessageFormat.format("Failed to index document with id {0}", indexDocument.getId()));
             }
         }
     }
 
-    @NonNull
-    private static Pair<String, ElasticsearchDocument> getLangAndElasticsearchDoc(@Nonnull FileDocument fileDocument) {
-        String index = LanguageUtil.getInstance()
-                                   .getIndexFromFileName(fileDocument.getFileName());
-        ElasticsearchDocument document = ElasticsearchDocument.fromFileDocument(fileDocument);
-        return Pair.of(index, document);
-    }
-
     @Override
-    public void indexAllDocuments(MultipartFile file, IndexInstruction body) {
+    public Collection<FileDocument> indexAllDocuments(MultipartFile file, IndexInstruction body) {
         validate(file);
-        Collection<FileDocument> files = extractDocuments(file);
+        Collection<FileDocument> files = FileSystemUtil.extractDocuments(file);
         // save to db
         files = repoFile.saveAll(files);
         //index
@@ -118,14 +88,9 @@ public class ServiceIndex implements IServiceIndex {
             BulkResponse bulkResponse = repoElasticsearchIndex.indexDocuments(stream);
             validateBulkResponse(bulkResponse);
         } catch (IOException e) {
+            log.error("[Service index] index documents", e);
             throw new ElasticsearchIndexException("Failed to index documents");
         }
-    }
-
-    @SneakyThrows
-    @Override
-    public BulkResponse indexAllDocuments(@NonNull Stream<IndexDocument> documents) {
-        Stream<Pair<String, ElasticsearchDocument>> requestStream = documents.map(ServiceIndex::apply);
-        return repoElasticsearchIndex.indexDocuments(requestStream);
+        return files;
     }
 }

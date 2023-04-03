@@ -1,7 +1,7 @@
 package github.clone_code_detection.controller.query;
 
 import github.clone_code_detection.entity.ElasticsearchDocument;
-import github.clone_code_detection.entity.query.QueryDocument;
+import github.clone_code_detection.entity.query.QueryInstruction;
 import github.clone_code_detection.service.query.ServiceQuery;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -23,7 +23,7 @@ public class QueryController {
     }
 
     @RequestMapping(path = "/form", method = RequestMethod.POST, consumes = {MediaType.APPLICATION_JSON_VALUE})
-    public Collection<ElasticsearchDocument> queryDocument(@RequestBody QueryDocument queryDocument) {
-        return serviceQuery.search(queryDocument);
+    public Collection<ElasticsearchDocument> queryDocument(@RequestBody QueryInstruction queryInstruction) {
+        return serviceQuery.search(queryInstruction);
     }
 }
