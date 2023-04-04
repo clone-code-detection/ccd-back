@@ -1,7 +1,7 @@
 package github.clone_code_detection.service.index;
 
 import github.clone_code_detection.entity.ElasticsearchDocument;
-import github.clone_code_detection.entity.FileDocument;
+import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.exceptions.highlight.ElasticsearchIndexException;
 import github.clone_code_detection.exceptions.highlight.FileNotSupportedException;
@@ -79,7 +79,13 @@ public class ServiceIndex implements IServiceIndex {
     public Collection<FileDocument> indexAllDocuments(MultipartFile file, IndexInstruction body) {
         validate(file);
         Collection<FileDocument> files = FileSystemUtil.extractDocuments(file);
+        body.setFiles(files);
+        return this.indexAllDocuments(body);
+    }
+
+    public Collection<FileDocument> indexAllDocuments(IndexInstruction instruction) {
         // save to db
+        Collection<FileDocument> files = instruction.getFiles();
         files = repoFile.saveAll(files);
         //index
         Stream<Pair<String, ElasticsearchDocument>> stream = files.stream()

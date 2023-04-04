@@ -47,18 +47,18 @@ public class RepoElasticsearchQuery {
     // TODO: Some logic here
     protected static List<QueryBuilder> buildFilterQuery(QueryInstruction queryInstruction) {
         List<QueryBuilder> queries = new ArrayList<>();
-        for (Map.Entry<String, Object> entry : queryInstruction.getQueryMeta()
-                                                               .entrySet()) {
-            String s = entry.getKey();
-            Object o = entry.getValue();
-            if (!(o instanceof String)) continue;
-            queries.add(QueryBuilders.termQuery(s, (String) o));
-        }
+//        for (Map.Entry<String, Object> entry : queryInstruction.getQueryMeta()
+//                                                               .entrySet()) {
+//            String s = entry.getKey();
+//            Object o = entry.getValue();
+//            if (!(o instanceof String)) continue;
+//            queries.add(QueryBuilders.termQuery(s, (String) o));
+//        }
         return queries;
     }
 
 
-    private static HighlightBuilder buildHighlightQuery(QueryInstruction queryInstruction) {
+    private static HighlightBuilder buildHighlightQuery() {
         HighlightBuilder highlightBuilder = new HighlightBuilder();
         highlightBuilder.order("score");
         //Build each type
@@ -66,6 +66,7 @@ public class RepoElasticsearchQuery {
         highlightContent.fragmentSize(0);
         highlightContent.numOfFragments(0);
         highlightContent.highlighterType("experimental");
+        highlightBuilder.options(Map.of("return_offsets", true));
         //Add to builder
         highlightBuilder.field(highlightContent);
 
@@ -86,7 +87,7 @@ public class RepoElasticsearchQuery {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(boolQueryBuilder);
         if (queryInstruction.getIncludeHighlight()) {
-            HighlightBuilder highlightBuilder = buildHighlightQuery(queryInstruction);
+            HighlightBuilder highlightBuilder = buildHighlightQuery();
             searchSourceBuilder.highlighter(highlightBuilder);
         }
 
@@ -94,6 +95,7 @@ public class RepoElasticsearchQuery {
         searchRequest.source(searchSourceBuilder)
                      .indices(indexes);
 
+        log.info("[Repo es query] search request: {}", searchRequest);
         return searchRequest;
     }
 }

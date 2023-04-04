@@ -1,6 +1,6 @@
 package github.clone_code_detection.util;
 
-import github.clone_code_detection.entity.FileDocument;
+import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.exceptions.highlight.FileHandleException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.multipart.MultipartFile;

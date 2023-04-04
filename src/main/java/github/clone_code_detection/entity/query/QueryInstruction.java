@@ -1,6 +1,6 @@
 package github.clone_code_detection.entity.query;
 
-import github.clone_code_detection.entity.FileDocument;
+import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.util.LanguageUtil;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;

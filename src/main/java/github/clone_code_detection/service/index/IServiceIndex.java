@@ -1,6 +1,6 @@
 package github.clone_code_detection.service.index;
 
-import github.clone_code_detection.entity.FileDocument;
+import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;

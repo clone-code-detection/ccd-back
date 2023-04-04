@@ -1,6 +1,6 @@
 package github.clone_code_detection.util;
 
-import github.clone_code_detection.entity.FileDocument;
+import github.clone_code_detection.entity.fs.FileDocument;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.web.multipart.MultipartFile;
 

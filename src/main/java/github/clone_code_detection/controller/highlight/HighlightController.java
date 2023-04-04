@@ -1,12 +1,12 @@
 package github.clone_code_detection.controller.highlight;
 
+import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
+import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.service.highlight.ServiceHighlight2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 
@@ -19,7 +19,11 @@ public class HighlightController {
     public HighlightController(ServiceHighlight2 serviceHighlightTest) {this.serviceHighlightTest = serviceHighlightTest;}
 
     @RequestMapping(path = "/query", method = RequestMethod.POST, consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
-    public void queryDocument(@RequestParam("file") MultipartFile file) {
-        serviceHighlightTest.test(file, null);
+    @ResponseStatus(HttpStatus.OK)
+    public HighlightSessionReportDTO queryDocument(@RequestParam("source") MultipartFile source, @RequestParam("target") MultipartFile target) {
+
+        return serviceHighlightTest.highlight(source,
+                IndexInstruction.getDefaultInstruction(),
+                target, IndexInstruction.getDefaultInstruction());
     }
 }

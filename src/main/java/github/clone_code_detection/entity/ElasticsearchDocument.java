@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import github.clone_code_detection.entity.fs.FileDocument;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
