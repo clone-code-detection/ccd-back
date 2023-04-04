@@ -1,5 +1,6 @@
 package github.clone_code_detection.controller.highlight;
 
+import github.clone_code_detection.entity.highlight.report.HighlightSessionDocument;
 import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.service.highlight.ServiceHighlight2;
@@ -8,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Collection;
 
 
 @RestController
@@ -20,10 +23,14 @@ public class HighlightController {
 
     @RequestMapping(path = "/query", method = RequestMethod.POST, consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     @ResponseStatus(HttpStatus.OK)
-    public HighlightSessionReportDTO queryDocument(@RequestParam("source") MultipartFile source, @RequestParam("target") MultipartFile target) {
+    public HighlightSessionReportDTO queryDocument(@RequestParam("source") MultipartFile source) {
 
-        return serviceHighlightTest.highlight(source,
-                IndexInstruction.getDefaultInstruction(),
-                target, IndexInstruction.getDefaultInstruction());
+        return serviceHighlightTest.highlight(source, IndexInstruction.getDefaultInstruction());
+    }
+
+    @RequestMapping(path = "/all-session", method = RequestMethod.GET)
+    @ResponseStatus(HttpStatus.OK)
+    public Collection<HighlightSessionDocument.HighlightSessionProjection> getAllSession() {
+        return serviceHighlightTest.getAllSession();
     }
 }

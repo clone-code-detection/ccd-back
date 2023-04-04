@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.sql.Time;
+import java.time.LocalTime;
 import java.util.Collection;
 import java.util.UUID;
 
@@ -26,13 +27,19 @@ public class HighlightSessionDocument {
 
     @Column(name = "created_time")
     @Temporal(TemporalType.TIME)
-    private Time created;
+    private Time created = Time.valueOf(LocalTime.now());
 
     @ManyToOne
-    @JoinColumn(name = "user_id", referencedColumnName = "id")
-    private UserImpl User;
+    @JoinColumn(name = "user_id")
+    private UserImpl user;
 
     @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
     @JoinColumn(name = "session_id", referencedColumnName = "id")
     private Collection<HighlightSingleDocument> matches;
+
+    public interface HighlightSessionProjection {
+        UUID getId();
+
+        Time getCreated();
+    }
 }
