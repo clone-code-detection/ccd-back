@@ -1,7 +1,8 @@
 package github.clone_code_detection.controller.highlight;
 
-import github.clone_code_detection.entity.highlight.report.HighlightSessionDocument;
+import github.clone_code_detection.entity.highlight.document.HighlightSessionDocument;
 import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
+import github.clone_code_detection.entity.highlight.report.HighlightSingleMatchDTO;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.service.highlight.ServiceHighlight2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,5 +33,11 @@ public class HighlightController {
     @ResponseStatus(HttpStatus.OK)
     public Collection<HighlightSessionDocument.HighlightSessionProjection> getAllSession() {
         return serviceHighlightTest.getAllSession();
+    }
+
+    @RequestMapping(path = "/get-match/{id}", method = RequestMethod.GET)
+    @ResponseStatus(HttpStatus.OK)
+    public HighlightSingleMatchDTO getMatchById(@PathVariable(name = "id") String id) {
+        return serviceHighlightTest.getSingleMatchBySessionId(id);
     }
 }

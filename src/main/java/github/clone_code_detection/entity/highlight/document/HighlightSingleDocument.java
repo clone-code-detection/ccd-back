@@ -1,4 +1,4 @@
-package github.clone_code_detection.entity.highlight.report;
+package github.clone_code_detection.entity.highlight.document;
 
 
 import github.clone_code_detection.entity.fs.FileDocument;
@@ -20,9 +20,9 @@ import java.util.UUID;
 @Table(name = "highlight_single_document", schema = "highlight")
 public class HighlightSingleDocument {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    @Builder.Default
-    private UUID id = UUID.randomUUID();
+    @Column(name = "id", columnDefinition = "uuid")
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @OneToOne
     @JoinColumn(name = "source_id", referencedColumnName = "id")
@@ -34,5 +34,5 @@ public class HighlightSingleDocument {
 
     @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
     @JoinColumn(name = "single_document_id")
-    private Collection<HighlightMatch> matches;
+    private Collection<HighlightMatchDocument> matches;
 }

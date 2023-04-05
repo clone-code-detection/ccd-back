@@ -3,16 +3,17 @@ package github.clone_code_detection.service.highlight;
 import github.clone_code_detection.entity.authenication.UserImpl;
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.highlight.OffsetResponse;
-import github.clone_code_detection.entity.highlight.report.HighlightMatch;
-import github.clone_code_detection.entity.highlight.report.HighlightSessionDocument;
-import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
-import github.clone_code_detection.entity.highlight.report.HighlightSingleDocument;
+import github.clone_code_detection.entity.highlight.document.HighlightMatchDocument;
+import github.clone_code_detection.entity.highlight.document.HighlightSessionDocument;
+import github.clone_code_detection.entity.highlight.document.HighlightSingleDocument;
+import github.clone_code_detection.entity.highlight.report.*;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.entity.query.QueryInstruction;
 import github.clone_code_detection.exceptions.highlight.ElasticsearchQueryException;
 import github.clone_code_detection.repo.RepoElasticsearchQuery;
 import github.clone_code_detection.repo.RepoFileDocument;
 import github.clone_code_detection.repo.RepoHighlightSessionDocument;
+import github.clone_code_detection.repo.RepoHighlightSingleMatchDocument;
 import github.clone_code_detection.service.index.ServiceIndex;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
@@ -40,14 +41,28 @@ public class ServiceHighlight2 {
     private final ServiceIndex serviceIndex;
     private final RepoElasticsearchQuery repoElasticsearchQuery;
     private final RepoHighlightSessionDocument repoHighlightSessionDocument;
+    private final RepoHighlightSingleMatchDocument repoHighlightSingleMatchDocument;
     private final RepoFileDocument repoFileDocument;
 
     @Autowired
-    public ServiceHighlight2(ServiceIndex serviceIndex, RepoElasticsearchQuery repoElasticsearchQuery, RepoHighlightSessionDocument repoHighlightSessionDocument, RepoFileDocument repoFileDocument) {
+    public ServiceHighlight2(ServiceIndex serviceIndex,
+                             RepoElasticsearchQuery repoElasticsearchQuery,
+                             RepoHighlightSessionDocument repoHighlightSessionDocument,
+                             RepoHighlightSingleMatchDocument repoHighlightSingleMatchDocument,
+                             RepoFileDocument repoFileDocument) {
         this.serviceIndex = serviceIndex;
         this.repoElasticsearchQuery = repoElasticsearchQuery;
         this.repoHighlightSessionDocument = repoHighlightSessionDocument;
+        this.repoHighlightSingleMatchDocument = repoHighlightSingleMatchDocument;
         this.repoFileDocument = repoFileDocument;
+    }
+
+    @Transactional
+    public HighlightSingleMatchDTO getSingleMatchBySessionId(String uuid) {
+        HighlightSingleDocument singleDocument = repoHighlightSingleMatchDocument.findById(
+                                                                                         UUID.fromString(uuid))
+                                                                                 .orElseThrow();
+        return HighlightSingleMatchDTO.fromHighlightSingleMatchDTO(singleDocument);
     }
 
     @Transactional
@@ -102,13 +117,13 @@ public class ServiceHighlight2 {
             Optional<FileDocument> fileDocument = repoFileDocument.findById(UUID.fromString(id));
             if (fileDocument.isEmpty()) continue;
             OffsetResponse offsetResponse = extractOffsetFromHit(hit);
-            Collection<HighlightMatch> matches = offsetResponse.getMatches()
-                                                               .stream()
-                                                               .map(integerIntegerPair -> HighlightMatch.builder()
-                                                                                                        .start(integerIntegerPair.getFirst())
-                                                                                                        .end(integerIntegerPair.getSecond())
-                                                                                                        .build())
-                                                               .toList();
+            Collection<HighlightMatchDocument> matches = offsetResponse.getMatches()
+                                                                       .stream()
+                                                                       .map(integerIntegerPair -> HighlightMatchDocument.builder()
+                                                                                                                        .start(integerIntegerPair.getFirst())
+                                                                                                                        .end(integerIntegerPair.getSecond())
+                                                                                                                        .build())
+                                                                       .toList();
             res.add(HighlightSingleDocument.builder()
                                            .source(source)
                                            .target(fileDocument.get())

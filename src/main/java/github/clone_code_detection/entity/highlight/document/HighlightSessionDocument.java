@@ -1,4 +1,4 @@
-package github.clone_code_detection.entity.highlight.report;
+package github.clone_code_detection.entity.highlight.document;
 
 import github.clone_code_detection.entity.authenication.UserImpl;
 import jakarta.persistence.*;
@@ -21,9 +21,9 @@ import java.util.UUID;
 @Table(name = "highlight_session", schema = "highlight")
 public class HighlightSessionDocument {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    @Builder.Default
-    private UUID id = UUID.randomUUID();
+    @Column(name = "id", columnDefinition = "uuid")
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(name = "created_time")
     @Temporal(TemporalType.TIME)
