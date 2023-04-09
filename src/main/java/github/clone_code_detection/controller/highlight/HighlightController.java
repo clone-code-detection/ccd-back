@@ -4,7 +4,7 @@ import github.clone_code_detection.entity.highlight.document.HighlightSessionDoc
 import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
 import github.clone_code_detection.entity.highlight.report.HighlightSingleMatchDTO;
 import github.clone_code_detection.entity.index.IndexInstruction;
-import github.clone_code_detection.service.highlight.ServiceHighlight2;
+import github.clone_code_detection.service.highlight.ServiceHighlight;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -17,10 +17,10 @@ import java.util.Collection;
 @RestController
 @RequestMapping("/api/highlight")
 public class HighlightController {
-    private final ServiceHighlight2 serviceHighlightTest;
+    private final ServiceHighlight serviceHighlightTest;
 
     @Autowired
-    public HighlightController(ServiceHighlight2 serviceHighlightTest) {this.serviceHighlightTest = serviceHighlightTest;}
+    public HighlightController(ServiceHighlight serviceHighlightTest) {this.serviceHighlightTest = serviceHighlightTest;}
 
     @RequestMapping(path = "/query", method = RequestMethod.POST, consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     @ResponseStatus(HttpStatus.OK)

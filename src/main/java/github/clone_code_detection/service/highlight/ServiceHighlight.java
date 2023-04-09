@@ -1,218 +1,169 @@
-//package github.clone_code_detection.service.highlight;
-//
-//import com.fasterxml.jackson.databind.ObjectMapper;
-//import github.clone_code_detection.entity.ElasticsearchDocument;
-//import github.clone_code_detection.entity.highlight.HighlightDocument;
-//import github.clone_code_detection.entity.highlight.HighlightReport;
-//import github.clone_code_detection.entity.highlight.HighlightResponse;
-//import github.clone_code_detection.entity.query.QueryDocument;
-//import github.clone_code_detection.repo.HighlightReportRepository;
-//import github.clone_code_detection.repo.RepoElasticsearchQuery;
-//import github.clone_code_detection.service.query.ServiceQuery;
-//import lombok.SneakyThrows;
-//import lombok.extern.slf4j.Slf4j;
-//import org.elasticsearch.action.search.SearchRequest;
-//import org.springframework.beans.factory.annotation.Autowired;
-//import org.springframework.beans.factory.annotation.Value;
-//import org.springframework.stereotype.Service;
-//
-//import java.io.File;
-//import java.io.IOException;
-//import java.nio.file.Paths;
-//import java.util.*;
-//import java.util.stream.Collectors;
-//
-//@Service
-//@Slf4j
-//public class ServiceHighlight extends ServiceQuery {
-//    final static ObjectMapper mapper = new ObjectMapper();
-//    final RepoElasticsearchQuery repoElasticsearchQuery;
-//    final HighlightReportRepository repository;
-//    @Value("${report.storage}")
-//    String localStorage;
-//
-//    @Autowired
-//    public ServiceHighlight(RepoElasticsearchQuery repoElasticsearchQuery, HighlightReportRepository repository) {
-//        super(repoElasticsearchQuery);
-//        this.repoElasticsearchQuery = repoElasticsearchQuery;
-//        this.repository = repository;
-//    }
-//
-//    @SneakyThrows
-//    public Collection<ElasticsearchDocument> highlight(QueryDocument queryDocument) {
-//        // Call elasticsearch to highlight
-//        // Build highlight request
-//        SearchRequest searchRequest = buildHighlightSearchRequest(queryDocument);
-//        // Log
-//        log.info("{}", searchRequest);
-//
-//        // Query with highlight option
-//        return Arrays.stream(repoElasticsearchQuery.query(searchRequest)
-//                                                   .getHits()
-//                                                   .getHits())
-//                     .map(hit -> ElasticsearchDocument.builder()
-//                                                      .meta(hit.getSource() != null ? hit.source()
-//                                                                                      .getMeta() : null)
-//                                                      .sourceCode(hit.highlight()
-//                                                                     .get("source_code")
-//                                                                     .get(0))
-//                                                      .build())
-//                     .collect(Collectors.toCollection(ArrayList::new));
-//    }
-//
-//    public HighlightReport generateHighlightReport(Collection<ElasticsearchDocument> documents, HighlightDocument request) {
-//        // Get highlight response
-//        HighlightResponse highlightResponse = buildHighlightResponse(documents, request);
-//        // Build report
-//        HighlightReport report = buildReport(request);
-//        if (report == null) return null;
-//        // Create report file and append it to report folder
-//        if (!createAndStoreReportFileIntoFolder(report, highlightResponse, request.getMetadata()
-//                                                                                  .getFilename())) return null;
-//        return repository.save(report);
-//    }
-//
-//    private boolean createAndStoreReportFileIntoFolder(HighlightReport report, HighlightResponse highlightResponse, String filename) {
-//        // Create report file as json for specific file
-//        filename = filename + ".json";
-//        boolean result = writeObjectToJsonFile(Paths.get(report.getUri(), filename)
-//                                                    .toFile(), highlightResponse);
-//        if (!result) return false;
-//        if (!report.getExtraData()
-//                   .contains(filename)) {
-//            Set<String> temp = new java.util.HashSet<>(Set.copyOf(report.getExtraData()));
-//            if (temp.add(filename)) {
-//                report.setExtraData(temp);
-//                return true;
-//            }
-//            log.error("Can not add filename to report. Filename: {}", filename);
-//            return false;
-//        }
-//        return true;
-//    }
-//
-//    private boolean writeObjectToJsonFile(File file, HighlightResponse body) {
-//        try {
-//            mapper.writeValue(file, body);
-//            return true;
-//        } catch (IOException e) {
-//            log.error("Can not write {} to storage\nError: {}", file.getName(), e.getMessage());
-//            return false;
-//        }
-//    }
-//
-//    private HighlightReport buildReport(HighlightDocument request) {
-//        // Check if report folder has been created
-//        HighlightReport report = repository.findHighlightReportByOrganizationAndYearAndSemesterAndCourseAndAssignerAndProjectAndAuthor(
-//                request.getMetadata()
-//                       .getOrganization(), request.getMetadata()
-//                                                  .getYear(), request.getMetadata()
-//                                                                     .getSemester(), request.getMetadata()
-//                                                                                            .getCourse(),
-//                request.getMetadata()
-//                       .getAssigner(), request.getMetadata()
-//                                              .getProject(), request.getMetadata()
-//                                                                    .getAuthor());
-//        if (report != null) return report;
-//        // Create folder for this project
-//        String folderPath = createFolderIfNotExists(request);
-//        if (folderPath == null) return null;
-//
-//        // Create report
-//        return HighlightReport.builder()
-//                              .organization(request.getMetadata()
-//                                                   .getOrganization())
-//                              .year(request.getMetadata()
-//                                           .getYear())
-//                              .semester(request.getMetadata()
-//                                               .getSemester())
-//                              .course(request.getMetadata()
-//                                             .getCourse())
-//                              .assigner(request.getMetadata()
-//                                               .getAssigner())
-//                              .project(request.getMetadata()
-//                                              .getProject())
-//                              .author(request.getMetadata()
-//                                             .getAuthor())
-//                              .uri(folderPath)
-//                              .extraData(new HashSet<>())
-//                              .build();
-//    }
-//
-//    private String createFolderIfNotExists(HighlightDocument request) {
-//        File organization = new File(Paths.get(localStorage, request.getMetadata()
-//                                                                    .getOrganization())
-//                                          .toUri());
-//        if (!organization.exists() && !organization.mkdirs()) return null;
-//
-//        File year = new File(Paths.get(organization.getAbsolutePath(), String.valueOf(request.getMetadata()
-//                                                                                             .getYear()))
-//                                  .toUri());
-//        if (!year.exists() && !year.mkdirs()) return null;
-//
-//        File semester = new File(Paths.get(year.getAbsolutePath(), String.valueOf(request.getMetadata()
-//                                                                                         .getSemester()))
-//                                      .toUri());
-//        if (!semester.exists() && !semester.mkdirs()) return null;
-//
-//        File course = new File(Paths.get(semester.getAbsolutePath(), request.getMetadata()
-//                                                                            .getCourse())
-//                                    .toUri());
-//        if (!course.exists() && !course.mkdirs()) return null;
-//
-//        File assigner = new File(Paths.get(course.getAbsolutePath(), request.getMetadata()
-//                                                                            .getAssigner())
-//                                      .toUri());
-//        if (!assigner.exists() && !assigner.mkdirs()) return null;
-//
-//        File project = new File(Paths.get(assigner.getAbsolutePath(), request.getMetadata()
-//                                                                             .getProject())
-//                                     .toUri());
-//        if (!project.exists() && !project.mkdirs()) return null;
-//
-//        File author = new File(Paths.get(project.getAbsolutePath(), request.getMetadata()
-//                                                                           .getAuthor())
-//                                    .toUri());
-//        if (!author.exists() && !author.mkdirs()) return null;
-//
-//        return author.getAbsolutePath();
-//    }
-//
-//    private HighlightResponse buildHighlightResponse(Collection<ElasticsearchDocument> documents, HighlightDocument request) {
-//        return HighlightResponse.builder()
-//                                .totalCount(documents.size())
-//                                .origin(ElasticsearchDocument.builder()
-//                                                             .sourceCode(request.getContent())
-//                                                             .build())
-//                                .documents(documents)
-//                                .build();
-//    }
-//
-//    private SearchRequest buildHighlightSearchRequest(QueryDocument queryDocument) {
-//        // Get list of index table
-//        List<String> indexes = queryDocument.getLanguages()
-//                                            .stream()
-//                                            .toList();
-//        // build highlight request
-//        List<Query> mustQuery = buildMustQuery(queryDocument);
-//        List<Query> filterQuery = buildFilterQuery(queryDocument);
-//        Highlight highlight = buildHighlightFields();
-//        var query = BoolQuery.of(bp -> bp.filter(filterQuery)
-//                                         .must(mustQuery))
-//                             ._toQuery();
-//        return SearchRequest.of(sr -> sr.index(indexes)
-//                                        .query(query)
-//                                        .highlight(highlight)
-//                                        .source(SourceConfig.of(source -> source.filter(
-//                                                SourceFilter.of(filter -> filter.excludes("source_code"))))));
-//    }
-//
-//    private Highlight buildHighlightFields() {
-//        return Highlight.of(highlight -> highlight.fields("source_code",
-//                                                          new HighlightField.Builder().numberOfFragments(0)
-//                                                                                      .preTags("<mark>")
-//                                                                                      .postTags("</mark>")
-//                                                                                      .build())
-//                                                  .order(HighlighterOrder.Score));
-//    }
-//}
+package github.clone_code_detection.service.highlight;
+
+import github.clone_code_detection.entity.authenication.UserImpl;
+import github.clone_code_detection.entity.fs.FileDocument;
+import github.clone_code_detection.entity.highlight.OffsetResponse;
+import github.clone_code_detection.entity.highlight.document.HighlightMatchDocument;
+import github.clone_code_detection.entity.highlight.document.HighlightSessionDocument;
+import github.clone_code_detection.entity.highlight.document.HighlightSingleDocument;
+import github.clone_code_detection.entity.highlight.report.*;
+import github.clone_code_detection.entity.index.IndexInstruction;
+import github.clone_code_detection.entity.query.QueryInstruction;
+import github.clone_code_detection.exceptions.highlight.ElasticsearchQueryException;
+import github.clone_code_detection.repo.RepoElasticsearchQuery;
+import github.clone_code_detection.repo.RepoFileDocument;
+import github.clone_code_detection.repo.RepoHighlightSessionDocument;
+import github.clone_code_detection.repo.RepoHighlightSingleMatchDocument;
+import github.clone_code_detection.service.index.ServiceIndex;
+import jakarta.validation.constraints.NotNull;
+import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.text.Text;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.multipart.MultipartFile;
+
+import javax.annotation.Nonnull;
+import java.io.IOException;
+import java.util.*;
+
+@Service
+@Validated
+@Slf4j
+@Transactional
+public class ServiceHighlight {
+    private final ServiceIndex serviceIndex;
+    private final RepoElasticsearchQuery repoElasticsearchQuery;
+    private final RepoHighlightSessionDocument repoHighlightSessionDocument;
+    private final RepoHighlightSingleMatchDocument repoHighlightSingleMatchDocument;
+    private final RepoFileDocument repoFileDocument;
+
+    @Autowired
+    public ServiceHighlight(ServiceIndex serviceIndex,
+                            RepoElasticsearchQuery repoElasticsearchQuery,
+                            RepoHighlightSessionDocument repoHighlightSessionDocument,
+                            RepoHighlightSingleMatchDocument repoHighlightSingleMatchDocument,
+                            RepoFileDocument repoFileDocument) {
+        this.serviceIndex = serviceIndex;
+        this.repoElasticsearchQuery = repoElasticsearchQuery;
+        this.repoHighlightSessionDocument = repoHighlightSessionDocument;
+        this.repoHighlightSingleMatchDocument = repoHighlightSingleMatchDocument;
+        this.repoFileDocument = repoFileDocument;
+    }
+
+    @Transactional
+    public HighlightSingleMatchDTO getSingleMatchBySessionId(String uuid) {
+        HighlightSingleDocument singleDocument = repoHighlightSingleMatchDocument.findById(
+                                                                                         UUID.fromString(uuid))
+                                                                                 .orElseThrow();
+        return HighlightSingleMatchDTO.fromHighlightSingleMatchDTO(singleDocument);
+    }
+
+    @Transactional
+    public HighlightSessionReportDTO highlight(@NotNull MultipartFile source, @Nonnull IndexInstruction sourceIndexInstruction) {
+        Collection<FileDocument> sourceDocuments = serviceIndex.indexAllDocuments(source, sourceIndexInstruction);
+        HighlightSessionDocument.HighlightSessionDocumentBuilder sessionBuilder = HighlightSessionDocument.builder();
+        List<HighlightSingleDocument> hits = new ArrayList<>();
+        for (FileDocument sourceDocument : sourceDocuments) {
+            // for each document, get highlight request
+            List<HighlightSingleDocument> highlightSingleDocument = extractSingleDocument(sourceDocument);
+            hits.addAll(highlightSingleDocument);
+        }
+        sessionBuilder.matches(hits);
+        HighlightSessionDocument highlightSessionDocument = sessionBuilder.build();
+        log.info("[Highlight service] highlight report: {}", highlightSessionDocument);
+        highlightSessionDocument.setUser(getUserFromContext());
+        repoHighlightSessionDocument.save(highlightSessionDocument);
+        return HighlightSessionReportDTO.from(highlightSessionDocument);
+    }
+
+    /**
+     * For each file, go index both and returns highlight
+     */
+    private List<HighlightSingleDocument> extractSingleDocument(FileDocument source) {
+        QueryInstruction queryInstruction = QueryInstruction.builder()
+                                                            .queryDocument(source)
+                                                            .includeHighlight(true)
+                                                            .minimumShouldMatch("80%")
+                                                            .build();
+        SearchResponse searchResponse;
+        try {
+            searchResponse = repoElasticsearchQuery.query(queryInstruction);
+        } catch (IOException e) {
+            log.error("Error querying elasticsearch", e);
+            throw new ElasticsearchQueryException("[Service highlight] Failed to query es");
+        }
+        // parse response
+        return parseResponse(source, searchResponse);
+    }
+
+    /**
+     * Extract match fields from es search response
+     */
+    private List<HighlightSingleDocument> parseResponse(FileDocument source, SearchResponse search) {
+        List<HighlightSingleDocument> res = new ArrayList<>();
+        // get hits
+        // TODO (bug)
+        List<FileDocument> all = repoFileDocument.findAll();
+        for (SearchHit hit : search.getHits()) {
+            String id = hit.getId();
+            log.info("Match id: {}", id);
+            Optional<FileDocument> fileDocument = repoFileDocument.findById(UUID.fromString(id));
+            if (fileDocument.isEmpty()) continue;
+            OffsetResponse offsetResponse = extractOffsetFromHit(hit);
+            Collection<HighlightMatchDocument> matches = offsetResponse.getMatches()
+                                                                       .stream()
+                                                                       .map(integerIntegerPair -> HighlightMatchDocument.builder()
+                                                                                                                        .start(integerIntegerPair.getFirst())
+                                                                                                                        .end(integerIntegerPair.getSecond())
+                                                                                                                        .build())
+                                                                       .toList();
+            res.add(HighlightSingleDocument.builder()
+                                           .source(source)
+                                           .target(fileDocument.get())
+                                           .matches(matches)
+                                           .build());
+        }
+        return res;
+    }
+
+    private static OffsetResponse extractOffsetFromHit(SearchHit hit) {
+        Map<String, HighlightField> highlightFields = hit.getHighlightFields();
+        // traverse highlight fields
+        Map<String, OffsetResponse> offsetResponseMap = new HashMap<>();
+        for (Map.Entry<String, HighlightField> entry : highlightFields.entrySet()) {
+            String fieldName = entry.getKey();
+            HighlightField highlightField = entry.getValue();
+            OffsetResponse offsetResponse = null;
+            // extract info and concat all fragments
+            for (Text fragment : highlightField.fragments()) {
+                OffsetResponse framgentOffsetResponse = OffsetResponse.fromString(fragment.string());
+                if (offsetResponse == null) offsetResponse = framgentOffsetResponse;
+                offsetResponse = offsetResponse.union(framgentOffsetResponse);
+            }
+            offsetResponseMap.put(fieldName, offsetResponse);
+        }
+        return offsetResponseMap.get("source_code");
+    }
+
+    @Transactional
+    public Collection<HighlightSessionDocument.HighlightSessionProjection> getAllSession() {
+        UserImpl principal = getUserFromContext();
+        return repoHighlightSessionDocument.getAllByUser_Id(principal.getId());
+    }
+
+    /**
+     * Get user from SecurityContextHolder
+     */
+    private static UserImpl getUserFromContext() {
+        Authentication authentication = SecurityContextHolder.getContext()
+                                                             .getAuthentication();
+        return (UserImpl) authentication.getPrincipal();
+    }
+}
