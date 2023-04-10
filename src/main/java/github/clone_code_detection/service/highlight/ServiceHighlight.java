@@ -16,6 +16,7 @@ import github.clone_code_detection.repo.RepoFileDocument;
 import github.clone_code_detection.repo.RepoHighlightSessionDocument;
 import github.clone_code_detection.repo.RepoHighlightSingleMatchDocument;
 import github.clone_code_detection.service.index.ServiceIndex;
+import github.clone_code_detection.util.FileSystemUtil;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
@@ -68,7 +69,8 @@ public class ServiceHighlight {
 
     @Transactional
     public HighlightSessionReportDTO highlight(@NotNull MultipartFile source, @Nonnull IndexInstruction sourceIndexInstruction) {
-        Collection<FileDocument> sourceDocuments = serviceIndex.indexAllDocuments(source, sourceIndexInstruction);
+//        Collection<FileDocument> sourceDocuments = serviceIndex.indexAllDocuments(source, sourceIndexInstruction);
+        Collection<FileDocument> sourceDocuments = FileSystemUtil.extractDocuments(source);
         HighlightSessionDocument.HighlightSessionDocumentBuilder sessionBuilder = HighlightSessionDocument.builder();
         List<HighlightSingleDocument> hits = new ArrayList<>();
         for (FileDocument sourceDocument : sourceDocuments) {
