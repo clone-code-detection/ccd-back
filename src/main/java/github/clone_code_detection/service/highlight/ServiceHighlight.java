@@ -6,7 +6,8 @@ import github.clone_code_detection.entity.highlight.OffsetResponse;
 import github.clone_code_detection.entity.highlight.document.HighlightMatchDocument;
 import github.clone_code_detection.entity.highlight.document.HighlightSessionDocument;
 import github.clone_code_detection.entity.highlight.document.HighlightSingleDocument;
-import github.clone_code_detection.entity.highlight.report.*;
+import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
+import github.clone_code_detection.entity.highlight.report.HighlightSingleMatchDTO;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.entity.query.QueryInstruction;
 import github.clone_code_detection.exceptions.highlight.ElasticsearchQueryException;
@@ -58,7 +59,7 @@ public class ServiceHighlight {
     }
 
     @Transactional
-    public HighlightSingleMatchDTO getSingleMatchBySessionId(String uuid) {
+    public HighlightSingleMatchDTO getSingleMatchById(String uuid) {
         HighlightSingleDocument singleDocument = repoHighlightSingleMatchDocument.findById(
                                                                                          UUID.fromString(uuid))
                                                                                  .orElseThrow();
@@ -83,8 +84,14 @@ public class ServiceHighlight {
         return HighlightSessionReportDTO.from(highlightSessionDocument);
     }
 
+    @Transactional
+    public Collection<HighlightSessionDocument.HighlightSessionProjection> getAllSession() {
+        UserImpl principal = getUserFromContext();
+        return repoHighlightSessionDocument.getAllByUser_Id(principal.getId());
+    }
+
     /**
-     * For each file, go index both and returns highlight
+     * For each file, query with highlight enabled
      */
     private List<HighlightSingleDocument> extractSingleDocument(FileDocument source) {
         QueryInstruction queryInstruction = QueryInstruction.builder()
@@ -133,6 +140,9 @@ public class ServiceHighlight {
         return res;
     }
 
+    /**
+     * Search hit is in special format with search-highlight feature of elasticsearch
+     */
     private static OffsetResponse extractOffsetFromHit(SearchHit hit) {
         Map<String, HighlightField> highlightFields = hit.getHighlightFields();
         // traverse highlight fields
@@ -150,12 +160,6 @@ public class ServiceHighlight {
             offsetResponseMap.put(fieldName, offsetResponse);
         }
         return offsetResponseMap.get("source_code");
-    }
-
-    @Transactional
-    public Collection<HighlightSessionDocument.HighlightSessionProjection> getAllSession() {
-        UserImpl principal = getUserFromContext();
-        return repoHighlightSessionDocument.getAllByUser_Id(principal.getId());
     }
 
     /**

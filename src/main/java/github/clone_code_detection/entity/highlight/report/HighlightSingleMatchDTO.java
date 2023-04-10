@@ -7,10 +7,9 @@ import github.clone_code_detection.entity.highlight.document.HighlightSingleDocu
 import lombok.Builder;
 import lombok.Data;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Builder
 @Data
@@ -23,17 +22,38 @@ public class HighlightSingleMatchDTO {
     @JsonProperty("target")
     private String target;
 
-    @JsonProperty("target_matches")
+    @JsonProperty("matches")
     @Builder.Default
-    private List<Integer[]> targetMatches = new ArrayList<>();
+    private List<HighlightWordMatchDTO> matches = new ArrayList<>();
 
     public static HighlightSingleMatchDTO fromHighlightSingleMatchDTO(HighlightSingleDocument document) {
         FileDocument targetFile = document.getTarget();
         FileDocument sourceFile = document.getSource();
+
+        Map<String, List<Integer[]>> targetMatches = new HashMap<>();
+        String targetFileContentAsString = targetFile.getContentAsString();
+        String sourceFileContentAsString = sourceFile.getContentAsString();
+        for (HighlightMatchDocument match : document.getMatches()) {
+            String textMatch = targetFileContentAsString.substring(match.getStart(), match.getEnd());
+            if (!targetMatches.containsKey(textMatch)) targetMatches.put(textMatch, new ArrayList<>());
+            targetMatches.get(textMatch)
+                         .add(new Integer[]{match.getStart(), match.getEnd()});
+        }
+        var sourceMatches = getAllMatchesFor(sourceFileContentAsString, targetMatches.keySet());
+
+        List<HighlightWordMatchDTO> matches = new ArrayList<>();
+        for (Map.Entry<String, List<Integer[]>> entry : sourceMatches.entrySet()) {
+            HighlightWordMatchDTO wordMatchDTO = HighlightWordMatchDTO.builder()
+                                                                      .word(entry.getKey())
+                                                                      .sourceMatches(entry.getValue())
+                                                                      .targetMatches(targetMatches.get(entry.getKey()))
+                                                                      .build();
+            matches.add(wordMatchDTO);
+        }
         return HighlightSingleMatchDTO.builder()
                                       .source(sourceFile.getContentAsString())
-                                      .target(targetFile.getContentAsString())
-                                      .targetMatches(extractMatches(document.getMatches()))
+                                      .target(targetFileContentAsString)
+                                      .matches(matches)
                                       .build();
     }
 
@@ -41,5 +61,18 @@ public class HighlightSingleMatchDTO {
         return matches.stream()
                       .map(highlightMatch -> new Integer[]{highlightMatch.getStart(), highlightMatch.getEnd()})
                       .toList();
+    }
+
+    private static Map<String, List<Integer[]>> getAllMatchesFor(String text, Set<String> patterns) {
+        Map<String, List<Integer[]>> map = new HashMap<>();
+        for (String pattern : patterns) {
+            Pattern word = Pattern.compile(pattern);
+            Matcher match = word.matcher(text);
+            List<Integer[]> list = map.put(pattern, new ArrayList<>());
+            while (match.find()) {
+                list.add(new Integer[]{match.start(), match.end()});
+            }
+        }
+        return map;
     }
 }

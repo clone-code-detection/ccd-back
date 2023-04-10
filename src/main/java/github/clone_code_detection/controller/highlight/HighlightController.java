@@ -38,6 +38,6 @@ public class HighlightController {
     @RequestMapping(path = "/get-match/{id}", method = RequestMethod.GET)
     @ResponseStatus(HttpStatus.OK)
     public HighlightSingleMatchDTO getMatchById(@PathVariable(name = "id") String id) {
-        return serviceHighlightTest.getSingleMatchBySessionId(id);
+        return serviceHighlightTest.getSingleMatchById(id);
     }
 }
