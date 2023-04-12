@@ -68,7 +68,9 @@ public class HighlightSingleMatchDTO {
         for (String pattern : patterns) {
             Pattern word = Pattern.compile(pattern);
             Matcher match = word.matcher(text);
-            List<Integer[]> list = map.put(pattern, new ArrayList<>());
+//            List<Integer[]> list = map.put(pattern, new ArrayList<>());
+            List<Integer[]> list = new ArrayList<>();
+            map.put(pattern, list);
             while (match.find()) {
                 list.add(new Integer[]{match.start(), match.end()});
             }

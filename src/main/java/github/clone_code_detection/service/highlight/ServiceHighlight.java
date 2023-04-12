@@ -8,6 +8,7 @@ import github.clone_code_detection.entity.highlight.document.HighlightSessionDoc
 import github.clone_code_detection.entity.highlight.document.HighlightSingleDocument;
 import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
 import github.clone_code_detection.entity.highlight.report.HighlightSingleMatchDTO;
+import github.clone_code_detection.entity.highlight.report.HighlightWordMatchDTO;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.entity.query.QueryInstruction;
 import github.clone_code_detection.exceptions.highlight.ElasticsearchQueryException;
@@ -20,7 +21,10 @@ import github.clone_code_detection.util.FileSystemUtil;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.core.MultiTermVectorsResponse;
+import org.elasticsearch.client.core.TermVectorsResponse;
 import org.elasticsearch.common.text.Text;
+import org.elasticsearch.common.util.set.Sets;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +38,8 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.*;
+
+import static github.clone_code_detection.repo.RepoElasticsearchQuery.SOURCE_CODE_FIELD;
 
 @Service
 @Validated
@@ -59,12 +65,30 @@ public class ServiceHighlight {
         this.repoFileDocument = repoFileDocument;
     }
 
+    @Deprecated
     @Transactional
     public HighlightSingleMatchDTO getSingleMatchById(String uuid) {
         HighlightSingleDocument singleDocument = repoHighlightSingleMatchDocument.findById(
                                                                                          UUID.fromString(uuid))
                                                                                  .orElseThrow();
         return HighlightSingleMatchDTO.fromHighlightSingleMatchDTO(singleDocument);
+    }
+
+    @Transactional
+    public HighlightSingleMatchDTO getSingleMatchByIdImproved(String uuid) {
+        HighlightSingleDocument singleDocument = repoHighlightSingleMatchDocument.findById(
+                                                                                         UUID.fromString(uuid))
+                                                                                 .orElseThrow();
+        FileDocument source = singleDocument.getSource();
+        FileDocument target = singleDocument.getTarget();
+        MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(
+                source, target);
+        List<HighlightWordMatchDTO> highlightWordMatchDTOS = extractTermVectorsResponse(multiTermVectors);
+        return HighlightSingleMatchDTO.builder()
+                                      .source(source.getContentAsString())
+                                      .target(target.getContentAsString())
+                                      .matches(highlightWordMatchDTOS)
+                                      .build();
     }
 
     @Transactional
@@ -171,5 +195,50 @@ public class ServiceHighlight {
         Authentication authentication = SecurityContextHolder.getContext()
                                                              .getAuthentication();
         return (UserImpl) authentication.getPrincipal();
+    }
+
+    private static List<HighlightWordMatchDTO> extractTermVectorsResponse(MultiTermVectorsResponse response) {
+        List<HighlightWordMatchDTO> res = new ArrayList<>();
+        assert response.getTermVectorsResponses()
+                       .size() == 2;
+
+        TermVectorsResponse source = response.getTermVectorsResponses()
+                                             .get(0);
+        TermVectorsResponse target = response.getTermVectorsResponses()
+                                             .get(1);
+        // traverse every document in query
+        Map<String, List<Integer[]>> sourceMap = extractMatches(source);
+        Map<String, List<Integer[]>> targetMap = extractMatches(target);
+        Set<String> commonKey = Sets.intersection(sourceMap.keySet(), targetMap.keySet());
+        for (String common : commonKey) {
+            HighlightWordMatchDTO wordMatchDTO = HighlightWordMatchDTO.builder()
+                                                                      .word(common)
+                                                                      .sourceMatches(sourceMap.get(common))
+                                                                      .targetMatches(targetMap.get(common))
+                                                                      .build();
+            res.add(wordMatchDTO);
+        }
+        return res;
+    }
+
+    private static Map<String, List<Integer[]>> extractMatches(TermVectorsResponse termVectorsResponse) {
+        Map<String, List<Integer[]>> res = new HashMap<>();
+        for (TermVectorsResponse.TermVector termVector : termVectorsResponse.getTermVectorsList()) {
+            if (!termVector.getFieldName()
+                           .equals(SOURCE_CODE_FIELD)) continue;
+            for (TermVectorsResponse.TermVector.Term term : termVector.getTerms()) {
+                String termValue = term.getTerm();
+                var tokens = term.getTokens();
+                List<Integer[]> ls = new ArrayList<>();
+                for (TermVectorsResponse.TermVector.Token token : tokens) {
+                    Integer startOffset = token.getStartOffset();
+                    Integer endOffset = token.getEndOffset();
+                    ls.add(new Integer[]{startOffset, endOffset});
+                }
+                res.put(termValue, ls);
+            }
+            break;
+        }
+        return res;
     }
 }
