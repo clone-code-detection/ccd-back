@@ -35,6 +35,7 @@ public class HighlightController {
         return serviceHighlightTest.getAllSession();
     }
 
+    @CrossOrigin("*")
     @RequestMapping(path = "/get-match/{id}", method = RequestMethod.GET)
     @ResponseStatus(HttpStatus.OK)
     public HighlightSingleMatchDTO getMatchById(@PathVariable(name = "id") String id) {

@@ -30,28 +30,11 @@ public class HighlightSingleMatchDTO {
         FileDocument targetFile = document.getTarget();
         FileDocument sourceFile = document.getSource();
 
-        Map<String, List<Integer[]>> targetMatches = new HashMap<>();
         String targetFileContentAsString = targetFile.getContentAsString();
         String sourceFileContentAsString = sourceFile.getContentAsString();
-        for (HighlightMatchDocument match : document.getMatches()) {
-            String textMatch = targetFileContentAsString.substring(match.getStart(), match.getEnd());
-            if (!targetMatches.containsKey(textMatch)) targetMatches.put(textMatch, new ArrayList<>());
-            targetMatches.get(textMatch)
-                         .add(new Integer[]{match.getStart(), match.getEnd()});
-        }
-        var sourceMatches = getAllMatchesFor(sourceFileContentAsString, targetMatches.keySet());
-
         List<HighlightWordMatchDTO> matches = new ArrayList<>();
-        for (Map.Entry<String, List<Integer[]>> entry : sourceMatches.entrySet()) {
-            HighlightWordMatchDTO wordMatchDTO = HighlightWordMatchDTO.builder()
-                                                                      .word(entry.getKey())
-                                                                      .sourceMatches(entry.getValue())
-                                                                      .targetMatches(targetMatches.get(entry.getKey()))
-                                                                      .build();
-            matches.add(wordMatchDTO);
-        }
         return HighlightSingleMatchDTO.builder()
-                                      .source(sourceFile.getContentAsString())
+                                      .source(sourceFileContentAsString)
                                       .target(targetFileContentAsString)
                                       .matches(matches)
                                       .build();

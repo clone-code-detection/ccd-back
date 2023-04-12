@@ -2,8 +2,6 @@ package github.clone_code_detection.service.highlight;
 
 import github.clone_code_detection.entity.authenication.UserImpl;
 import github.clone_code_detection.entity.fs.FileDocument;
-import github.clone_code_detection.entity.highlight.OffsetResponse;
-import github.clone_code_detection.entity.highlight.document.HighlightMatchDocument;
 import github.clone_code_detection.entity.highlight.document.HighlightSessionDocument;
 import github.clone_code_detection.entity.highlight.document.HighlightSingleDocument;
 import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
@@ -17,16 +15,13 @@ import github.clone_code_detection.repo.RepoFileDocument;
 import github.clone_code_detection.repo.RepoHighlightSessionDocument;
 import github.clone_code_detection.repo.RepoHighlightSingleMatchDocument;
 import github.clone_code_detection.service.index.ServiceIndex;
-import github.clone_code_detection.util.FileSystemUtil;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.core.MultiTermVectorsResponse;
 import org.elasticsearch.client.core.TermVectorsResponse;
-import org.elasticsearch.common.text.Text;
 import org.elasticsearch.common.util.set.Sets;
 import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -36,6 +31,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.*;
 
@@ -93,8 +89,7 @@ public class ServiceHighlight {
 
     @Transactional
     public HighlightSessionReportDTO highlight(@NotNull MultipartFile source, @Nonnull IndexInstruction sourceIndexInstruction) {
-//        Collection<FileDocument> sourceDocuments = serviceIndex.indexAllDocuments(source, sourceIndexInstruction);
-        Collection<FileDocument> sourceDocuments = FileSystemUtil.extractDocuments(source);
+        Collection<FileDocument> sourceDocuments = serviceIndex.indexAllDocuments(source, sourceIndexInstruction);
         HighlightSessionDocument.HighlightSessionDocumentBuilder sessionBuilder = HighlightSessionDocument.builder();
         List<HighlightSingleDocument> hits = new ArrayList<>();
         for (FileDocument sourceDocument : sourceDocuments) {
@@ -106,13 +101,14 @@ public class ServiceHighlight {
         HighlightSessionDocument highlightSessionDocument = sessionBuilder.build();
         log.info("[Highlight service] highlight report: {}", highlightSessionDocument);
         highlightSessionDocument.setUser(getUserFromContext());
-        repoHighlightSessionDocument.save(highlightSessionDocument);
+        highlightSessionDocument = repoHighlightSessionDocument.save(highlightSessionDocument);
         return HighlightSessionReportDTO.from(highlightSessionDocument);
     }
 
     @Transactional
     public Collection<HighlightSessionDocument.HighlightSessionProjection> getAllSession() {
         UserImpl principal = getUserFromContext();
+        assert principal != null;
         return repoHighlightSessionDocument.getAllByUser_Id(principal.getId());
     }
 
@@ -149,52 +145,23 @@ public class ServiceHighlight {
             log.info("Match id: {}", id);
             Optional<FileDocument> fileDocument = repoFileDocument.findById(UUID.fromString(id));
             if (fileDocument.isEmpty()) continue;
-            OffsetResponse offsetResponse = extractOffsetFromHit(hit);
-            Collection<HighlightMatchDocument> matches = offsetResponse.getMatches()
-                                                                       .stream()
-                                                                       .map(integerIntegerPair -> HighlightMatchDocument.builder()
-                                                                                                                        .start(integerIntegerPair.getFirst())
-                                                                                                                        .end(integerIntegerPair.getSecond())
-                                                                                                                        .build())
-                                                                       .toList();
             res.add(HighlightSingleDocument.builder()
                                            .source(source)
                                            .target(fileDocument.get())
-                                           .matches(matches)
                                            .build());
         }
         return res;
     }
 
     /**
-     * Search hit is in special format with search-highlight feature of elasticsearch
-     */
-    private static OffsetResponse extractOffsetFromHit(SearchHit hit) {
-        Map<String, HighlightField> highlightFields = hit.getHighlightFields();
-        // traverse highlight fields
-        Map<String, OffsetResponse> offsetResponseMap = new HashMap<>();
-        for (Map.Entry<String, HighlightField> entry : highlightFields.entrySet()) {
-            String fieldName = entry.getKey();
-            HighlightField highlightField = entry.getValue();
-            OffsetResponse offsetResponse = null;
-            // extract info and concat all fragments
-            for (Text fragment : highlightField.fragments()) {
-                OffsetResponse framgentOffsetResponse = OffsetResponse.fromString(fragment.string());
-                if (offsetResponse == null) offsetResponse = framgentOffsetResponse;
-                offsetResponse = offsetResponse.union(framgentOffsetResponse);
-            }
-            offsetResponseMap.put(fieldName, offsetResponse);
-        }
-        return offsetResponseMap.get("source_code");
-    }
-
-    /**
      * Get user from SecurityContextHolder
      */
+    @Nullable
     private static UserImpl getUserFromContext() {
         Authentication authentication = SecurityContextHolder.getContext()
                                                              .getAuthentication();
-        return (UserImpl) authentication.getPrincipal();
+        if (authentication.getPrincipal() instanceof UserImpl) return (UserImpl) authentication.getPrincipal();
+        return null;
     }
 
     private static List<HighlightWordMatchDTO> extractTermVectorsResponse(MultiTermVectorsResponse response) {
