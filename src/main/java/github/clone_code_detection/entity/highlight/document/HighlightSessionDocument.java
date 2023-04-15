@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.sql.Time;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.UUID;
 
@@ -35,7 +36,7 @@ public class HighlightSessionDocument {
 
     @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
     @JoinColumn(name = "session_id", referencedColumnName = "id")
-    private Collection<HighlightSingleDocument> matches;
+    private Collection<HighlightSingleDocument> matches = new ArrayList<>();
 
     public interface HighlightSessionProjection {
         UUID getId();

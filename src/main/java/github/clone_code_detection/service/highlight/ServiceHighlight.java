@@ -4,6 +4,7 @@ import github.clone_code_detection.entity.authenication.UserImpl;
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.highlight.document.HighlightSessionDocument;
 import github.clone_code_detection.entity.highlight.document.HighlightSingleDocument;
+import github.clone_code_detection.entity.highlight.document.HighlightSingleTargetMatchDocument;
 import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
 import github.clone_code_detection.entity.highlight.report.HighlightSingleMatchDTO;
 import github.clone_code_detection.entity.highlight.report.HighlightWordMatchDTO;
@@ -61,22 +62,13 @@ public class ServiceHighlight {
         this.repoFileDocument = repoFileDocument;
     }
 
-    @Deprecated
-    @Transactional
-    public HighlightSingleMatchDTO getSingleMatchById(String uuid) {
-        HighlightSingleDocument singleDocument = repoHighlightSingleMatchDocument.findById(
-                                                                                         UUID.fromString(uuid))
-                                                                                 .orElseThrow();
-        return HighlightSingleMatchDTO.fromHighlightSingleMatchDTO(singleDocument);
-    }
-
     @Transactional
     public HighlightSingleMatchDTO getSingleMatchByIdImproved(String uuid) {
         HighlightSingleDocument singleDocument = repoHighlightSingleMatchDocument.findById(
                                                                                          UUID.fromString(uuid))
                                                                                  .orElseThrow();
         FileDocument source = singleDocument.getSource();
-        FileDocument target = singleDocument.getTarget();
+        FileDocument target = null; // singleDocument.getTarget();
         MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(
                 source, target);
         List<HighlightWordMatchDTO> highlightWordMatchDTOS = extractTermVectorsResponse(multiTermVectors);
@@ -94,8 +86,8 @@ public class ServiceHighlight {
         List<HighlightSingleDocument> hits = new ArrayList<>();
         for (FileDocument sourceDocument : sourceDocuments) {
             // for each document, get highlight request
-            List<HighlightSingleDocument> highlightSingleDocument = extractSingleDocument(sourceDocument);
-            hits.addAll(highlightSingleDocument);
+            HighlightSingleDocument highlightSingleDocument = extractSingleDocument(sourceDocument);
+            hits.add(highlightSingleDocument);
         }
         sessionBuilder.matches(hits);
         HighlightSessionDocument highlightSessionDocument = sessionBuilder.build();
@@ -115,7 +107,7 @@ public class ServiceHighlight {
     /**
      * For each file, query with highlight enabled
      */
-    private List<HighlightSingleDocument> extractSingleDocument(FileDocument source) {
+    private HighlightSingleDocument extractSingleDocument(FileDocument source) {
         QueryInstruction queryInstruction = QueryInstruction.builder()
                                                             .queryDocument(source)
                                                             .includeHighlight(true)
@@ -135,22 +127,26 @@ public class ServiceHighlight {
     /**
      * Extract match fields from es search response
      */
-    private List<HighlightSingleDocument> parseResponse(FileDocument source, SearchResponse search) {
-        List<HighlightSingleDocument> res = new ArrayList<>();
+    private HighlightSingleDocument parseResponse(FileDocument source, SearchResponse search) {
+        HighlightSingleDocument.HighlightSingleDocumentBuilder builder = HighlightSingleDocument.builder();
         // get hits
         // TODO (bug)
         List<FileDocument> all = repoFileDocument.findAll();
+        Collection<HighlightSingleTargetMatchDocument> matches = new ArrayList<>();
         for (SearchHit hit : search.getHits()) {
             String id = hit.getId();
             log.info("Match id: {}", id);
             Optional<FileDocument> fileDocument = repoFileDocument.findById(UUID.fromString(id));
             if (fileDocument.isEmpty()) continue;
-            res.add(HighlightSingleDocument.builder()
-                                           .source(source)
-                                           .target(fileDocument.get())
-                                           .build());
+            HighlightSingleTargetMatchDocument singleMatch = HighlightSingleTargetMatchDocument.builder()
+                                                                                               .score(hit.getScore())
+                                                                                               .target(fileDocument.get())
+                                                                                               .build();
+            matches.add(singleMatch);
         }
-        return res;
+        return builder.source(source)
+                      .matches(matches)
+                      .build();
     }
 
     /**

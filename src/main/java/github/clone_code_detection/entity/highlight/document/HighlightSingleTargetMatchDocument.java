@@ -1,5 +1,7 @@
 package github.clone_code_detection.entity.highlight.document;
 
+
+import github.clone_code_detection.entity.fs.FileDocument;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,16 +16,17 @@ import java.util.UUID;
 @Data
 
 @Entity
-@Table(name = "highlight_single_document_match", schema = "highlight")
-public class HighlightMatchDocument {
+@Table(name = "highlight_single_target_match", schema = "highlight")
+public class HighlightSingleTargetMatchDocument {
     @Id
     @Column(name = "id", columnDefinition = "uuid")
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "start_offset")
-    private Integer start;
+    @ManyToOne(optional = false, fetch = FetchType.EAGER)
+    @JoinColumn(name = "target_file_id")
+    private FileDocument target;
 
-    @Column(name = "end_offset")
-    private Integer end;
+    @Column(name = "score")
+    private Float score;
 }

@@ -8,6 +8,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.UUID;
 
 @Builder
@@ -24,10 +26,10 @@ public class HighlightSingleDocument {
     private UUID id;
 
     @OneToOne(cascade = {CascadeType.PERSIST})
-    @JoinColumn(name = "source_id", referencedColumnName = "id")
+    @JoinColumn(name = "source_file_id", referencedColumnName = "id")
     private FileDocument source;
 
-    @OneToOne(cascade = {CascadeType.PERSIST})
-    @JoinColumn(name = "target_id", referencedColumnName = "id")
-    private FileDocument target;
+    @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
+    @JoinColumn(name = "single_document_id", referencedColumnName = "id")
+    private Collection<HighlightSingleTargetMatchDocument> matches = new ArrayList<>();
 }
