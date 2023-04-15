@@ -6,15 +6,14 @@ import github.clone_code_detection.entity.highlight.document.HighlightSessionDoc
 import github.clone_code_detection.entity.highlight.document.HighlightSingleDocument;
 import github.clone_code_detection.entity.highlight.document.HighlightSingleTargetMatchDocument;
 import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
-import github.clone_code_detection.entity.highlight.report.HighlightSingleMatchDTO;
+import github.clone_code_detection.entity.highlight.report.HighlightSingleSourceDTO;
+import github.clone_code_detection.entity.highlight.report.HighlightSingleTargetMatchDTO;
 import github.clone_code_detection.entity.highlight.report.HighlightWordMatchDTO;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.entity.query.QueryInstruction;
 import github.clone_code_detection.exceptions.highlight.ElasticsearchQueryException;
-import github.clone_code_detection.repo.RepoElasticsearchQuery;
-import github.clone_code_detection.repo.RepoFileDocument;
-import github.clone_code_detection.repo.RepoHighlightSessionDocument;
-import github.clone_code_detection.repo.RepoHighlightSingleMatchDocument;
+import github.clone_code_detection.exceptions.highlight.ResourceNotFoundException;
+import github.clone_code_detection.repo.*;
 import github.clone_code_detection.service.index.ServiceIndex;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +46,7 @@ public class ServiceHighlight {
     private final RepoElasticsearchQuery repoElasticsearchQuery;
     private final RepoHighlightSessionDocument repoHighlightSessionDocument;
     private final RepoHighlightSingleMatchDocument repoHighlightSingleMatchDocument;
+    private final RepoHighlightSingleTargetMatchDocument repoHighlightSingleTargetMatchDocument;
     private final RepoFileDocument repoFileDocument;
 
     @Autowired
@@ -54,29 +54,44 @@ public class ServiceHighlight {
                             RepoElasticsearchQuery repoElasticsearchQuery,
                             RepoHighlightSessionDocument repoHighlightSessionDocument,
                             RepoHighlightSingleMatchDocument repoHighlightSingleMatchDocument,
-                            RepoFileDocument repoFileDocument) {
+                            RepoHighlightSingleTargetMatchDocument repoHighlightSingleTargetMatchDocument, RepoFileDocument repoFileDocument) {
         this.serviceIndex = serviceIndex;
         this.repoElasticsearchQuery = repoElasticsearchQuery;
         this.repoHighlightSessionDocument = repoHighlightSessionDocument;
         this.repoHighlightSingleMatchDocument = repoHighlightSingleMatchDocument;
+        this.repoHighlightSingleTargetMatchDocument = repoHighlightSingleTargetMatchDocument;
         this.repoFileDocument = repoFileDocument;
     }
 
     @Transactional
-    public HighlightSingleMatchDTO getSingleMatchByIdImproved(String uuid) {
+    public HighlightSingleSourceDTO getSingleSourceMatchById(String uuid) {
         HighlightSingleDocument singleDocument = repoHighlightSingleMatchDocument.findById(
                                                                                          UUID.fromString(uuid))
                                                                                  .orElseThrow();
-        FileDocument source = singleDocument.getSource();
-        FileDocument target = null; // singleDocument.getTarget();
+        return HighlightSingleSourceDTO.from(singleDocument);
+    }
+
+    @Transactional
+    public HighlightSingleTargetMatchDTO getSingleTargetMatchById(String uuid) {
+        HighlightSingleTargetMatchDocument singleDocument = repoHighlightSingleTargetMatchDocument.findById(
+                                                                                                          UUID.fromString(uuid))
+                                                                                                  .orElseThrow();
+        FileDocument source = singleDocument.getSource()
+                                            .getSource();
+        FileDocument target = singleDocument.getTarget();
         MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(
                 source, target);
         List<HighlightWordMatchDTO> highlightWordMatchDTOS = extractTermVectorsResponse(multiTermVectors);
-        return HighlightSingleMatchDTO.builder()
-                                      .source(source.getContentAsString())
-                                      .target(target.getContentAsString())
-                                      .matches(highlightWordMatchDTOS)
-                                      .build();
+        return HighlightSingleTargetMatchDTO.from(singleDocument, highlightWordMatchDTOS);
+    }
+
+    @Transactional
+    public HighlightSessionReportDTO getHighlightSessionById(String uuid) {
+        Optional<HighlightSessionDocument> sessionDocumentById = repoHighlightSessionDocument.findById(
+                UUID.fromString(uuid));
+        HighlightSessionDocument resource = sessionDocumentById.orElseThrow(
+                () -> new ResourceNotFoundException("Resource with uuid not found"));
+        return HighlightSessionReportDTO.from(resource);
     }
 
     @Transactional

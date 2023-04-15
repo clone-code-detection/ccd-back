@@ -29,7 +29,6 @@ public class HighlightSingleDocument {
     @JoinColumn(name = "source_file_id", referencedColumnName = "id")
     private FileDocument source;
 
-    @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
-    @JoinColumn(name = "single_document_id", referencedColumnName = "id")
+    @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER, mappedBy = "source")
     private Collection<HighlightSingleTargetMatchDocument> matches = new ArrayList<>();
 }

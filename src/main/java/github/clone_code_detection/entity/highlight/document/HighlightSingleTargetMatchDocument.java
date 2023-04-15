@@ -29,4 +29,8 @@ public class HighlightSingleTargetMatchDocument {
 
     @Column(name = "score")
     private Float score;
+
+    @ManyToOne
+    @JoinColumn(name = "single_document_id")
+    private HighlightSingleDocument source;
 }
