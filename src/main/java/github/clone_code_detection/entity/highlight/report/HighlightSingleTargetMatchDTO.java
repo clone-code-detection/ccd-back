@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.UUID;
+import java.util.function.Function;
 
 @Builder
 @Data
@@ -36,5 +37,11 @@ public class HighlightSingleTargetMatchDTO {
                                                                               HighlightSingleTargetMatchDTO.class);
         targetMatchDTO.matches = matches;
         return targetMatchDTO;
+    }
+
+    public static HighlightSingleTargetMatchDTO from(HighlightSingleTargetMatchDocument document,
+                                                     Function<HighlightSingleTargetMatchDocument, Collection<HighlightWordMatchDTO>> resolver) {
+        Collection<HighlightWordMatchDTO> highlightWordMatchDTOS = resolver.apply(document);
+        return from(document, highlightWordMatchDTOS);
     }
 }

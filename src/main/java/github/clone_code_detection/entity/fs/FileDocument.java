@@ -7,7 +7,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 @Builder
@@ -32,8 +31,4 @@ public class FileDocument {
     @ManyToOne(cascade = CascadeType.PERSIST, optional = false)
     @JoinColumn(name = "uid", referencedColumnName = "id")
     private UserImpl User;
-
-    public String getContentAsString() {
-        return new String(content, StandardCharsets.UTF_8);
-    }
 }

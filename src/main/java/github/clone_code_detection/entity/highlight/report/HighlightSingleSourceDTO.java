@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.Collection;
 import java.util.UUID;
+import java.util.function.Function;
 
 @Builder
 @Data
@@ -25,16 +26,17 @@ public class HighlightSingleSourceDTO {
     @JsonProperty("source")
     private FileDocument source;
 
-    @JsonProperty("match_ids")
-    private Collection<UUID> matchIds;
+    @JsonProperty("matches")
+    private Collection<HighlightSingleTargetMatchDTO> matches;
 
-    public static HighlightSingleSourceDTO from(HighlightSingleDocument document) {
+    public static HighlightSingleSourceDTO from(HighlightSingleDocument document,
+                                                Function<HighlightSingleTargetMatchDocument, Collection<HighlightWordMatchDTO>> resolver) {
         HighlightSingleSourceDTO singleSourceDTO = ModelMapperUtil.getMapper()
                                                                   .map(document, HighlightSingleSourceDTO.class);
-        singleSourceDTO.matchIds = document.getMatches()
-                                           .stream()
-                                           .map(HighlightSingleTargetMatchDocument::getId)
-                                           .toList();
+        singleSourceDTO.matches = document.getMatches()
+                                          .stream()
+                                          .map(target -> HighlightSingleTargetMatchDTO.from(target, resolver))
+                                          .toList();
         return singleSourceDTO;
     }
 }

@@ -3,7 +3,6 @@ package github.clone_code_detection.controller.highlight;
 import github.clone_code_detection.entity.highlight.document.HighlightSessionDocument;
 import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
 import github.clone_code_detection.entity.highlight.report.HighlightSingleSourceDTO;
-import github.clone_code_detection.entity.highlight.report.HighlightSingleTargetMatchDTO;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.service.highlight.ServiceHighlight;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,9 +47,10 @@ public class HighlightController {
         return serviceHighlightTest.getSingleSourceMatchById(id);
     }
 
-    @RequestMapping(path = "/get-match-target/{id}", method = RequestMethod.GET)
-    @ResponseStatus(HttpStatus.OK)
-    public HighlightSingleTargetMatchDTO getSingleTargetById(@PathVariable(name = "id") String id) {
-        return serviceHighlightTest.getSingleTargetMatchById(id);
-    }
+    /**
+     @RequestMapping(path = "/get-match-target/{id}", method = RequestMethod.GET)
+     @ResponseStatus(HttpStatus.OK) public HighlightSingleTargetMatchDTO getSingleTargetById(@PathVariable(name = "id") String id) {
+     return serviceHighlightTest.getSingleTargetMatchById(id);
+     }
+     **/
 }

@@ -16,6 +16,7 @@ import github.clone_code_detection.exceptions.highlight.ResourceNotFoundExceptio
 import github.clone_code_detection.repo.*;
 import github.clone_code_detection.service.index.ServiceIndex;
 import jakarta.validation.constraints.NotNull;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.core.MultiTermVectorsResponse;
@@ -68,21 +69,28 @@ public class ServiceHighlight {
         HighlightSingleDocument singleDocument = repoHighlightSingleMatchDocument.findById(
                                                                                          UUID.fromString(uuid))
                                                                                  .orElseThrow();
-        return HighlightSingleSourceDTO.from(singleDocument);
+        return HighlightSingleSourceDTO.from(singleDocument, this::getHighlightWordMatchDTOS);
     }
 
+    @Deprecated
     @Transactional
     public HighlightSingleTargetMatchDTO getSingleTargetMatchById(String uuid) {
         HighlightSingleTargetMatchDocument singleDocument = repoHighlightSingleTargetMatchDocument.findById(
                                                                                                           UUID.fromString(uuid))
                                                                                                   .orElseThrow();
+        List<HighlightWordMatchDTO> highlightWordMatchDTOS = getHighlightWordMatchDTOS(
+                singleDocument);
+        return HighlightSingleTargetMatchDTO.from(singleDocument, highlightWordMatchDTOS);
+    }
+
+    @NonNull
+    private List<HighlightWordMatchDTO> getHighlightWordMatchDTOS(HighlightSingleTargetMatchDocument singleDocument) {
         FileDocument source = singleDocument.getSource()
                                             .getSource();
         FileDocument target = singleDocument.getTarget();
         MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(
                 source, target);
-        List<HighlightWordMatchDTO> highlightWordMatchDTOS = extractTermVectorsResponse(multiTermVectors);
-        return HighlightSingleTargetMatchDTO.from(singleDocument, highlightWordMatchDTOS);
+        return extractTermVectorsResponse(multiTermVectors);
     }
 
     @Transactional
