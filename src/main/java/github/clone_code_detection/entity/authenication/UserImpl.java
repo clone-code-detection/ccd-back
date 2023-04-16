@@ -1,5 +1,6 @@
 package github.clone_code_detection.entity.authenication;
 
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,28 +13,44 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Builder
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+
+@Entity
+@Table(name = "user", schema = "authen")
 public class UserImpl implements UserDetails {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private UUID id;
+
+    @Column(name = "username")
     private String username;
+
+    @Column(name = "password")
     private String password;
-    private String[] authorities = new String[0];
-    private String[] roles = new String[0];
+
+    @ManyToMany
+    @JoinTable(name = "relation_user_role", schema = "authen", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
+    private Collection<Role> roles;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        List<SimpleGrantedAuthority> grantedAuthorities = new ArrayList<>();
-        for (String authority : authorities) {
-            grantedAuthorities.add(new SimpleGrantedAuthority(authority));
+        List<String> authorities = new ArrayList<>();
+        for (Role role : roles) {
+            String roleName = "ROLE_" + role.getRole();
+            authorities.add(roleName);
+            for (Authority authority : role.getAuthorities()) {
+                String authorityName = authority.getAuthority();
+                authorities.add(authorityName);
+            }
         }
-        for (String role : roles) {
-            grantedAuthorities.add(new SimpleGrantedAuthority(role));
-        }
-        return grantedAuthorities;
+        return authorities.stream()
+                          .map(SimpleGrantedAuthority::new)
+                          .collect(Collectors.toList());
     }
 
     @Override

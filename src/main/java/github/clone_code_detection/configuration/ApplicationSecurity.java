@@ -31,6 +31,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
 import java.util.List;
 
 @Configuration
@@ -40,23 +41,13 @@ import java.util.List;
 @Profile("security")
 @Slf4j
 public class ApplicationSecurity {
-    /**
-     * @implNote Autowired to UserDetailsServiceImpl
-     */
-    private final UserDetailsService userDetailsService;
-
-    @Autowired
-    public ApplicationSecurity(UserDetailsService userDetailsService) {
-        this.userDetailsService = userDetailsService;
-    }
-
     @Bean
     public PasswordEncoder getPasswordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(PasswordEncoder passwordEncoder) {
+    public AuthenticationManager authenticationManager(PasswordEncoder passwordEncoder, UserDetailsService userDetailsService) {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder);
@@ -107,11 +98,11 @@ public class ApplicationSecurity {
         if (authException instanceof InsufficientAuthenticationException) {
             statusCode = HttpStatus.UNAUTHORIZED.value();
             problemDetail = ProblemDetailUtil.forTypeAndStatusAndDetail("undocumented", HttpStatus.UNAUTHORIZED,
-                                                                        authException.getMessage());
+                    authException.getMessage());
         } else {
             problemDetail = ProblemDetailUtil.forTypeAndStatusAndDetail("undocumented",
-                                                                        HttpStatus.INTERNAL_SERVER_ERROR,
-                                                                        authException.getMessage());
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    authException.getMessage());
         }
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setStatus(statusCode);
