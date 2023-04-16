@@ -145,8 +145,6 @@ public class ServiceHighlight {
     private HighlightSingleDocument parseResponse(FileDocument source, SearchResponse search) {
         HighlightSingleDocument.HighlightSingleDocumentBuilder builder = HighlightSingleDocument.builder();
         // get hits
-        // TODO (bug)
-        List<FileDocument> all = repoFileDocument.findAll();
         Collection<HighlightSingleTargetMatchDocument> matches = new ArrayList<>();
         for (SearchHit hit : search.getHits()) {
             String id = hit.getId();

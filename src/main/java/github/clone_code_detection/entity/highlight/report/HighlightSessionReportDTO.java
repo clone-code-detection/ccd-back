@@ -26,7 +26,7 @@ public class HighlightSessionReportDTO {
     private Time created;
 
     @JsonProperty("matches")
-    private Collection<UUID> reports;
+    private Collection<HighlightSingleDocumentDTO> reports;
 
     public static HighlightSessionReportDTO from(HighlightSessionDocument sessionDocument) {
         HighlightSessionReportDTO sessionReportDTO = ModelMapperUtil.getMapper()
@@ -34,8 +34,31 @@ public class HighlightSessionReportDTO {
                                                                             HighlightSessionReportDTO.class);
         sessionReportDTO.reports = sessionDocument.getMatches()
                                                   .stream()
-                                                  .map(HighlightSingleDocument::getId)
+                                                  .map(HighlightSingleDocumentDTO::from)
                                                   .toList();
         return sessionReportDTO;
+    }
+
+    @Data
+    @Builder
+
+    @AllArgsConstructor
+    @NoArgsConstructor
+    private static class HighlightSingleDocumentDTO {
+        private UUID id;
+        @JsonProperty("file_name")
+        private String fileName;
+        @JsonProperty("total_matches")
+        private Integer totalMatches;
+
+        public static HighlightSingleDocumentDTO from(HighlightSingleDocument document) {
+            return HighlightSingleDocumentDTO.builder()
+                                             .fileName(document.getSource()
+                                                               .getFileName())
+                                             .id(document.getId())
+                                             .totalMatches(document.getMatches()
+                                                                   .size())
+                                             .build();
+        }
     }
 }
