@@ -154,6 +154,9 @@ public class ServiceHighlight {
         HighlightSingleDocument.HighlightSingleDocumentBuilder builder = HighlightSingleDocument.builder();
         // get hits
         Collection<HighlightSingleTargetMatchDocument> matches = new ArrayList<>();
+        HighlightSingleDocument highlightSingleDocument = builder.source(source)
+                                                                 .matches(matches)
+                                                                 .build();
         for (SearchHit hit : search.getHits()) {
             String id = hit.getId();
             log.info("Match id: {}", id);
@@ -161,20 +164,19 @@ public class ServiceHighlight {
             if (fileDocument.isEmpty()) continue;
             HighlightSingleTargetMatchDocument singleMatch = HighlightSingleTargetMatchDocument.builder()
                                                                                                .score(hit.getScore())
+                                                                                               .source(highlightSingleDocument)
                                                                                                .target(fileDocument.get())
                                                                                                .build();
             matches.add(singleMatch);
         }
-        return builder.source(source)
-                      .matches(matches)
-                      .build();
+        return highlightSingleDocument;
     }
 
     /**
      * Get user from SecurityContextHolder
      */
     @Nullable
-    private static UserImpl getUserFromContext() {
+    public static UserImpl getUserFromContext() {
         Authentication authentication = SecurityContextHolder.getContext()
                                                              .getAuthentication();
         if (authentication.getPrincipal() instanceof UserImpl) return (UserImpl) authentication.getPrincipal();

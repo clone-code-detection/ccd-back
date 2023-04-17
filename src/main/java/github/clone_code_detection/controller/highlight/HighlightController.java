@@ -22,7 +22,9 @@ public class HighlightController {
     @Autowired
     public HighlightController(ServiceHighlight serviceHighlightTest) {this.serviceHighlightTest = serviceHighlightTest;}
 
-    @RequestMapping(path = "/query", method = RequestMethod.POST, consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
+    @RequestMapping(path = "/query",
+            method = RequestMethod.POST,
+            consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
     public HighlightSessionReportDTO queryDocument(@RequestParam("source") MultipartFile source) {
 

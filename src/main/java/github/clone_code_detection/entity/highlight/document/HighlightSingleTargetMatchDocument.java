@@ -30,7 +30,7 @@ public class HighlightSingleTargetMatchDocument {
     @Column(name = "score")
     private Float score;
 
-    @ManyToOne
+    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
     @JoinColumn(name = "single_document_id")
     private HighlightSingleDocument source;
 }

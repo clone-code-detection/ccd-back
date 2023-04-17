@@ -84,8 +84,12 @@ public class ServiceIndex implements IServiceIndex {
     }
 
     public Collection<FileDocument> indexAllDocuments(IndexInstruction instruction) {
+//        UserImpl user = ServiceHighlight.getUserFromContext();
         // save to db
         Collection<FileDocument> files = instruction.getFiles();
+//        for (FileDocument file : files) {
+//            file.setUser(user);
+//        }
         files = repoFile.saveAll(files);
         //index
         Stream<Pair<String, ElasticsearchDocument>> stream = files.stream()

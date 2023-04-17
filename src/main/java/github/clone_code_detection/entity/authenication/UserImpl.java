@@ -24,7 +24,8 @@ import java.util.stream.Collectors;
 @Table(name = "user", schema = "authen")
 public class UserImpl implements UserDetails {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", columnDefinition = "uuid")
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(name = "username")

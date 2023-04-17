@@ -28,7 +28,7 @@ public class FileDocument {
     @Column(name = "file_name", nullable = false)
     private String fileName;
 
-    @ManyToOne(cascade = CascadeType.PERSIST, optional = false)
-    @JoinColumn(name = "uid", referencedColumnName = "id")
+    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, optional = true)
+    @JoinColumn(name = "uid")
     private UserImpl User;
 }
