@@ -34,7 +34,7 @@ public class ElasticsearchDocument {
     }
 
     public static ElasticsearchDocument fromFileDocument(FileDocument fileDocument) {
-        byte[] content = fileDocument.getContent();
+        byte[] content = fileDocument.getByteContent();
         String contentAsString = new String(content, StandardCharsets.UTF_8);
         String esId = String.valueOf(fileDocument.getId());
         return ElasticsearchDocument.builder()

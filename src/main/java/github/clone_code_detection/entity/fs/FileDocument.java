@@ -1,12 +1,11 @@
 package github.clone_code_detection.entity.fs;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import github.clone_code_detection.entity.authenication.UserImpl;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 @Builder
@@ -23,6 +22,7 @@ public class FileDocument {
     private UUID id;
 
     @Column(name = "content", nullable = false)
+    @Getter(AccessLevel.NONE)
     private byte[] content;
 
     @Column(name = "file_name", nullable = false)
@@ -31,4 +31,14 @@ public class FileDocument {
     @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, optional = true)
     @JoinColumn(name = "uid")
     private UserImpl User;
+
+
+    public String getContent() {
+        return new String(content, StandardCharsets.UTF_8);
+    }
+
+    @JsonIgnore
+    public byte[] getByteContent() {
+        return this.content;
+    }
 }

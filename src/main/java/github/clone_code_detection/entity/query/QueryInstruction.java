@@ -31,7 +31,7 @@ public class QueryInstruction {
     }
 
     public String getContent() {
-        byte[] bytes = queryDocument.getContent();
+        byte[] bytes = queryDocument.getByteContent();
         return new String(bytes, StandardCharsets.UTF_8);
     }
 }
