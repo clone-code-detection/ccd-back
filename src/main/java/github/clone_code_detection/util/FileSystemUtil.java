@@ -12,6 +12,11 @@ import java.util.List;
 import java.util.Objects;
 
 public class FileSystemUtil {
+
+    private FileSystemUtil() {
+        throw new IllegalStateException("FileSystemUtil is utility class");
+    }
+
     public static byte[] getContent(MultipartFile file) {
         try {
             return file.getInputStream()
@@ -38,6 +43,7 @@ public class FileSystemUtil {
             return List.of(FileDocument.builder()
                     .fileName(fileName)
                     .content(content)
+//                    .user(ServiceHighlight.getUserFromContext())
                     .build());
         }
     }
@@ -67,6 +73,7 @@ public class FileSystemUtil {
      * @return name of that file without extension
      */
     public static String getFileName(MultipartFile source) {
-        return Objects.requireNonNull(source.getOriginalFilename()).substring(0, source.getOriginalFilename().lastIndexOf("."));
+        String filename = Objects.requireNonNull(source.getOriginalFilename());
+        return filename.substring(0, filename.lastIndexOf("."));
     }
 }

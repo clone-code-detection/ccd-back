@@ -6,6 +6,9 @@ import org.springframework.http.ProblemDetail;
 import java.net.URI;
 
 public class ProblemDetailUtil {
+    private ProblemDetailUtil() {
+        throw new IllegalStateException("ProblemDetailUtil is utility class");
+    }
     public static ProblemDetail forTypeAndStatusAndDetail(String type, HttpStatus status, String detail) {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(status, detail);
         problemDetail.setType(URI.create(type));

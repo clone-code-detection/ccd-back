@@ -33,8 +33,7 @@ public class HighlightSingleTargetMatchDTO {
 
     public static HighlightSingleTargetMatchDTO from(HighlightSingleTargetMatchDocument document, Collection<HighlightWordMatchDTO> matches) {
         HighlightSingleTargetMatchDTO targetMatchDTO = ModelMapperUtil.getMapper()
-                                                                      .map(document,
-                                                                              HighlightSingleTargetMatchDTO.class);
+                                                                      .map(document, HighlightSingleTargetMatchDTO.class);
         targetMatchDTO.matches = matches;
         return targetMatchDTO;
     }

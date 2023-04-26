@@ -38,7 +38,7 @@ public class ServiceIndex implements IServiceIndex {
     @NonNull
     private static Pair<String, ElasticsearchDocument> getLangAndElasticsearchDoc(@Nonnull FileDocument fileDocument) {
         String index = LanguageUtil.getInstance()
-                                   .getIndexFromFileName(fileDocument.getFileName());
+                .getIndexFromFileName(fileDocument.getFileName());
         ElasticsearchDocument document = ElasticsearchDocument.fromFileDocument(fileDocument);
         return Pair.of(index, document);
     }
@@ -67,7 +67,7 @@ public class ServiceIndex implements IServiceIndex {
         files = repoFile.saveAll(files);
         //index
         Stream<Pair<String, ElasticsearchDocument>> stream = files.stream()
-                                                                  .map(ServiceIndex::getLangAndElasticsearchDoc);
+                .map(ServiceIndex::getLangAndElasticsearchDoc);
         try {
             BulkResponse bulkResponse = repoElasticsearchIndex.indexDocuments(stream);
             validateBulkResponse(bulkResponse);

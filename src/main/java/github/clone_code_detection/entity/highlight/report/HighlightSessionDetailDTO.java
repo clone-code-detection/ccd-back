@@ -59,11 +59,9 @@ public class HighlightSessionDetailDTO {
 
         public static HighlightSingleDocumentDTO from(HighlightSingleDocument document) {
             return HighlightSingleDocumentDTO.builder()
-                    .fileName(document.getSource()
-                            .getFileName())
+                    .fileName(document.getSource().getFileName())
                     .id(document.getId())
-                    .totalMatches(document.getMatches()
-                            .size())
+                    .totalMatches(document.getMatches().size())
                     .build();
         }
     }

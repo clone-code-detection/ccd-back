@@ -14,6 +14,10 @@ import java.util.zip.ZipInputStream;
 
 @Slf4j
 public class ZipUtil {
+    private ZipUtil() {
+        throw new IllegalStateException("ZipUtil is utility class");
+    }
+
     public static Collection<FileDocument> unzipAndGetContents(MultipartFile file) {
         ArrayList<FileDocument> contents = new ArrayList<>();
         try {
@@ -25,9 +29,10 @@ public class ZipUtil {
                     byteArrayOutputStream.reset();
                     zipInputStream.transferTo(byteArrayOutputStream);
                     FileDocument fileDocument = FileDocument.builder()
-                                                            .content(byteArrayOutputStream.toByteArray())
-                                                            .fileName(zipEntry.getName())
-                                                            .build();
+                            .content(byteArrayOutputStream.toByteArray())
+                            .fileName(zipEntry.getName())
+//                            .user(ServiceHighlight.getUserFromContext())
+                            .build();
                     contents.add(fileDocument);
                 }
                 zipEntry = zipInputStream.getNextEntry();
