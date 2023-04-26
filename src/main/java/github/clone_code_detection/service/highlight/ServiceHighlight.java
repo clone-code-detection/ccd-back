@@ -16,6 +16,7 @@ import github.clone_code_detection.exceptions.highlight.ResourceNotFoundExceptio
 import github.clone_code_detection.repo.*;
 import github.clone_code_detection.service.index.ServiceIndex;
 import github.clone_code_detection.util.FileSystemUtil;
+import github.clone_code_detection.util.LanguageUtil;
 import jakarta.validation.constraints.NotNull;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -108,6 +109,7 @@ public class ServiceHighlight {
         // Validate and extract file from source
         FileSystemUtil.validate(source);
         Collection<FileDocument> sourceDocuments = FileSystemUtil.extractDocuments(source);
+        // Highlight source documents
         HighlightSessionDocument.HighlightSessionDocumentBuilder sessionBuilder = HighlightSessionDocument.builder();
         List<HighlightSingleDocument> hits = new ArrayList<>();
         for (FileDocument sourceDocument : sourceDocuments) {
@@ -115,15 +117,18 @@ public class ServiceHighlight {
             HighlightSingleDocument highlightSingleDocument = extractSingleDocument(sourceDocument);
             hits.add(highlightSingleDocument);
         }
+        // Build highlight session
         sessionBuilder.matches(hits);
         HighlightSessionDocument highlightSessionDocument = sessionBuilder.build();
         highlightSessionDocument.setUser(getUserFromContext());
         highlightSessionDocument.setName(FileSystemUtil.getFileName(source));
+        highlightSessionDocument.setMainLanguage(LanguageUtil.getMainLanguageOfSingleDocuments(hits));
         highlightSessionDocument = repoHighlightSessionDocument.save(highlightSessionDocument);
 
         // Index the file into es
         sourceIndexInstruction.setFiles(sourceDocuments);
         serviceIndex.indexAllDocuments(sourceIndexInstruction);
+
         return HighlightSessionDetailDTO.from(highlightSessionDocument);
     }
 
@@ -166,7 +171,6 @@ public class ServiceHighlight {
                                                                  .build();
         for (SearchHit hit : search.getHits()) {
             String id = hit.getId();
-            log.info("Match id: {}", id);
             Optional<FileDocument> fileDocument = repoFileDocument.findById(UUID.fromString(id));
             if (fileDocument.isEmpty()) continue;
             HighlightSingleTargetMatchDocument singleMatch = HighlightSingleTargetMatchDocument.builder()
@@ -184,21 +188,17 @@ public class ServiceHighlight {
      */
     @Nullable
     public static UserImpl getUserFromContext() {
-        Authentication authentication = SecurityContextHolder.getContext()
-                                                             .getAuthentication();
-        if (authentication.getPrincipal() instanceof UserImpl) return (UserImpl) authentication.getPrincipal();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication.getPrincipal() instanceof UserImpl userImpl) return userImpl;
         return null;
     }
 
     private static List<HighlightWordMatchDTO> extractTermVectorsResponse(MultiTermVectorsResponse response) {
         List<HighlightWordMatchDTO> res = new ArrayList<>();
-        assert response.getTermVectorsResponses()
-                       .size() == 2;
+        assert response.getTermVectorsResponses().size() == 2;
 
-        TermVectorsResponse source = response.getTermVectorsResponses()
-                                             .get(0);
-        TermVectorsResponse target = response.getTermVectorsResponses()
-                                             .get(1);
+        TermVectorsResponse source = response.getTermVectorsResponses().get(0);
+        TermVectorsResponse target = response.getTermVectorsResponses().get(1);
         // traverse every document in query
         Map<String, List<Integer[]>> sourceMap = extractMatches(source);
         Map<String, List<Integer[]>> targetMap = extractMatches(target);
@@ -216,22 +216,27 @@ public class ServiceHighlight {
 
     private static Map<String, List<Integer[]>> extractMatches(TermVectorsResponse termVectorsResponse) {
         Map<String, List<Integer[]>> res = new HashMap<>();
-        for (TermVectorsResponse.TermVector termVector : termVectorsResponse.getTermVectorsList()) {
-            if (!termVector.getFieldName()
-                           .equals(SOURCE_CODE_FIELD)) continue;
-            for (TermVectorsResponse.TermVector.Term term : termVector.getTerms()) {
-                String termValue = term.getTerm();
-                var tokens = term.getTokens();
-                List<Integer[]> ls = new ArrayList<>();
-                for (TermVectorsResponse.TermVector.Token token : tokens) {
-                    Integer startOffset = token.getStartOffset();
-                    Integer endOffset = token.getEndOffset();
-                    ls.add(new Integer[]{startOffset, endOffset});
-                }
-                res.put(termValue, ls);
+        TermVectorsResponse.TermVector termVector = getTermVectorByFieldName(termVectorsResponse.getTermVectorsList(),SOURCE_CODE_FIELD );
+        if (termVector == null)
+            return res;
+        for (TermVectorsResponse.TermVector.Term term : termVector.getTerms()) {
+            String termValue = term.getTerm();
+            var tokens = term.getTokens();
+            List<Integer[]> ls = new ArrayList<>();
+            for (TermVectorsResponse.TermVector.Token token : tokens) {
+                Integer startOffset = token.getStartOffset();
+                Integer endOffset = token.getEndOffset();
+                ls.add(new Integer[]{startOffset, endOffset});
             }
-            break;
+            res.put(termValue, ls);
         }
         return res;
+    }
+    private static TermVectorsResponse.TermVector getTermVectorByFieldName(List<TermVectorsResponse.TermVector> termVectors, String fieldName) {
+        for (TermVectorsResponse.TermVector termVector : termVectors) {
+            if (termVector.getFieldName().equals(fieldName))
+                return termVector;
+        }
+        return null;
     }
 }

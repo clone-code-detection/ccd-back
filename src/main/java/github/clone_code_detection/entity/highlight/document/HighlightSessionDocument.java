@@ -1,5 +1,6 @@
 package github.clone_code_detection.entity.highlight.document;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import github.clone_code_detection.entity.authenication.UserImpl;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -13,10 +14,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.UUID;
 
+@Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Data
 
 @Entity
 @Table(name = "highlight_session", schema = "highlight")
@@ -34,6 +35,9 @@ public class HighlightSessionDocument {
     @Temporal(TemporalType.TIME)
     private Time created = Time.valueOf(LocalTime.now());
 
+    @Column(name = "main_language")
+    private String mainLanguage;
+
     @ManyToOne
     @JoinColumn(name = "user_id")
     private UserImpl user;
@@ -48,5 +52,7 @@ public class HighlightSessionDocument {
         String getName();
 
         Time getCreated();
+        @JsonProperty("main_language")
+        String getMainLanguage();
     }
 }

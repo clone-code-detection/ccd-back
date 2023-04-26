@@ -3,7 +3,6 @@ package github.clone_code_detection.entity.highlight.report;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import github.clone_code_detection.entity.highlight.document.HighlightSessionDocument;
 import github.clone_code_detection.entity.highlight.document.HighlightSingleDocument;
-import github.clone_code_detection.util.LanguageUtil;
 import github.clone_code_detection.util.ModelMapperUtil;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -43,7 +42,7 @@ public class HighlightSessionDetailDTO {
                 .stream()
                 .map(HighlightSingleDocumentDTO::from)
                 .toList();
-        sessionReportDTO.summary = HighlightSessionSummary.from(sessionDocument.getMatches());
+        sessionReportDTO.summary = HighlightSessionSummary.from(sessionDocument);
         return sessionReportDTO;
     }
 
@@ -81,13 +80,13 @@ public class HighlightSessionDetailDTO {
         @JsonProperty("total_match_files")
         private int totalMatchFiles;
 
-        public static HighlightSessionSummary from(Collection<HighlightSingleDocument> matches) {
+        public static HighlightSessionSummary from(HighlightSessionDocument document) {
             HighlightSessionSummary summary = HighlightSessionSummary.builder().build();
-            summary.setTotalFiles(matches.size());
-            summary.setMainLanguage(LanguageUtil.getMainLanguageOfSingleDocuments(matches));
+            summary.setTotalFiles(document.getMatches().size());
+            summary.setMainLanguage(document.getMainLanguage());
             // Get total unmatched files
-            for (HighlightSingleDocument match : matches) {
-                if (match.getMatches().size() > 0)
+            for (HighlightSingleDocument match : document.getMatches()) {
+                if (!match.getMatches().isEmpty())
                     summary.totalMatchFiles++;
             }
             return summary;

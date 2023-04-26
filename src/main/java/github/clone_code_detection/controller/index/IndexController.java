@@ -19,7 +19,7 @@ public class IndexController {
         this.serviceIndex = serviceIndex;
     }
 
-    @RequestMapping(path = "/zip", method = RequestMethod.POST, consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
+    @PostMapping(path = "/zip", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
     public Collection<FileDocument> index(IndexInstruction instruction, @RequestParam("file") MultipartFile file) {
         return serviceIndex.indexAllDocuments(file, instruction);

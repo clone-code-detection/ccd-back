@@ -5,7 +5,6 @@ import github.clone_code_detection.entity.authenication.UserImpl;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 @Builder
@@ -28,14 +27,9 @@ public class FileDocument {
     @Column(name = "file_name", nullable = false)
     private String fileName;
 
-    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, optional = true)
+    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinColumn(name = "uid")
-    private UserImpl User;
-
-
-    public String getContent() {
-        return new String(content, StandardCharsets.UTF_8);
-    }
+    private UserImpl user;
 
     @JsonIgnore
     public byte[] getByteContent() {
