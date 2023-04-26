@@ -5,7 +5,7 @@ import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.highlight.document.HighlightSessionDocument;
 import github.clone_code_detection.entity.highlight.document.HighlightSingleDocument;
 import github.clone_code_detection.entity.highlight.document.HighlightSingleTargetMatchDocument;
-import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
+import github.clone_code_detection.entity.highlight.report.HighlightSessionDetailDTO;
 import github.clone_code_detection.entity.highlight.report.HighlightSingleSourceDTO;
 import github.clone_code_detection.entity.highlight.report.HighlightSingleTargetMatchDTO;
 import github.clone_code_detection.entity.highlight.report.HighlightWordMatchDTO;
@@ -15,6 +15,7 @@ import github.clone_code_detection.exceptions.highlight.ElasticsearchQueryExcept
 import github.clone_code_detection.exceptions.highlight.ResourceNotFoundException;
 import github.clone_code_detection.repo.*;
 import github.clone_code_detection.service.index.ServiceIndex;
+import github.clone_code_detection.util.FileSystemUtil;
 import jakarta.validation.constraints.NotNull;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -94,17 +95,19 @@ public class ServiceHighlight {
     }
 
     @Transactional
-    public HighlightSessionReportDTO getHighlightSessionById(String uuid) {
+    public HighlightSessionDetailDTO getHighlightSessionById(String uuid) {
         Optional<HighlightSessionDocument> sessionDocumentById = repoHighlightSessionDocument.findById(
                 UUID.fromString(uuid));
         HighlightSessionDocument resource = sessionDocumentById.orElseThrow(
                 () -> new ResourceNotFoundException("Resource with uuid not found"));
-        return HighlightSessionReportDTO.from(resource);
+        return HighlightSessionDetailDTO.from(resource);
     }
 
     @Transactional
-    public HighlightSessionReportDTO highlight(@NotNull MultipartFile source, @Nonnull IndexInstruction sourceIndexInstruction) {
-        Collection<FileDocument> sourceDocuments = serviceIndex.indexAllDocuments(source, sourceIndexInstruction);
+    public HighlightSessionDetailDTO highlight(@NotNull MultipartFile source, @Nonnull IndexInstruction sourceIndexInstruction) {
+        // Validate and extract file from source
+        FileSystemUtil.validate(source);
+        Collection<FileDocument> sourceDocuments = FileSystemUtil.extractDocuments(source);
         HighlightSessionDocument.HighlightSessionDocumentBuilder sessionBuilder = HighlightSessionDocument.builder();
         List<HighlightSingleDocument> hits = new ArrayList<>();
         for (FileDocument sourceDocument : sourceDocuments) {
@@ -114,10 +117,14 @@ public class ServiceHighlight {
         }
         sessionBuilder.matches(hits);
         HighlightSessionDocument highlightSessionDocument = sessionBuilder.build();
-        log.info("[Highlight service] highlight report: {}", highlightSessionDocument);
         highlightSessionDocument.setUser(getUserFromContext());
+        highlightSessionDocument.setName(FileSystemUtil.getFileName(source));
         highlightSessionDocument = repoHighlightSessionDocument.save(highlightSessionDocument);
-        return HighlightSessionReportDTO.from(highlightSessionDocument);
+
+        // Index the file into es
+        sourceIndexInstruction.setFiles(sourceDocuments);
+        serviceIndex.indexAllDocuments(sourceIndexInstruction);
+        return HighlightSessionDetailDTO.from(highlightSessionDocument);
     }
 
     @Transactional

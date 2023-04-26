@@ -26,6 +26,10 @@ public class HighlightSessionDocument {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "name")
+    private String name;
+
+    @Builder.Default
     @Column(name = "created_time")
     @Temporal(TemporalType.TIME)
     private Time created = Time.valueOf(LocalTime.now());
@@ -40,6 +44,8 @@ public class HighlightSessionDocument {
 
     public interface HighlightSessionProjection {
         UUID getId();
+
+        String getName();
 
         Time getCreated();
     }

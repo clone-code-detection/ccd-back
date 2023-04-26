@@ -1,20 +1,18 @@
--- we don't know how to generate root <with-no-name> (class Root) :(
-create table authen."user"
+create table if not exists authen."user"
 (
-    username    varchar(255)
+    username varchar(255)
         constraint user_pk2
             unique,
-    password    varchar(64),
-    id          uuid default gen_random_uuid() not null
+    password varchar(64),
+    id       uuid default gen_random_uuid() not null
         constraint user_pk
-            primary key,
-    authorities varchar(255)[]
+            primary key
 );
 
 alter table authen."user"
     owner to postgres;
 
-create table authen.role
+create table if not exists authen.role
 (
     id   uuid default gen_random_uuid() not null
         constraint role_pk
@@ -27,7 +25,7 @@ create table authen.role
 alter table authen.role
     owner to postgres;
 
-create table authen.authority
+create table if not exists authen.authority
 (
     id   uuid default gen_random_uuid() not null
         constraint authorities_pk
@@ -40,7 +38,7 @@ create table authen.authority
 alter table authen.authority
     owner to postgres;
 
-create table authen.relation_role_authority
+create table if not exists authen.relation_role_authority
 (
     role_id      uuid not null
         constraint relation_role_authority_role_id_fk
@@ -55,7 +53,7 @@ create table authen.relation_role_authority
 alter table authen.relation_role_authority
     owner to postgres;
 
-create table authen.relation_user_role
+create table if not exists authen.relation_user_role
 (
     user_id uuid not null
         constraint fkhyqhmdqwhaix7yo4vxfn0ockb
@@ -70,39 +68,7 @@ create table authen.relation_user_role
 alter table authen.relation_user_role
     owner to postgres;
 
-create table public.highlight_report
-(
-    id           serial
-        primary key,
-    assigner     varchar(255) not null,
-    author       varchar(255) not null,
-    course       varchar(255) not null,
-    created_at   timestamp(6) not null,
-    organization varchar(255) not null,
-    project      varchar(255) not null,
-    semester     integer      not null,
-    updated_at   timestamp(6) not null,
-    uri          varchar(255) not null,
-    year         integer      not null,
-    constraint report_unique_id
-        unique (organization, year, semester, course, assigner, project, author)
-);
-
-alter table public.highlight_report
-    owner to postgres;
-
-create table public.highlight_report_extra_data
-(
-    highlight_report_id integer not null
-        constraint fknxyh0059w61jrv4q6ihex1vw5
-            references public.highlight_report,
-    extra_data          varchar(255)
-);
-
-alter table public.highlight_report_extra_data
-    owner to postgres;
-
-create table file.file
+create table if not exists file.file
 (
     id        uuid default gen_random_uuid() not null
         constraint file_pk
@@ -117,7 +83,7 @@ create table file.file
 alter table file.file
     owner to postgres;
 
-create table file.file_meta
+create table if not exists file.file_meta
 (
     created time not null,
     id      uuid not null
@@ -130,7 +96,7 @@ create table file.file_meta
 alter table file.file_meta
     owner to postgres;
 
-create table highlight.highlight_session
+create table if not exists highlight.highlight_session
 (
     id           uuid default gen_random_uuid() not null
         constraint highlight_session_pk
@@ -138,24 +104,22 @@ create table highlight.highlight_session
     created_time time default now(),
     user_id      uuid
         constraint highlight_session_user_id_fk
-            references authen."user"
+            references authen."user",
+    name         varchar(255)
 );
 
 alter table highlight.highlight_session
     owner to postgres;
 
-create table highlight.highlight_single_document
+create table if not exists highlight.highlight_single_document
 (
-    source_id  uuid                           not null
+    source_file_id uuid                           not null
         constraint highlight_single_document_file_id_fk2
             references file.file,
-    target_id  uuid                           not null
-        constraint highlight_single_document_file_id_fk
-            references file.file,
-    id         uuid default gen_random_uuid() not null
+    id             uuid default gen_random_uuid() not null
         constraint highlight_single_document_pk
             primary key,
-    session_id uuid
+    session_id     uuid
         constraint highlight_single_document_highlight_session_id_fk
             references highlight.highlight_session
 );
@@ -163,24 +127,24 @@ create table highlight.highlight_single_document
 alter table highlight.highlight_single_document
     owner to postgres;
 
-create table highlight.highlight_single_document_match
+create table if not exists highlight.highlight_single_target_match
 (
-    single_document_id uuid
-        constraint highlight_single_document_matches_file_id_fk
-            references highlight.highlight_single_document,
-    start_offset       integer not null,
-    end_offset         integer not null,
-    id                 uuid    not null
-        constraint highlight_single_document_matches_pk
+    id                 uuid default gen_random_uuid() not null
+        constraint highlight_single_target_match_pk
             primary key,
-    constraint check_name
-        check (start < "end")
+    single_document_id uuid
+        constraint highlight_single_target_match_highlight_single_document_id_fk
+            references highlight.highlight_single_document,
+    target_file_id     uuid                           not null
+        constraint highlight_single_target_match_file_id_fk
+            references file.file,
+    score              double precision
 );
 
-alter table highlight.highlight_single_document_match
+alter table highlight.highlight_single_target_match
     owner to postgres;
 
-create function authen.get_authorities(uuid) returns text[]
+create or replace function authen.get_authorities(uuid) returns text[]
     strict
     language sql
 as

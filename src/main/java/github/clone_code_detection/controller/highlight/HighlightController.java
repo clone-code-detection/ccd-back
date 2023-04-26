@@ -1,7 +1,7 @@
 package github.clone_code_detection.controller.highlight;
 
 import github.clone_code_detection.entity.highlight.document.HighlightSessionDocument;
-import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
+import github.clone_code_detection.entity.highlight.report.HighlightSessionDetailDTO;
 import github.clone_code_detection.entity.highlight.report.HighlightSingleSourceDTO;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.service.highlight.ServiceHighlight;
@@ -26,14 +26,13 @@ public class HighlightController {
             method = RequestMethod.POST,
             consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
-    public HighlightSessionReportDTO queryDocument(@RequestParam("source") MultipartFile source) {
-
+    public HighlightSessionDetailDTO queryDocument(@RequestParam("source") MultipartFile source) {
         return serviceHighlightTest.highlight(source, IndexInstruction.getDefaultInstruction());
     }
 
     @RequestMapping(path = "/get-session-by-id/{id}", method = RequestMethod.GET)
     @ResponseStatus(HttpStatus.OK)
-    public HighlightSessionReportDTO getSessionById(@PathVariable(name = "id") String id) {
+    public HighlightSessionDetailDTO getSessionById(@PathVariable(name = "id") String id) {
         return serviceHighlightTest.getHighlightSessionById(id);
     }
 
@@ -48,11 +47,4 @@ public class HighlightController {
     public HighlightSingleSourceDTO getSingeSourceById(@PathVariable(name = "id") String id) {
         return serviceHighlightTest.getSingleSourceMatchById(id);
     }
-
-    /**
-     @RequestMapping(path = "/get-match-target/{id}", method = RequestMethod.GET)
-     @ResponseStatus(HttpStatus.OK) public HighlightSingleTargetMatchDTO getSingleTargetById(@PathVariable(name = "id") String id) {
-     return serviceHighlightTest.getSingleTargetMatchById(id);
-     }
-     **/
 }
