@@ -22,8 +22,8 @@ public class FileSystemUtil {
     }
 
     /**
-     * @param file
-     * @return
+     * @param file the source code file or zip file
+     * @return Collection of file document extracted from file
      * @implNote extract from zip if exists or single-content-collection
      */
     public static Collection<FileDocument> extractDocuments(MultipartFile file) {
