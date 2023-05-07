@@ -25,16 +25,13 @@ public class ZipUtil {
             ZipEntry zipEntry = zipInputStream.getNextEntry();
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             while (zipEntry != null) {
-                if (!zipEntry.isDirectory()) {
-                    byteArrayOutputStream.reset();
-                    zipInputStream.transferTo(byteArrayOutputStream);
-                    FileDocument fileDocument = FileDocument.builder()
-                            .content(byteArrayOutputStream.toByteArray())
-                            .fileName(zipEntry.getName())
-//                            .user(ServiceHighlight.getUserFromContext())
-                            .build();
-                    contents.add(fileDocument);
-                }
+                byteArrayOutputStream.reset();
+                zipInputStream.transferTo(byteArrayOutputStream);
+                FileDocument fileDocument = FileDocument.builder()
+                                                        .content(byteArrayOutputStream.toByteArray())
+                                                        .fileName(zipEntry.getName())
+                                                        .build();
+                contents.add(fileDocument);
                 zipEntry = zipInputStream.getNextEntry();
             }
             zipInputStream.closeEntry();
