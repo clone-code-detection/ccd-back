@@ -15,35 +15,35 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/highlight")
 public class HighlightController {
-    private final ServiceHighlight serviceHighlightTest;
+    private final ServiceHighlight serviceHighlight;
 
     @Autowired
     public HighlightController(ServiceHighlight serviceHighlightTest) {
-        this.serviceHighlightTest = serviceHighlightTest;
+        this.serviceHighlight = serviceHighlightTest;
     }
 
     @PostMapping(path = "/query",
             consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
     public HighlightSessionDetailDTO queryDocument(@RequestParam("source") MultipartFile source) {
-        return serviceHighlightTest.highlight(source, IndexInstruction.getDefaultInstruction());
+        return serviceHighlight.highlight(source, IndexInstruction.getDefaultInstruction());
     }
 
     @GetMapping(path = "/get-session-by-id/{id}")
     @ResponseStatus(HttpStatus.OK)
     public HighlightSessionDetailDTO getSessionById(@PathVariable(name = "id") String id) {
-        return serviceHighlightTest.getHighlightSessionById(id);
+        return serviceHighlight.getHighlightSessionById(id);
     }
 
     @GetMapping(path = "/all-session")
     @ResponseStatus(HttpStatus.OK)
     public HighlightSessionOverviewDTO getAllSession() {
-        return HighlightSessionOverviewDTO.from(serviceHighlightTest.getAllSession());
+        return HighlightSessionOverviewDTO.from(serviceHighlight.getAllSession());
     }
 
     @GetMapping(path = "/get-match-source/{id}")
     @ResponseStatus(HttpStatus.OK)
     public HighlightSingleSourceDTO getSingeSourceById(@PathVariable(name = "id") String id) {
-        return serviceHighlightTest.getSingleSourceMatchById(id);
+        return serviceHighlight.getSingleSourceMatchById(id);
     }
 }
