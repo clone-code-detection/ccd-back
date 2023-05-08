@@ -2,9 +2,12 @@ package github.clone_code_detection.controller.highlight;
 
 import github.clone_code_detection.entity.highlight.report.HighlightSessionDetailDTO;
 import github.clone_code_detection.entity.highlight.report.HighlightSessionOverviewDTO;
+import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
 import github.clone_code_detection.entity.highlight.report.HighlightSingleSourceDTO;
+import github.clone_code_detection.entity.highlight.request.HighlightSessionRequest;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.service.highlight.ServiceHighlight;
+import github.clone_code_detection.util.FileSystemUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -45,5 +48,19 @@ public class HighlightController {
     @ResponseStatus(HttpStatus.OK)
     public HighlightSingleSourceDTO getSingeSourceById(@PathVariable(name = "id") String id) {
         return serviceHighlight.getSingleSourceMatchById(id);
+    }
+
+    @PostMapping(path = "/detect",
+            consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
+    @ResponseStatus(HttpStatus.OK)
+    public HighlightSessionReportDTO createHighlightSession(@RequestParam("source") MultipartFile source) {
+        // Validate and extract file from source
+        FileSystemUtil.validate(source);
+        // Create highlight session request
+        HighlightSessionRequest request = HighlightSessionRequest.builder()
+                .fileName(FileSystemUtil.getFileName(source))
+                .sources(FileSystemUtil.extractDocuments(source))
+                .build();
+        return serviceHighlight.createHighlightSession(request, IndexInstruction.getDefaultInstruction());
     }
 }

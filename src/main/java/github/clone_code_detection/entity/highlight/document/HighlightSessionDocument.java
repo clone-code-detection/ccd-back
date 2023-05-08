@@ -46,6 +46,11 @@ public class HighlightSessionDocument {
     @JoinColumn(name = "session_id", referencedColumnName = "id")
     private Collection<HighlightSingleDocument> matches = new ArrayList<>();
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    @Builder.Default
+    private HighlightSessionStatus status = HighlightSessionStatus.PENDING;
+
     public interface HighlightSessionProjection {
         UUID getId();
 

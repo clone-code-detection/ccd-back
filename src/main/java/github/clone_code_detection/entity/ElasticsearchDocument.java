@@ -10,7 +10,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 @Data
@@ -34,8 +33,7 @@ public class ElasticsearchDocument {
     }
 
     public static ElasticsearchDocument fromFileDocument(FileDocument fileDocument) {
-        byte[] content = fileDocument.getByteContent();
-        String contentAsString = new String(content, StandardCharsets.UTF_8);
+        String contentAsString = fileDocument.getContentAsString();
         String esId = String.valueOf(fileDocument.getId());
         return ElasticsearchDocument.builder()
                                     .sourceCode(contentAsString)

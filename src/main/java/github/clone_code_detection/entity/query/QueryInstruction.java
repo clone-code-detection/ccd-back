@@ -5,7 +5,6 @@ import github.clone_code_detection.util.LanguageUtil;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 @Builder
@@ -31,7 +30,6 @@ public class QueryInstruction {
     }
 
     public String getContent() {
-        byte[] bytes = queryDocument.getByteContent();
-        return new String(bytes, StandardCharsets.UTF_8);
+       return queryDocument.getContentAsString();
     }
 }

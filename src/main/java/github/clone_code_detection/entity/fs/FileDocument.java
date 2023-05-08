@@ -30,18 +30,21 @@ public class FileDocument {
     @Column(name = "file_name", nullable = false)
     private String fileName;
 
-    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
-    @JoinColumn(name = "uid")
+    @ManyToOne
+    @JoinColumn(name = "user_id")
     @JsonIgnore
     private UserImpl user;
 
+    @Builder.Default
+    @Column(name = "author", nullable = false)
+    private String author = "anonymous";
+
     @JsonIgnore
-    public byte[] getByteContent() {
-        return this.content;
-    }
+    @Column(name = "session_id")
+    private UUID sessionId;
 
     @JsonProperty("content")
-    public String getContent() {
+    public String getContentAsString() {
         return new String(this.content, StandardCharsets.UTF_8);
     }
 }
