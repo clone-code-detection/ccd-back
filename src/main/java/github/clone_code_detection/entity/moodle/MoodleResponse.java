@@ -6,7 +6,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.joda.time.DateTime;
 
 import java.util.Collection;
 
@@ -20,10 +19,6 @@ public class MoodleResponse {
 
     @JsonProperty(value = "data")
     private Collection<MoodleFolder> data;
-
-    @JsonProperty(value = "created_time")
-    @Builder.Default
-    private DateTime createdTime = DateTime.now();
 
     @Data
     @Builder

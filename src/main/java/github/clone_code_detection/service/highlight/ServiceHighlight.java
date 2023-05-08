@@ -23,7 +23,6 @@ import github.clone_code_detection.service.index.ServiceIndex;
 import github.clone_code_detection.util.FileSystemUtil;
 import github.clone_code_detection.util.LanguageUtil;
 import jakarta.validation.constraints.NotNull;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -181,8 +180,6 @@ public class ServiceHighlight {
         highlightSessionDocument = repoHighlightSessionDocument.save(highlightSessionDocument);
 
         // Save source files before indexing
-        final UUID sessionId = highlightSessionDocument.getId();
-        sourceDocuments.forEach(sourceDocument -> sourceDocument.setSessionId(sessionId));
         sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
         // Index the file into es
         instruction.setFiles(sourceDocuments);
@@ -250,12 +247,10 @@ public class ServiceHighlight {
         highlightSessionDocument.setName(request.getFileName());
         highlightSessionDocument = repoHighlightSessionDocument.save(highlightSessionDocument);
         // Assign session id of empty highlight session into each source document
-        final UUID sessionId = highlightSessionDocument.getId();
         Collection<FileDocument> sourceDocuments = request.getSources();
-        sourceDocuments.forEach(sourceDocument -> sourceDocument.setSessionId(sessionId));
         // Save file to with session id to get file id
         instruction.setFiles(repoFileDocument.saveAll(sourceDocuments));
-        executor.execute(HighlightProcessor.builder().session(highlightSessionDocument).instruction(instruction).build());
+        executor.execute(new HighlightProcessor(highlightSessionDocument, instruction));
         return HighlightSessionReportDTO.builder()
                 .sessionId(highlightSessionDocument.getId())
                 .sessionName(highlightSessionDocument.getName())
@@ -263,10 +258,14 @@ public class ServiceHighlight {
     }
 
     @Data
-    @Builder
     private class HighlightProcessor implements Runnable {
         private HighlightSessionDocument session;
         private IndexInstruction instruction;
+
+        public HighlightProcessor(HighlightSessionDocument session, IndexInstruction instruction) {
+            this.session = session;
+            this.instruction = instruction;
+        }
 
         @Override
         public void run() {

@@ -47,7 +47,7 @@ public class HighlightSessionDocument {
     private Collection<HighlightSingleDocument> matches = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status")
     @Builder.Default
     private HighlightSessionStatus status = HighlightSessionStatus.PENDING;
 

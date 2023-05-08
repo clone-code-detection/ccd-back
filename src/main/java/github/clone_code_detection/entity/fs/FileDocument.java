@@ -36,12 +36,8 @@ public class FileDocument {
     private UserImpl user;
 
     @Builder.Default
-    @Column(name = "author", nullable = false)
+    @Column(name = "author")
     private String author = "anonymous";
-
-    @JsonIgnore
-    @Column(name = "session_id")
-    private UUID sessionId;
 
     @JsonProperty("content")
     public String getContentAsString() {
