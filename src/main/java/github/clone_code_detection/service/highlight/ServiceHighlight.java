@@ -244,11 +244,16 @@ public class ServiceHighlight {
         HighlightSessionDocument.HighlightSessionDocumentBuilder sessionBuilder = HighlightSessionDocument.builder();
         HighlightSessionDocument highlightSessionDocument = sessionBuilder.build();
         highlightSessionDocument.setUser(getUserFromContext());
-        highlightSessionDocument.setName(request.getFileName());
+        highlightSessionDocument.setName(request.getSessionName());
         highlightSessionDocument = repoHighlightSessionDocument.save(highlightSessionDocument);
         // Assign session id of empty highlight session into each source document
         Collection<FileDocument> sourceDocuments = request.getSources();
-        // Save file to with session id to get file id
+        // Save file linking id of session
+        final UUID sessionId = highlightSessionDocument.getId();
+        sourceDocuments.forEach(sourceDocument -> {
+            sourceDocument.setSessionId(sessionId);
+            sourceDocument.setUser(getUserFromContext());
+        });
         instruction.setFiles(repoFileDocument.saveAll(sourceDocuments));
         executor.execute(new HighlightProcessor(highlightSessionDocument, instruction));
         return HighlightSessionReportDTO.builder()
@@ -269,17 +274,29 @@ public class ServiceHighlight {
 
         @Override
         public void run() {
-            List<HighlightSingleDocument> hits = new ArrayList<>();
-            for (FileDocument sourceDocument : instruction.getFiles()) {
-                // for each document, get highlight request
-                HighlightSingleDocument highlightSingleDocument = extractSingleDocument(sourceDocument);
-                hits.add(highlightSingleDocument);
+            try {
+                // Mark this session is in process
+                session.setStatus(HighlightSessionStatus.PENDING);
+                repoHighlightSessionDocument.save(session);
+
+                // Detect highlight session
+                List<HighlightSingleDocument> hits = new ArrayList<>();
+                for (FileDocument sourceDocument : instruction.getFiles()) {
+                    // for each document, get highlight request
+                    HighlightSingleDocument highlightSingleDocument = extractSingleDocument(sourceDocument);
+                    hits.add(highlightSingleDocument);
+                }
+                session.setMatches(hits);
+                session.setMainLanguage(LanguageUtil.getMainLanguageOfSingleDocuments(hits));
+                session.setStatus(HighlightSessionStatus.DONE);
+                repoHighlightSessionDocument.save(session);
+                serviceIndex.indexAllDocuments(instruction);
+            } catch (Exception e) {
+                // Update status to failed for future retry
+                session.setStatus(HighlightSessionStatus.FAILED);
+                repoHighlightSessionDocument.save(session);
+                log.error("[Service highlight] detect highlight session " + session.getName() + " failed");
             }
-            session.setMatches(hits);
-            session.setMainLanguage(LanguageUtil.getMainLanguageOfSingleDocuments(hits));
-            session.setStatus(HighlightSessionStatus.DONE);
-            repoHighlightSessionDocument.save(session);
-            serviceIndex.indexAllDocuments(instruction);
         }
     }
 }

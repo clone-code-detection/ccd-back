@@ -66,6 +66,7 @@ public class ServiceIndex implements IServiceIndex {
         try {
             BulkResponse bulkResponse = repoElasticsearchIndex.indexDocuments(stream);
             validateBulkResponse(bulkResponse);
+            log.info("[Service index] index documents successfully");
         } catch (IOException e) {
             log.error("[Service index] index documents", e);
             throw new ElasticsearchIndexException("Failed to index documents");

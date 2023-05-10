@@ -13,6 +13,6 @@ import java.util.Collection;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HighlightSessionRequest {
-    private String fileName;
+    private String sessionName;
     private Collection<FileDocument> sources;
 }

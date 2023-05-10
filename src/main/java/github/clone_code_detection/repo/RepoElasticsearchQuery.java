@@ -79,15 +79,7 @@ public class RepoElasticsearchQuery {
     }
 
     protected static List<QueryBuilder> buildFilterQuery(QueryInstruction queryInstruction) {
-        List<QueryBuilder> queries = new ArrayList<>();
-//        for (Map.Entry<String, Object> entry : queryInstruction.getQueryMeta()
-//                                                               .entrySet()) {
-//            String s = entry.getKey();
-//            Object o = entry.getValue();
-//            if (!(o instanceof String)) continue;
-//            queries.add(QueryBuilders.termQuery(s, (String) o));
-//        }
-        return queries;
+        return new ArrayList<>();
     }
 
 
@@ -119,7 +111,7 @@ public class RepoElasticsearchQuery {
         // build source
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(boolQueryBuilder);
-        if (queryInstruction.getIncludeHighlight()) {
+        if (Boolean.TRUE.equals(queryInstruction.getIncludeHighlight())) {
             HighlightBuilder highlightBuilder = buildHighlightQuery();
             searchSourceBuilder.highlighter(highlightBuilder);
         }

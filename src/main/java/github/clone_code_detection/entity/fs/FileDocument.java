@@ -39,6 +39,10 @@ public class FileDocument {
     @Column(name = "author")
     private String author = "anonymous";
 
+
+    @Column(name = "session_id")
+    private UUID sessionId;
+
     @JsonProperty("content")
     public String getContentAsString() {
         return new String(this.content, StandardCharsets.UTF_8);

@@ -2,6 +2,7 @@ package github.clone_code_detection.util;
 
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.exceptions.highlight.FileNotSupportedException;
+import github.clone_code_detection.service.highlight.ServiceHighlight;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -43,7 +44,7 @@ public class FileSystemUtil {
             return List.of(FileDocument.builder()
                     .fileName(fileName)
                     .content(content)
-//                    .user(ServiceHighlight.getUserFromContext())
+                    .user(ServiceHighlight.getUserFromContext())
                     .build());
         }
     }

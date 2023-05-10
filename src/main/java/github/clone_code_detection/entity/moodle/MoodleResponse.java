@@ -18,17 +18,6 @@ public class MoodleResponse {
     private String message;
 
     @JsonProperty(value = "data")
-    private Collection<MoodleFolder> data;
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class MoodleFolder {
-        @JsonProperty(value = "name")
-        private String name;
-
-        @JsonProperty(value = "sessions")
-        private Collection<HighlightSessionReportDTO> sessions;
-    }
+    private Collection<HighlightSessionReportDTO> data;
 }
+

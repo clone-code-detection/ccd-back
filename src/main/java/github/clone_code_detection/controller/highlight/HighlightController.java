@@ -58,7 +58,7 @@ public class HighlightController {
         FileSystemUtil.validate(source);
         // Create highlight session request
         HighlightSessionRequest request = HighlightSessionRequest.builder()
-                .fileName(FileSystemUtil.getFileName(source))
+                .sessionName(FileSystemUtil.getFileName(source))
                 .sources(FileSystemUtil.extractDocuments(source))
                 .build();
         return serviceHighlight.createHighlightSession(request, IndexInstruction.getDefaultInstruction());

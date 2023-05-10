@@ -1,6 +1,12 @@
 package github.clone_code_detection.controller.moodle;
 
+import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
+import github.clone_code_detection.entity.highlight.request.HighlightSessionRequest;
+import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.entity.moodle.MoodleResponse;
+import github.clone_code_detection.service.highlight.ServiceHighlight;
+import github.clone_code_detection.service.moodle.ServiceMoodle;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -8,10 +14,18 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 
 @RestController
 @RequestMapping("/api/moodle")
 public class MoodleController {
+    private final ServiceHighlight serviceHighlight;
+
+    @Autowired
+    public MoodleController(ServiceHighlight serviceHighlight) {
+        this.serviceHighlight = serviceHighlight;
+    }
 
 
     @PostMapping(path = "/detect",
@@ -26,9 +40,9 @@ public class MoodleController {
         source.transferTo(file);
         if (file.createNewFile())
             throw new IOException("Can create new file");
-        return MoodleResponse
-                .builder()
-                .message("OK")
-                .build();
+        Collection<HighlightSessionRequest> requests = ServiceMoodle.unzipMoodleFileAndGetRequests(source);
+        Collection<HighlightSessionReportDTO> reports = new ArrayList<>();
+        requests.forEach(request -> reports.add(serviceHighlight.createHighlightSession(request, IndexInstruction.getDefaultInstruction())));
+        return MoodleResponse.builder().message("OK").data(reports).build();
     }
 }
