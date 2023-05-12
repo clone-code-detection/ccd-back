@@ -37,7 +37,7 @@ public class RepoElasticsearchQuery {
 
     public SearchResponse query(QueryInstruction queryInstruction) throws IOException {
         SearchRequest searchRequest = this.buildSearchRequest(queryInstruction);
-        log.info("[Repo es query] search request {}", searchRequest);
+//        log.info("[Repo es query] search request {}", searchRequest);
         return elasticsearchClient.search(searchRequest, RequestOptions.DEFAULT);
     }
 
@@ -120,7 +120,7 @@ public class RepoElasticsearchQuery {
         searchRequest.source(searchSourceBuilder)
                      .indices(indexes);
 
-        log.info("[Repo es query] search request: {}", searchRequest);
+//        log.info("[Repo es query] search request: {}", searchRequest);
         return searchRequest;
     }
 }

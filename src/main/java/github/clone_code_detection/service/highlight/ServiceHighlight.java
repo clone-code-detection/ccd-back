@@ -272,13 +272,10 @@ public class ServiceHighlight {
             this.instruction = instruction;
         }
 
+        @Transactional
         @Override
         public void run() {
             try {
-                // Mark this session is in process
-                session.setStatus(HighlightSessionStatus.PENDING);
-                repoHighlightSessionDocument.save(session);
-
                 // Detect highlight session
                 List<HighlightSingleDocument> hits = new ArrayList<>();
                 for (FileDocument sourceDocument : instruction.getFiles()) {
@@ -295,7 +292,7 @@ public class ServiceHighlight {
                 // Update status to failed for future retry
                 session.setStatus(HighlightSessionStatus.FAILED);
                 repoHighlightSessionDocument.save(session);
-                log.error("[Service highlight] detect highlight session " + session.getName() + " failed");
+                log.error("[Service highlight] detect highlight session {} failed with error: {}",session.getName(), e.getMessage());
             }
         }
     }

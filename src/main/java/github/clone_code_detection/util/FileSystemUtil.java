@@ -77,4 +77,14 @@ public class FileSystemUtil {
         String filename = Objects.requireNonNull(source.getOriginalFilename());
         return filename.substring(0, filename.lastIndexOf("."));
     }
+
+    /**
+     * @param originalFilename the full name with path and extension of file
+     * @return name of that file without extension
+     */
+    public static String getFileName(String originalFilename) {
+        if (originalFilename == null)
+            return "";
+        return originalFilename.substring(0, originalFilename.lastIndexOf("."));
+    }
 }

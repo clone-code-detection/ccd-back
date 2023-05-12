@@ -9,5 +9,5 @@ import java.util.UUID;
 
 @Repository
 public interface RepoHighlightSessionDocument extends JpaRepository<HighlightSessionDocument, UUID> {
-    Collection<HighlightSessionDocument.HighlightSessionProjection> getAllByUserId(UUID user_id);
+    Collection<HighlightSessionDocument.HighlightSessionProjection> getAllByUserId(UUID userId);
 }
