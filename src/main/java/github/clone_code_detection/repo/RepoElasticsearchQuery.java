@@ -22,7 +22,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Repository
@@ -37,25 +40,22 @@ public class RepoElasticsearchQuery {
 
     public SearchResponse query(QueryInstruction queryInstruction) throws IOException {
         SearchRequest searchRequest = this.buildSearchRequest(queryInstruction);
-//        log.info("[Repo es query] search request {}", searchRequest);
+        log.info("[Repo es query] Search request {}", searchRequest);
         return elasticsearchClient.search(searchRequest, RequestOptions.DEFAULT);
     }
 
-    public MultiTermVectorsResponse getMultiTermVectors(FileDocument source, FileDocument target) {
+    public MultiTermVectorsResponse getMultiTermVectors(FileDocument... fileDocuments) {
         try {
-            return this.getMultiTermVectors(List.of(source, target));
+            MultiTermVectorsRequest multiTermVectorsRequest = new MultiTermVectorsRequest();
+            for (FileDocument fileDocument : fileDocuments) {
+                TermVectorsRequest template = buildTermVectorsRequest(fileDocument);
+                multiTermVectorsRequest.add(template);
+            }
+            return elasticsearchClient.mtermvectors(multiTermVectorsRequest, RequestOptions.DEFAULT);
         } catch (IOException ex) {
+            log.error("Error fetching from elasticsearch", ex);
             throw new ElasticsearchQueryException("Error retrieving term vectors from ES");
         }
-    }
-
-    private MultiTermVectorsResponse getMultiTermVectors(Collection<FileDocument> fileDocuments) throws IOException {
-        MultiTermVectorsRequest multiTermVectorsRequest = new MultiTermVectorsRequest();
-        for (FileDocument fileDocument : fileDocuments) {
-            TermVectorsRequest template = buildTermVectorsRequest(fileDocument);
-            multiTermVectorsRequest.add(template);
-        }
-        return elasticsearchClient.mtermvectors(multiTermVectorsRequest, RequestOptions.DEFAULT);
     }
 
     @NonNull
