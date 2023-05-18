@@ -5,7 +5,6 @@ import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.exceptions.highlight.ElasticsearchIndexException;
 import github.clone_code_detection.repo.RepoElasticsearchIndex;
-import github.clone_code_detection.repo.RepoFileDocument;
 import github.clone_code_detection.util.FileSystemUtil;
 import github.clone_code_detection.util.LanguageUtil;
 import lombok.NonNull;
@@ -27,12 +26,10 @@ import java.util.stream.Stream;
 @Slf4j
 public class ServiceIndex implements IServiceIndex {
     private final RepoElasticsearchIndex repoElasticsearchIndex;
-    private final RepoFileDocument repoFile;
 
     @Autowired
-    public ServiceIndex(RepoElasticsearchIndex repoElasticsearchIndex, RepoFileDocument repoFile) {
+    public ServiceIndex(RepoElasticsearchIndex repoElasticsearchIndex) {
         this.repoElasticsearchIndex = repoElasticsearchIndex;
-        this.repoFile = repoFile;
     }
 
     @NonNull
@@ -62,15 +59,14 @@ public class ServiceIndex implements IServiceIndex {
     }
 
     public Collection<FileDocument> indexAllDocuments(IndexInstruction instruction) {
-        // save to db
         Collection<FileDocument> files = instruction.getFiles();
-        files = repoFile.saveAll(files);
         //index
         Stream<Pair<String, ElasticsearchDocument>> stream = files.stream()
                 .map(ServiceIndex::getLangAndElasticsearchDoc);
         try {
             BulkResponse bulkResponse = repoElasticsearchIndex.indexDocuments(stream);
             validateBulkResponse(bulkResponse);
+            log.info("[Service index] index documents successfully");
         } catch (IOException e) {
             log.error("[Service index] index documents", e);
             throw new ElasticsearchIndexException("Failed to index documents");

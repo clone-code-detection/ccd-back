@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.*;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Collection;
-import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -52,13 +51,12 @@ public class AuthenticationController {
                                           .map(GrantedAuthority::getAuthority)
                                           .filter(s -> s.startsWith("ROLE_"))
                                           .map(s -> s.replaceFirst("ROLE_", ""))
-                                          .collect(
-                                                  Collectors.toList());
+                                          .toList();
             this.authenticated = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
         }
     }
 
-    @RequestMapping(path = "/signup", method = RequestMethod.POST, consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
+    @PostMapping(path = "/signup", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     @ResponseStatus(HttpStatus.CREATED)
     public UserAuthenticateResponse signUp(@Validated SignUpRequest request) {
         assert request != null : new RuntimeException("Invalid request");
@@ -66,7 +64,7 @@ public class AuthenticationController {
         return new UserAuthenticateResponse(user);
     }
 
-    @RequestMapping(path = "/signin", method = RequestMethod.POST, consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
+    @PostMapping(path = "/signin", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     @ResponseStatus(HttpStatus.OK)
     public UserAuthenticateResponse signIn(@Validated SignInRequest request, HttpServletRequest httpServletRequest) {
         assert request != null : new RuntimeException("Invalid request");
