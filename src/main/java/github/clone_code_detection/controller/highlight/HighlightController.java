@@ -14,6 +14,8 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Collection;
+
 
 @RestController
 @RequestMapping("/api/highlight")
@@ -62,5 +64,11 @@ public class HighlightController {
                 .sources(FileSystemUtil.extractDocuments(source))
                 .build();
         return serviceHighlight.createHighlightSession(request, IndexInstruction.getDefaultInstruction());
+    }
+
+    @GetMapping(path = "/advance-target-highlight/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public Collection<ServiceHighlight.ExtractReturn> advanceHighlightById(@PathVariable(name = "id") String id) {
+        return serviceHighlight.handleAdvancedHighlightById(id);
     }
 }
