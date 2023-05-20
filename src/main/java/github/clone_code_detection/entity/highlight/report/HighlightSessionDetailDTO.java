@@ -71,8 +71,6 @@ public class HighlightSessionDetailDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     private static class HighlightSessionSummary {
-        @JsonProperty("main_language")
-        private String mainLanguage;
         @JsonProperty("total_files")
         private int totalFiles;
         @JsonProperty("total_match_files")
@@ -81,7 +79,6 @@ public class HighlightSessionDetailDTO {
         public static HighlightSessionSummary from(HighlightSessionDocument document) {
             HighlightSessionSummary summary = HighlightSessionSummary.builder().build();
             summary.setTotalFiles(document.getMatches().size());
-            summary.setMainLanguage(document.getMainLanguage());
             // Get total unmatched files
             for (HighlightSingleDocument match : document.getMatches()) {
                 if (!match.getMatches().isEmpty())
