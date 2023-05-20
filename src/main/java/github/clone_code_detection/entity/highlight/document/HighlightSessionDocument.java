@@ -1,6 +1,5 @@
 package github.clone_code_detection.entity.highlight.document;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import github.clone_code_detection.entity.authenication.UserImpl;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -8,8 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.sql.Time;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.UUID;
@@ -32,11 +30,8 @@ public class HighlightSessionDocument {
 
     @Builder.Default
     @Column(name = "created_time")
-    @Temporal(TemporalType.TIME)
-    private Time created = Time.valueOf(LocalTime.now());
-
-    @Column(name = "main_language")
-    private String mainLanguage;
+    @Temporal(TemporalType.TIMESTAMP)
+    private LocalDateTime created = LocalDateTime.now();
 
     @ManyToOne
     @JoinColumn(name = "user_id")
@@ -51,13 +46,18 @@ public class HighlightSessionDocument {
     @Builder.Default
     private HighlightSessionStatus status = HighlightSessionStatus.INIT;
 
+    @Column(name = "exception")
+    private String exception;
+
     public interface HighlightSessionProjection {
         UUID getId();
 
         String getName();
 
-        Time getCreated();
-        @JsonProperty("main_language")
-        String getMainLanguage();
+        LocalDateTime getCreated();
+
+        HighlightSessionStatus getStatus();
+
+        Collection<HighlightSingleDocument> getMatches();
     }
 }

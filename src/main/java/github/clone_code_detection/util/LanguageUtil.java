@@ -62,6 +62,12 @@ public class LanguageUtil {
         return s;
     }
 
+    /**
+     * @deprecated
+     * @param matches list of single documents
+     * @return the main language of project
+     */
+    @Deprecated(since = "2.0")
     public static String getMainLanguageOfSingleDocuments(Collection<HighlightSingleDocument> matches) {
         Map<String, Integer> map = new HashMap<>();
         for (HighlightSingleDocument match : matches) {
