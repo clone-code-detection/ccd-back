@@ -72,4 +72,10 @@ public class ServiceAuthentication {
 
         return user;
     }
+
+    public UserImpl info(HttpServletRequest request) {
+        return (UserImpl) SecurityContextHolder.getContext()
+                                               .getAuthentication()
+                                               .getPrincipal();
+    }
 }
