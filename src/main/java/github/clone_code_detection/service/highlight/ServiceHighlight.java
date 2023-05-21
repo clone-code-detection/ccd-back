@@ -16,11 +16,11 @@ import github.clone_code_detection.entity.highlight.request.HighlightSessionRequ
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.entity.query.QueryInstruction;
 import github.clone_code_detection.exceptions.highlight.ElasticsearchQueryException;
+import github.clone_code_detection.exceptions.highlight.HighlightSessionException;
 import github.clone_code_detection.exceptions.highlight.ResourceNotFoundException;
 import github.clone_code_detection.repo.*;
 import github.clone_code_detection.service.index.ServiceIndex;
 import github.clone_code_detection.util.FileSystemUtil;
-import github.clone_code_detection.util.LanguageUtil;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -374,7 +374,6 @@ public class ServiceHighlight {
         HighlightSessionDocument highlightSessionDocument = sessionBuilder.build();
         highlightSessionDocument.setUser(getUserFromContext());
         highlightSessionDocument.setName(FileSystemUtil.getFileName(source));
-        highlightSessionDocument.setMainLanguage(LanguageUtil.getMainLanguageOfSingleDocuments(hits));
         highlightSessionDocument = repoHighlightSessionDocument.save(highlightSessionDocument);
 
         // Save source files before indexing
@@ -495,18 +494,19 @@ public class ServiceHighlight {
 
     @Data
     private class HighlightProcessor implements Runnable {
-        private HighlightSessionDocument session;
-        private IndexInstruction instruction;
+        private final HighlightSessionDocument session;
+        private final IndexInstruction instruction;
 
         public HighlightProcessor(HighlightSessionDocument session, IndexInstruction instruction) {
             this.session = session;
             this.instruction = instruction;
         }
 
-        @Transactional
         @Override
+        @Transactional
         public void run() {
             try {
+                markSessionAsProcessing();
                 // Detect highlight session
                 List<HighlightSingleDocument> hits = new ArrayList<>();
                 for (FileDocument sourceDocument : instruction.getFiles()) {
@@ -515,15 +515,27 @@ public class ServiceHighlight {
                     hits.add(highlightSingleDocument);
                 }
                 session.setMatches(hits);
-                session.setMainLanguage(LanguageUtil.getMainLanguageOfSingleDocuments(hits));
                 session.setStatus(HighlightSessionStatus.DONE);
                 repoHighlightSessionDocument.save(session);
                 serviceIndex.indexAllDocuments(instruction);
             } catch (Exception e) {
                 // Update status to failed for future retry
                 session.setStatus(HighlightSessionStatus.FAILED);
+                session.setException(new HighlightSessionException("[Service highlight] Error while processing highlight", e).toString());
                 repoHighlightSessionDocument.save(session);
                 log.error("[Service highlight] detect highlight session {} failed with error: {}", session.getName(), e.getMessage());
+            }
+        }
+
+        @Transactional
+        public void markSessionAsProcessing() {
+            try {
+                session.setStatus(HighlightSessionStatus.PROCESSING);
+                repoHighlightSessionDocument.save(session);
+            } catch (Exception e) {
+                log.error("[Service highlight] Can't update session to PROCESSING");
+                session.setStatus(HighlightSessionStatus.FAILED);
+                session.setException(new HighlightSessionException("[Service highlight] Can't update session to PROCESSING", e).toString());
             }
         }
     }

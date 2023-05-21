@@ -3,8 +3,7 @@ package github.clone_code_detection.entity.highlight.report;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 
-import java.sql.Time;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Builder
@@ -21,5 +20,5 @@ public class HighlightSessionReportDTO {
     @JsonProperty(value = "created_time")
     @Builder.Default
     @Setter(AccessLevel.NONE)
-    private Time created = Time.valueOf(LocalTime.now());
+    private LocalDateTime created = LocalDateTime.now();
 }
