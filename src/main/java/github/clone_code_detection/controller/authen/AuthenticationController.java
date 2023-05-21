@@ -36,7 +36,7 @@ public class AuthenticationController {
         this.serviceAuthentication = serviceAuthentication;
     }
 
-    private static class UserAuthenticateResponse {
+    public static class UserAuthenticateResponse {
         @JsonProperty("user")
         private String username;
         @JsonProperty("authorities")
@@ -69,6 +69,13 @@ public class AuthenticationController {
     public UserAuthenticateResponse signIn(@Validated SignInRequest request, HttpServletRequest httpServletRequest) {
         assert request != null : new RuntimeException("Invalid request");
         UserDetails userDetails = serviceAuthentication.signIn(request, httpServletRequest);
+        return new UserAuthenticateResponse(userDetails);
+    }
+
+    @GetMapping(path = "/info")
+    @ResponseStatus(HttpStatus.OK)
+    public UserAuthenticateResponse info(HttpServletRequest request) {
+        UserDetails userDetails = serviceAuthentication.info(request);
         return new UserAuthenticateResponse(userDetails);
     }
 
