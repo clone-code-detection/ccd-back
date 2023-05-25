@@ -6,6 +6,7 @@ import github.clone_code_detection.entity.highlight.report.HighlightSessionRepor
 import github.clone_code_detection.entity.highlight.report.HighlightSingleSourceDTO;
 import github.clone_code_detection.entity.highlight.request.HighlightSessionRequest;
 import github.clone_code_detection.entity.index.IndexInstruction;
+import github.clone_code_detection.service.highlight.ServiceAdvancedHighlight;
 import github.clone_code_detection.service.highlight.ServiceHighlight;
 import github.clone_code_detection.util.FileSystemUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,10 +22,12 @@ import java.util.Collection;
 @RequestMapping("/api/highlight")
 public class HighlightController {
     private final ServiceHighlight serviceHighlight;
+    private final ServiceAdvancedHighlight advanceServiceHighlight;
 
     @Autowired
-    public HighlightController(ServiceHighlight serviceHighlightTest) {
+    public HighlightController(ServiceHighlight serviceHighlightTest, ServiceAdvancedHighlight advanceServiceHighlight) {
         this.serviceHighlight = serviceHighlightTest;
+        this.advanceServiceHighlight = advanceServiceHighlight;
     }
 
     @PostMapping(path = "/query",
@@ -60,15 +63,21 @@ public class HighlightController {
         FileSystemUtil.validate(source);
         // Create highlight session request
         HighlightSessionRequest request = HighlightSessionRequest.builder()
-                .sessionName(FileSystemUtil.getFileName(source))
-                .sources(FileSystemUtil.extractDocuments(source))
-                .build();
+                                                                 .sessionName(FileSystemUtil.getFileName(source))
+                                                                 .sources(FileSystemUtil.extractDocuments(source))
+                                                                 .build();
         return serviceHighlight.createHighlightSession(request, IndexInstruction.getDefaultInstruction());
     }
 
     @GetMapping(path = "/advance-target-highlight/{id}")
     @ResponseStatus(HttpStatus.OK)
-    public Collection<ServiceHighlight.ExtractReturn> advanceHighlightById(@PathVariable(name = "id") String id) {
+    public Collection<ServiceHighlight.HighlightReturn> advanceHighlightById(@PathVariable(name = "id") String id) {
         return serviceHighlight.handleAdvancedHighlightById(id);
+    }
+
+    @GetMapping(path = "/advance-source-highlight/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public Collection<ServiceAdvancedHighlight.ExtendHighlightReturn> advanceHighlightBySourceId(@PathVariable(name = "id") String id) {
+        return advanceServiceHighlight.advanceHighlightBySourceId(id);
     }
 }
