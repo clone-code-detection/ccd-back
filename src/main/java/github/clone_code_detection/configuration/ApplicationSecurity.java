@@ -68,7 +68,7 @@ public class ApplicationSecurity {
         // set the name of the attribute the CsrfToken will be populated on
         requestHandler.setCsrfRequestAttributeName("_csrf");
         http.csrf()
-            .ignoringRequestMatchers("/authentication/**")
+            .ignoringRequestMatchers("/authentication/**", "/api/highlight/**")
             .csrfTokenRequestHandler(requestHandler)
             .csrfTokenRepository(new HttpSessionCsrfTokenRepository())
             .and()
@@ -76,7 +76,7 @@ public class ApplicationSecurity {
             .configurationSource(corsConfigurationSource())
         ;
         http.authorizeHttpRequests()
-            .requestMatchers("/authentication/**", "/csrf/**")
+            .requestMatchers("/authentication/**", "/csrf/**",  "/api/highlight/**")
             .permitAll()
 
             .anyRequest()
