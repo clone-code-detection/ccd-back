@@ -46,6 +46,7 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static github.clone_code_detection.repo.RepoElasticsearchQuery.SOURCE_CODE_FIELD;
 
@@ -158,7 +159,7 @@ public class ServiceHighlight {
                                         .build();
     }
 
-    public Collection<ExtractReturn> handleAdvancedHighlightById(String id) {
+    public Collection<HighlightReturn> handleAdvancedHighlightById(String id) {
         if (id.equals("undefined")) return new ArrayList<>();
         HighlightSingleTargetMatchDocument singleDocument = repoHighlightSingleTargetMatchDocument.findById(
                                                                                                           UUID.fromString(id))
@@ -214,7 +215,7 @@ public class ServiceHighlight {
      * @return list of extract return
      * @implNote: requires field mapping to have term vector position offset
      */
-    public Collection<ExtractReturn> handleAdvancedHighlight(HighlightSingleTargetMatchDocument targetMatchDocument) {
+    public Collection<HighlightReturn> handleAdvancedHighlight(HighlightSingleTargetMatchDocument targetMatchDocument) {
         var source = targetMatchDocument.getSource()
                                         .getSource();
         var target = targetMatchDocument.getTarget();
@@ -224,12 +225,16 @@ public class ServiceHighlight {
         var sourceTermVectorResponse = termVectorsResponses.get(0);
         var targetTermVectorResponse = termVectorsResponses.get(1);
 
+        return getExtractReturnCollection(sourceTermVectorResponse, targetTermVectorResponse);
+    }
+
+    public Collection<HighlightReturn> getExtractReturnCollection(TermVectorsResponse source, TermVectorsResponse target) {
         // map source tokens by position
-        ArrayList<LinkedHashSet<TokenWrapper>> sourceMapByPosition = mapTokensByPosition(sourceTermVectorResponse);
+        ArrayList<LinkedHashSet<TokenWrapper>> sourceMapByPosition = mapTokensByPosition(source);
         // map tokens by position
-        ArrayList<LinkedHashSet<TokenWrapper>> targetMapByPosition = mapTokensByPosition(targetTermVectorResponse);
+        ArrayList<LinkedHashSet<TokenWrapper>> targetMapByPosition = mapTokensByPosition(target);
         // map tokens by value
-        Map<String, List<Integer>> targetByValue = mapTokensByValue(targetTermVectorResponse);
+        Map<String, List<Integer>> targetByValue = mapTokensByValue(target);
 
         for (LinkedHashSet<TokenWrapper> tokenWrappers : targetMapByPosition) {
             TokenWrapper tokenWrapper = tokenWrappers.iterator()
@@ -237,10 +242,10 @@ public class ServiceHighlight {
         }
 
         // logic
-        Collection<ExtractReturn> res = new ArrayList<>();
+        Collection<HighlightReturn> res = new ArrayList<>();
         int i = 0;
         while (i < sourceMapByPosition.size()) {
-            ExtractReturn extracted = extracted(sourceMapByPosition, targetMapByPosition, targetByValue, i);
+            HighlightReturn extracted = extracted(sourceMapByPosition, targetMapByPosition, targetByValue, i);
             i += extracted.longestCommonLength;
             res.add(extracted);
         }
@@ -268,7 +273,7 @@ public class ServiceHighlight {
         );
     }
 
-    private ExtractReturn extracted(ArrayList<LinkedHashSet<TokenWrapper>> sourceMapByPosition, ArrayList<LinkedHashSet<TokenWrapper>> targetMapByPosition, Map<String, List<Integer>> targetByValue, int i) {
+    private HighlightReturn extracted(ArrayList<LinkedHashSet<TokenWrapper>> sourceMapByPosition, ArrayList<LinkedHashSet<TokenWrapper>> targetMapByPosition, Map<String, List<Integer>> targetByValue, int i) {
         Set<Integer> targetStartingPositions = getTargetStartingPositions(sourceMapByPosition, targetByValue, i);
         int sourceSize = sourceMapByPosition.size();
         int targetSize = targetMapByPosition.size();
@@ -298,7 +303,7 @@ public class ServiceHighlight {
             if (commonLength > maxCommonLength) maxCommonLength = commonLength;
             pairs.add(Pair.of(targetStartingPosition, targetEndingPosition));
         }
-        ExtractReturn res = new ExtractReturn(maxCommonLength);
+        HighlightReturn res = new HighlightReturn(maxCommonLength);
         for (Pair<Integer, Integer> tagetMatchPair : pairs) {
             int length = tagetMatchPair.getSecond() - tagetMatchPair.getFirst();
             if (maxCommonLength == length) {
@@ -403,10 +408,10 @@ public class ServiceHighlight {
      */
     private HighlightSingleDocument extractSingleDocument(FileDocument source) {
         QueryInstruction queryInstruction = QueryInstruction.builder()
-                .queryDocument(source)
-                .includeHighlight(true)
-                .minimumShouldMatch("70%")
-                .build();
+                                                            .queryDocument(source)
+                                                            .includeHighlight(true)
+                                                            .minimumShouldMatch("40%")
+                                                            .build();
         SearchResponse searchResponse;
         try {
             searchResponse = repoElasticsearchQuery.query(queryInstruction);
@@ -467,7 +472,7 @@ public class ServiceHighlight {
         }
     }
 
-    public static class ExtractReturn {
+    public static class HighlightReturn {
         // pair is start and end offset
         @JsonProperty("source_block")
         Pair<Integer, Integer> sourceBlock;
@@ -477,22 +482,22 @@ public class ServiceHighlight {
         @JsonProperty("longest_common")
         private int longestCommonLength;
 
-        public ExtractReturn(int longestCommonLength) {
+        public HighlightReturn(int longestCommonLength) {
             this.longestCommonLength = longestCommonLength;
             this.targetBlocks = new ArrayList<>();
         }
 
-        public ExtractReturn sourceBlock(Pair<Integer, Integer> sourceBlock) {
+        public HighlightReturn sourceBlock(Pair<Integer, Integer> sourceBlock) {
             this.sourceBlock = sourceBlock;
             return this;
         }
 
-        public ExtractReturn addAll(Collection<Pair<Integer, Integer>> blocks) {
+        public HighlightReturn addAll(Collection<Pair<Integer, Integer>> blocks) {
             this.targetBlocks.addAll(blocks);
             return this;
         }
 
-        public ExtractReturn targetBlock(Pair<Integer, Integer> block) {
+        public HighlightReturn targetBlock(Pair<Integer, Integer> block) {
             this.targetBlocks.add(block);
             return this;
         }
