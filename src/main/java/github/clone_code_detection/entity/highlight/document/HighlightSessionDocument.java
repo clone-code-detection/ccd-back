@@ -46,7 +46,7 @@ public class HighlightSessionDocument {
     @Builder.Default
     private HighlightSessionStatus status = HighlightSessionStatus.INIT;
 
-    @Column(name = "exception")
+    @Column(name = "exception", columnDefinition = "TEXT")
     private String exception;
 
     public interface HighlightSessionProjection {

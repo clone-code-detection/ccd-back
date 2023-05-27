@@ -16,6 +16,7 @@ import github.clone_code_detection.entity.highlight.report.HighlightWordMatchDTO
 import github.clone_code_detection.entity.highlight.request.HighlightSessionRequest;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.entity.query.QueryInstruction;
+import github.clone_code_detection.exceptions.highlight.ElasticsearchMultiHighlightException;
 import github.clone_code_detection.exceptions.highlight.ElasticsearchQueryException;
 import github.clone_code_detection.exceptions.highlight.HighlightSessionException;
 import github.clone_code_detection.exceptions.highlight.ResourceNotFoundException;
@@ -25,12 +26,14 @@ import github.clone_code_detection.util.FileSystemUtil;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.search.MultiSearchResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.core.MultiTermVectorsResponse;
 import org.elasticsearch.client.core.TermVectorsResponse;
 import org.elasticsearch.common.util.set.Sets;
 import org.elasticsearch.search.SearchHit;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.util.Pair;
 import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
@@ -63,6 +66,10 @@ public class ServiceHighlight {
     private final RepoHighlightSingleTargetMatchDocument repoHighlightSingleTargetMatchDocument;
     private final RepoFileDocument repoFileDocument;
     private final ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+    @Value("${elasticsearch.query.batch-size}")
+    private int batchSize;
+    @Value("${elasticsearch.query.minimum-should-match}")
+    private String minimumShouldMatch;
 
     @Autowired
     public ServiceHighlight(ServiceIndex serviceIndex, RepoElasticsearchQuery repoElasticsearchQuery, RepoHighlightSessionDocument repoHighlightSessionDocument, RepoHighlightSingleMatchDocument repoHighlightSingleMatchDocument, RepoHighlightSingleTargetMatchDocument repoHighlightSingleTargetMatchDocument, RepoFileDocument repoFileDocument) {
@@ -306,6 +313,7 @@ public class ServiceHighlight {
                 targetSynonyms = targetMapByPosition.get(targetEndingPosition);
             }
             if (commonLength > maxCommonLength) maxCommonLength = commonLength;
+
             pairs.add(Pair.of(targetStartingPosition, targetEndingPosition));
         }
         HighlightReturn res = new HighlightReturn(maxCommonLength);
@@ -469,6 +477,41 @@ public class ServiceHighlight {
         return highlightSingleDocument;
     }
 
+    public Collection<HighlightSingleDocument> multihighlight(Collection<FileDocument> files) {
+        Collection<HighlightSingleDocument> highlightSingleDocuments = new ArrayList<>();
+        int startIndex = 0;
+        while (startIndex < files.size()) {
+            int endIndex = Math.min(batchSize + startIndex, files.size());
+            Collection<FileDocument> subFiles = files.stream().toList().subList(startIndex, endIndex);
+            // Create multisearch query
+            Collection<QueryInstruction> instructions = new ArrayList<>();
+            subFiles.forEach(file -> instructions
+                    .add(QueryInstruction
+                            .builder()
+                            .queryDocument(file)
+                            .includeHighlight(true)
+                            .minimumShouldMatch(minimumShouldMatch)
+                            .build()));
+            try {
+                MultiSearchResponse multiSearchResponse = repoElasticsearchQuery.multiquery(instructions);
+                for (int index = 0; index < multiSearchResponse.getResponses().length; ++index) {
+                    MultiSearchResponse.Item searchResponse = multiSearchResponse.getResponses()[index];
+                    if (searchResponse.isFailure()) {
+                        log.error("[Service highlight] Search response in multi highlight is fail. Error: {}", searchResponse.getFailureMessage());
+                    } else if (searchResponse.getResponse() != null) {
+                        highlightSingleDocuments.add(parseResponse(subFiles.stream().toList().get(index), searchResponse.getResponse()));
+                    }
+                }
+            } catch (IOException e) {
+                log.error("[Service highlight] Multi highlight failed. Error: {}", e.getMessage());
+                throw new ElasticsearchMultiHighlightException("Multi highlight failed", e);
+            } finally {
+                startIndex = endIndex;
+            }
+        }
+        return highlightSingleDocuments;
+    }
+
     @Data
     private static class TokenWrapper {
         private static ObjectMapper mapper = new ObjectMapper();
@@ -542,16 +585,12 @@ public class ServiceHighlight {
             try {
                 markSessionAsProcessing();
                 // Detect highlight session
-                List<HighlightSingleDocument> hits = new ArrayList<>();
-                for (FileDocument sourceDocument : instruction.getFiles()) {
-                    // for each document, get highlight request
-                    HighlightSingleDocument highlightSingleDocument = extractSingleDocument(sourceDocument);
-                    hits.add(highlightSingleDocument);
-                }
+                Collection<FileDocument> files = instruction.getFiles();
+                List<HighlightSingleDocument> hits = new ArrayList<>(multihighlight(files));
                 session.setMatches(hits);
                 session.setStatus(HighlightSessionStatus.DONE);
                 repoHighlightSessionDocument.save(session);
-                serviceIndex.indexAllDocuments(instruction);
+                serviceIndex.bulkIndexAllDocuments(instruction);
             } catch (Exception e) {
                 // Update status to failed for future retry
                 session.setStatus(HighlightSessionStatus.FAILED);

@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,6 +27,8 @@ import java.util.stream.Stream;
 @Slf4j
 public class ServiceIndex implements IServiceIndex {
     private final RepoElasticsearchIndex repoElasticsearchIndex;
+    @Value("${elasticsearch.index.batch-size}")
+    private int batchSize;
 
     @Autowired
     public ServiceIndex(RepoElasticsearchIndex repoElasticsearchIndex) {
@@ -61,6 +64,7 @@ public class ServiceIndex implements IServiceIndex {
     public Collection<FileDocument> indexAllDocuments(IndexInstruction instruction) {
         Collection<FileDocument> files = instruction.getFiles();
         //index
+
         Stream<Pair<String, ElasticsearchDocument>> stream = files.stream()
                 .map(ServiceIndex::getLangAndElasticsearchDoc);
         try {
@@ -72,5 +76,26 @@ public class ServiceIndex implements IServiceIndex {
             throw new ElasticsearchIndexException("Failed to index documents");
         }
         return files;
+    }
+
+    public void bulkIndexAllDocuments(IndexInstruction indexInstruction) {
+        Collection<FileDocument> files = indexInstruction.getFiles();
+        int startIndex = 0;
+        while (startIndex < files.size()) {
+            int endIndex = Math.min(batchSize + startIndex, files.size());
+            Collection<FileDocument> subFiles = files.stream().toList().subList(startIndex, endIndex);
+
+            Stream<Pair<String, ElasticsearchDocument>> stream = subFiles.stream().map(ServiceIndex::getLangAndElasticsearchDoc);
+            try {
+                BulkResponse bulkResponse = repoElasticsearchIndex.indexDocuments(stream);
+                validateBulkResponse(bulkResponse);
+                log.info("[Service index] index {} documents successfully", subFiles.size());
+            } catch (IOException e) {
+                log.error("[Service index] index documents", e);
+                throw new ElasticsearchIndexException("Failed to index documents");
+            } finally {
+                startIndex = endIndex;
+            }
+        }
     }
 }
