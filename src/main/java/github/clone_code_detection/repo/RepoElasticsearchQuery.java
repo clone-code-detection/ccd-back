@@ -6,6 +6,8 @@ import github.clone_code_detection.exceptions.highlight.ElasticsearchQueryExcept
 import github.clone_code_detection.util.LanguageUtil;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.search.MultiSearchRequest;
+import org.elasticsearch.action.search.MultiSearchResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -22,10 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Repository
@@ -38,32 +37,10 @@ public class RepoElasticsearchQuery {
         this.elasticsearchClient = elasticsearchClient;
     }
 
-    public SearchResponse query(QueryInstruction queryInstruction) throws IOException {
-        SearchRequest searchRequest = this.buildSearchRequest(queryInstruction);
-        log.info("[Repo es query] Search request {}", searchRequest);
-        return elasticsearchClient.search(searchRequest, RequestOptions.DEFAULT);
-    }
-
-    public MultiTermVectorsResponse getMultiTermVectors(FileDocument... fileDocuments) {
-        try {
-            MultiTermVectorsRequest multiTermVectorsRequest = new MultiTermVectorsRequest();
-            for (FileDocument fileDocument : fileDocuments) {
-                TermVectorsRequest template = buildTermVectorsRequest(fileDocument);
-                multiTermVectorsRequest.add(template);
-            }
-            return elasticsearchClient.mtermvectors(multiTermVectorsRequest, RequestOptions.DEFAULT);
-        } catch (IOException ex) {
-            log.error("Error fetching from elasticsearch", ex);
-            throw new ElasticsearchQueryException("Error retrieving term vectors from ES");
-        }
-    }
-
     @NonNull
     private static TermVectorsRequest buildTermVectorsRequest(FileDocument fileDocument) {
-        String index = LanguageUtil.getInstance()
-                                   .getIndexFromFileName(fileDocument.getFileName());
-        String uuid = fileDocument.getId()
-                                  .toString();
+        String index = LanguageUtil.getInstance().getIndexFromFileName(fileDocument.getFileName());
+        String uuid = fileDocument.getId().toString();
         TermVectorsRequest template = new TermVectorsRequest(index, uuid);
         template.setOffsets(true);
         template.setPositions(true);
@@ -74,14 +51,14 @@ public class RepoElasticsearchQuery {
 
     protected static List<QueryBuilder> buildMustQuery(QueryInstruction queryInstruction) {
         String minimumShouldMatch = queryInstruction.getMinimumShouldMatch();
-        return Collections.singletonList(QueryBuilders.matchQuery(SOURCE_CODE_FIELD, queryInstruction.getContent())
-                                                      .minimumShouldMatch(minimumShouldMatch));
+        return Collections.singletonList(QueryBuilders
+                .matchQuery(SOURCE_CODE_FIELD, queryInstruction.getContent())
+                .minimumShouldMatch(minimumShouldMatch));
     }
 
     protected static List<QueryBuilder> buildFilterQuery(QueryInstruction queryInstruction) {
         return new ArrayList<>();
     }
-
 
     private static HighlightBuilder buildHighlightQuery() {
         HighlightBuilder highlightBuilder = new HighlightBuilder();
@@ -96,6 +73,38 @@ public class RepoElasticsearchQuery {
         highlightBuilder.field(highlightContent);
 
         return highlightBuilder;
+    }
+
+    public SearchResponse query(QueryInstruction queryInstruction) throws IOException {
+        SearchRequest searchRequest = this.buildSearchRequest(queryInstruction);
+        log.info("[Repo es query] Search request {}", searchRequest);
+        return elasticsearchClient.search(searchRequest, RequestOptions.DEFAULT);
+    }
+
+    public MultiSearchResponse multiquery(Collection<QueryInstruction> instructions) throws IOException {
+        MultiSearchRequest multiSearchRequest = buildMultisearchRequest(instructions);
+        log.info("[Repo es query] Start multi search for {} documents", multiSearchRequest.requests().size());
+        return elasticsearchClient.msearch(multiSearchRequest, RequestOptions.DEFAULT);
+    }
+
+    private MultiSearchRequest buildMultisearchRequest(Collection<QueryInstruction> instructions) {
+        MultiSearchRequest multiSearchRequest = new MultiSearchRequest();
+        instructions.forEach(instruction -> multiSearchRequest.add(buildSearchRequest(instruction)));
+        return multiSearchRequest;
+    }
+
+    public MultiTermVectorsResponse getMultiTermVectors(FileDocument... fileDocuments) {
+        try {
+            MultiTermVectorsRequest multiTermVectorsRequest = new MultiTermVectorsRequest();
+            for (FileDocument fileDocument : fileDocuments) {
+                TermVectorsRequest template = buildTermVectorsRequest(fileDocument);
+                multiTermVectorsRequest.add(template);
+            }
+            return elasticsearchClient.mtermvectors(multiTermVectorsRequest, RequestOptions.DEFAULT);
+        } catch (IOException ex) {
+            log.error("Error fetching from elasticsearch", ex);
+            throw new ElasticsearchQueryException("Error retrieving term vectors from ES");
+        }
     }
 
     private SearchRequest buildSearchRequest(QueryInstruction queryInstruction) {
@@ -117,10 +126,8 @@ public class RepoElasticsearchQuery {
         }
 
         SearchRequest searchRequest = new SearchRequest();
-        searchRequest.source(searchSourceBuilder)
-                     .indices(indexes);
-
-//        log.info("[Repo es query] search request: {}", searchRequest);
+        searchRequest.source(searchSourceBuilder).indices(indexes);
+        log.info("[Repo es query] search request: {}", searchRequest);
         return searchRequest;
     }
 }
