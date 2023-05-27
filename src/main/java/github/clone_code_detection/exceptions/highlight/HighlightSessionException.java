@@ -4,7 +4,6 @@ import github.clone_code_detection.exceptions.ExceptionBase;
 
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.util.Arrays;
 
 public class HighlightSessionException extends ExceptionBase {
     private static final URI uri = URI.create("https://clone-code-detection.atlassian.net/wiki/spaces/CCD/pages/9601025/Highlight");
@@ -20,12 +19,12 @@ public class HighlightSessionException extends ExceptionBase {
     @Override
     public String toString() {
         String exception = message + "\n";
-        assert cause != null;
-        for (StackTraceElement stackTraceElement : cause.getStackTrace()) {
-            exception = exception.concat(stackTraceElement.toString() + "\n");
+        if (cause != null) {
+            exception = exception.concat(cause.getMessage() + "\n");
+            for (StackTraceElement stackTraceElement : cause.getStackTrace()) {
+                exception = exception.concat(String.format("%s - %s: %s.\n", stackTraceElement.getFileName(), stackTraceElement.getClassName(), stackTraceElement.getMethodName()));
+            }
         }
-        System.out.println("cause: " + cause.getCause());
-        System.out.println("suppressed: " + Arrays.toString(cause.getSuppressed()));
         return exception;
     }
 }
