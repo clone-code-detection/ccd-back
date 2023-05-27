@@ -57,10 +57,6 @@ import static github.clone_code_detection.repo.RepoElasticsearchQuery.SOURCE_COD
 @Slf4j
 @Transactional
 public class ServiceHighlight {
-    @Value("${elasticsearch.query.batch-size}")
-    private static int batchSize;
-    @Value("${elasticsearch.query.minimum-should-match}")
-    private static String minimumShouldMatch;
     private final ServiceIndex serviceIndex;
     private final RepoElasticsearchQuery repoElasticsearchQuery;
     private final RepoHighlightSessionDocument repoHighlightSessionDocument;
@@ -68,6 +64,10 @@ public class ServiceHighlight {
     private final RepoHighlightSingleTargetMatchDocument repoHighlightSingleTargetMatchDocument;
     private final RepoFileDocument repoFileDocument;
     private final ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+    @Value("${elasticsearch.query.batch-size}")
+    private int batchSize;
+    @Value("${elasticsearch.query.minimum-should-match}")
+    private String minimumShouldMatch;
 
     @Autowired
     public ServiceHighlight(ServiceIndex serviceIndex,
@@ -474,8 +474,9 @@ public class ServiceHighlight {
             } catch (IOException e) {
                 log.error("[Service highlight] Multi highlight failed. Error: {}", e.getMessage());
                 throw new ElasticsearchMultiHighlightException("Multi highlight failed", e);
+            } finally {
+                startIndex = endIndex;
             }
-            startIndex = endIndex;
         }
         return highlightSingleDocuments;
     }

@@ -28,7 +28,7 @@ import java.util.stream.Stream;
 public class ServiceIndex implements IServiceIndex {
     private final RepoElasticsearchIndex repoElasticsearchIndex;
     @Value("${elasticsearch.index.batch-size}")
-    private static int batchSize;
+    private int batchSize;
 
     @Autowired
     public ServiceIndex(RepoElasticsearchIndex repoElasticsearchIndex) {
@@ -93,6 +93,8 @@ public class ServiceIndex implements IServiceIndex {
             } catch (IOException e) {
                 log.error("[Service index] index documents", e);
                 throw new ElasticsearchIndexException("Failed to index documents");
+            } finally {
+                startIndex = endIndex;
             }
         }
     }
