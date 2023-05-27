@@ -1,5 +1,6 @@
 package github.clone_code_detection.service.highlight;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import github.clone_code_detection.entity.authenication.UserImpl;
@@ -185,7 +186,8 @@ public class ServiceHighlight {
         return res;
     }
 
-    public ArrayList<LinkedHashSet<TokenWrapper>> mapTokensByPosition(@NonNull TermVectorsResponse termVectorsResponse) {
+    // PriorityQueue is ordered by term length
+    public ArrayList<PriorityQueue<TokenWrapper>> mapTokensByPosition(@NonNull TermVectorsResponse termVectorsResponse) {
         TermVectorsResponse.TermVector termVector = getTermVectorByFieldName(termVectorsResponse.getTermVectorsList(),
                 SOURCE_CODE_FIELD);
         if (termVector == null) throw new RuntimeException();
@@ -196,8 +198,10 @@ public class ServiceHighlight {
                              .map(TermVectorsResponse.TermVector.Token::getPosition)
                              .max(Comparator.naturalOrder())
                              .orElseThrow();
-        ArrayList<LinkedHashSet<TokenWrapper>> res = new ArrayList<>();
-        for (int i = 0; i <= size; i++) res.add(new LinkedHashSet<>());
+        ArrayList<PriorityQueue<TokenWrapper>> res = new ArrayList<>();
+        for (int i = 0; i <= size; i++)
+            res.add(new PriorityQueue<>(Comparator.comparing(TokenWrapper::getLength)
+                                                  .reversed()));
 
         for (TermVectorsResponse.TermVector.Term term : termVector.getTerms()) {
             var tokenValue = term.getTerm();
@@ -230,23 +234,19 @@ public class ServiceHighlight {
 
     public Collection<HighlightReturn> getExtractReturnCollection(TermVectorsResponse source, TermVectorsResponse target) {
         // map source tokens by position
-        ArrayList<LinkedHashSet<TokenWrapper>> sourceMapByPosition = mapTokensByPosition(source);
+        ArrayList<PriorityQueue<TokenWrapper>> sourceMapByPosition = mapTokensByPosition(source);
         // map tokens by position
-        ArrayList<LinkedHashSet<TokenWrapper>> targetMapByPosition = mapTokensByPosition(target);
+        ArrayList<PriorityQueue<TokenWrapper>> targetMapByPosition = mapTokensByPosition(target);
         // map tokens by value
         Map<String, List<Integer>> targetByValue = mapTokensByValue(target);
-
-        for (LinkedHashSet<TokenWrapper> tokenWrappers : targetMapByPosition) {
-            TokenWrapper tokenWrapper = tokenWrappers.iterator()
-                                                     .next();
-        }
 
         // logic
         Collection<HighlightReturn> res = new ArrayList<>();
         int i = 0;
         while (i < sourceMapByPosition.size()) {
             HighlightReturn extracted = extracted(sourceMapByPosition, targetMapByPosition, targetByValue, i);
-            i += extracted.longestCommonLength;
+            // If the block has no matching, increase token by one
+            i += extracted.longestCommonLength > 0 ? extracted.longestCommonLength : 1;
             res.add(extracted);
         }
         return res;
@@ -255,31 +255,37 @@ public class ServiceHighlight {
     // Sorted lists
     private static <T extends Comparable<T>> boolean containsAny(List<T> a, List<T> b) {
         for (T t : b) {
-            if (Collections.binarySearch(a, t) < 0) return true;
+            if (Collections.binarySearch(a, t) >= 0) return true;
         }
         return false;
     }
 
-    private boolean condition(Set<TokenWrapper> target, Set<TokenWrapper> source) {
-        return containsAny(
-                target.stream()
-                      .map(TokenWrapper::getToken)
-                      .sorted()
-                      .collect(Collectors.toList()),
+    private boolean condition(Collection<TokenWrapper> target, Collection<TokenWrapper> source) {
+        return containsAny(target.stream()
+                                 .map(TokenWrapper::getToken)
+                                 .sorted()
+                                 .collect(Collectors.toList()),
                 source.stream()
                       .map(TokenWrapper::getToken)
                       .sorted()
-                      .collect(Collectors.toList())
-        );
+                      .collect(Collectors.toList()));
     }
 
-    private HighlightReturn extracted(ArrayList<LinkedHashSet<TokenWrapper>> sourceMapByPosition, ArrayList<LinkedHashSet<TokenWrapper>> targetMapByPosition, Map<String, List<Integer>> targetByValue, int i) {
+    private HighlightReturn extracted(ArrayList<PriorityQueue<TokenWrapper>> sourceMapByPosition,
+                                      ArrayList<PriorityQueue<TokenWrapper>> targetMapByPosition,
+                                      Map<String, List<Integer>> targetByValue,
+                                      int i) {
         Set<Integer> targetStartingPositions = getTargetStartingPositions(sourceMapByPosition, targetByValue, i);
+        if (targetStartingPositions.isEmpty()) {
+            var sourceBlock = extractBlockFromPosition(i, i + 1, sourceMapByPosition);
+            return new HighlightReturn(0).sourceBlock(sourceBlock);
+        }
+
         int sourceSize = sourceMapByPosition.size();
         int targetSize = targetMapByPosition.size();
+        List<Pair<Integer, Integer>> pairs = new ArrayList<>();
         int maxCommonLength = 1;
 
-        List<Pair<Integer, Integer>> pairs = new ArrayList<>();
         for (Integer targetStartingPosition : targetStartingPositions) {
             int commonLength = 0;
             int sourceStartingPosition = i;
@@ -288,7 +294,7 @@ public class ServiceHighlight {
             var sourceSynonyms = sourceMapByPosition.get(sourceStartingPosition);
             var targetSynonyms = targetMapByPosition.get(targetStartingPosition);
 
-            while (!condition(targetSynonyms, sourceSynonyms)) {
+            while (condition(targetSynonyms, sourceSynonyms)) {
                 sourceStartingPosition++;
                 targetEndingPosition++;
                 commonLength++;
@@ -298,7 +304,6 @@ public class ServiceHighlight {
 
                 sourceSynonyms = sourceMapByPosition.get(sourceStartingPosition);
                 targetSynonyms = targetMapByPosition.get(targetEndingPosition);
-                log.info("{}:{}", sourceSynonyms, targetSynonyms);
             }
             if (commonLength > maxCommonLength) maxCommonLength = commonLength;
             pairs.add(Pair.of(targetStartingPosition, targetEndingPosition));
@@ -317,8 +322,10 @@ public class ServiceHighlight {
         return res;
     }
 
-    private static Set<Integer> getTargetStartingPositions(ArrayList<LinkedHashSet<TokenWrapper>> sourceMapByPosition, Map<String, List<Integer>> targetByValue, int i) {
-        Set<TokenWrapper> synonyms = sourceMapByPosition.get(i);
+    private static Set<Integer> getTargetStartingPositions(ArrayList<PriorityQueue<TokenWrapper>> sourceMapByPosition,
+                                                           Map<String, List<Integer>> targetByValue,
+                                                           int i) {
+        PriorityQueue<TokenWrapper> synonyms = sourceMapByPosition.get(i);
         return synonyms.stream()
                        .map(TokenWrapper::getToken)
                        .flatMap(tokenValue -> {
@@ -329,7 +336,16 @@ public class ServiceHighlight {
                        .collect(Collectors.toSet());
     }
 
-    private Pair<Integer, Integer> extractBlockFromPosition(Integer start, Integer end, ArrayList<LinkedHashSet<TokenWrapper>> mapByPosition) {
+
+    /**
+     * @param start
+     * @param end
+     * @param mapByPosition
+     * @return
+     * @implNote end is exclusive
+     */
+    private Pair<Integer, Integer> extractBlockFromPosition(Integer start, Integer end,
+                                                            ArrayList<PriorityQueue<TokenWrapper>> mapByPosition) {
         assert end - 1 >= start;
         TokenWrapper startToken = mapByPosition.get(start)
                                                .iterator()
@@ -465,6 +481,10 @@ public class ServiceHighlight {
         private TokenWrapper() {
         }
 
+        public Integer getLength() {
+            return endOffset - startOffset;
+        }
+
         public static TokenWrapper fromToken(String tokenValue, TermVectorsResponse.TermVector.Token token) {
             TokenWrapper tokenWrapper = mapper.convertValue(token, TokenWrapper.class);
             tokenWrapper.token = tokenValue;
@@ -479,11 +499,14 @@ public class ServiceHighlight {
         // each pair is start and end offset
         @JsonProperty("target_block")
         private List<Pair<Integer, Integer>> targetBlocks;
-        @JsonProperty("longest_common")
+        @JsonIgnore
         private int longestCommonLength;
+        @JsonProperty("has_match")
+        final private boolean hasMatch;
 
         public HighlightReturn(int longestCommonLength) {
             this.longestCommonLength = longestCommonLength;
+            hasMatch = longestCommonLength > 0;
             this.targetBlocks = new ArrayList<>();
         }
 
