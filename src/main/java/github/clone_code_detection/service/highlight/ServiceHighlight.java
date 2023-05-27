@@ -59,6 +59,8 @@ import static github.clone_code_detection.repo.RepoElasticsearchQuery.SOURCE_COD
 public class ServiceHighlight {
     @Value("${elasticsearch.query.batch-size}")
     private static int batchSize;
+    @Value("${elasticsearch.query.minimum-should-match}")
+    private static String minimumShouldMatch;
     private final ServiceIndex serviceIndex;
     private final RepoElasticsearchQuery repoElasticsearchQuery;
     private final RepoHighlightSessionDocument repoHighlightSessionDocument;
@@ -276,10 +278,7 @@ public class ServiceHighlight {
             }
             if (commonLength <= longestCommon) continue;
             else longestCommon = commonLength;
-            if (commonLength != 0) {
-                targetEndingPosition--;
-                sourceEndingPosition--;
-            }
+            if (commonLength != 0) targetEndingPosition--;
             pairs.add(Pair.of(targetStartingPosition, targetEndingPosition));
         }
 
@@ -404,7 +403,7 @@ public class ServiceHighlight {
         QueryInstruction queryInstruction = QueryInstruction.builder()
                 .queryDocument(source)
                 .includeHighlight(true)
-                .minimumShouldMatch("70%")
+                .minimumShouldMatch(minimumShouldMatch)
                 .build();
         SearchResponse searchResponse;
         try {
@@ -460,7 +459,7 @@ public class ServiceHighlight {
                             .builder()
                             .queryDocument(file)
                             .includeHighlight(true)
-                            .minimumShouldMatch("70%")
+                            .minimumShouldMatch(minimumShouldMatch)
                             .build()));
             try {
                 MultiSearchResponse multiSearchResponse = repoElasticsearchQuery.multiquery(instructions);
@@ -472,7 +471,6 @@ public class ServiceHighlight {
                         highlightSingleDocuments.add(parseResponse(subFiles.stream().toList().get(index), searchResponse.getResponse()));
                     }
                 }
-                subFiles.clear();
             } catch (IOException e) {
                 log.error("[Service highlight] Multi highlight failed. Error: {}", e.getMessage());
                 throw new ElasticsearchMultiHighlightException("Multi highlight failed", e);
