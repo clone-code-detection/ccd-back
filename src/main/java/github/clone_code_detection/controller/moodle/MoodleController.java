@@ -1,5 +1,6 @@
 package github.clone_code_detection.controller.moodle;
 
+import github.clone_code_detection.controller.authen.AuthenticationController;
 import github.clone_code_detection.entity.authenication.SignInRequest;
 import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
 import github.clone_code_detection.entity.highlight.request.HighlightSessionRequest;
@@ -7,12 +8,13 @@ import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.entity.moodle.CourseDTO;
 import github.clone_code_detection.entity.moodle.DetectRequest;
 import github.clone_code_detection.entity.moodle.MoodleResponse;
-import github.clone_code_detection.entity.moodle.MoodleUser;
 import github.clone_code_detection.service.highlight.ServiceHighlight;
 import github.clone_code_detection.service.moodle.ServiceMoodle;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -46,15 +48,15 @@ public class MoodleController {
         return MoodleResponse.builder().message("OK").data(reports).build();
     }
 
-    @PostMapping(path = "/user", consumes = {MediaType.APPLICATION_JSON_VALUE})
+    @PostMapping(path = "/signin", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     @ResponseStatus(HttpStatus.OK)
-    public MoodleUser getMoodleUserInfo(SignInRequest request) {
-        return MoodleUser.builder().build();
+    public AuthenticationController.UserAuthenticateResponse signinWithMoodleAccount(@Validated SignInRequest request, HttpServletRequest httpServletRequest) {
+        return null;
     }
 
     @PostMapping(path = "/courses")
     @ResponseStatus(HttpStatus.OK)
-    public List<CourseDTO> getCourses(@RequestBody MoodleUser user) {
+    public List<CourseDTO> getCourses() {
         return new ArrayList<>();
     }
 

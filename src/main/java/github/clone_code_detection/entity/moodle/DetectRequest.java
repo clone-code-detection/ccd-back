@@ -13,7 +13,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DetectRequest {
-    String token;
     @JsonProperty("submission_ids")
     List<Integer> submissionIds;
 }
