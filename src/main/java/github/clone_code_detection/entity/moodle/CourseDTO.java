@@ -1,7 +1,7 @@
 package github.clone_code_detection.entity.moodle;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.gson.JsonArray;
+import com.fasterxml.jackson.databind.JsonNode;
 import github.clone_code_detection.util.TimeUtil;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -28,26 +28,18 @@ public class CourseDTO {
     private ZonedDateTime endDate;
     private boolean completed;
 
-    public static List<CourseDTO> from(JsonArray moodleCourses) {
+    public static List<CourseDTO> from(JsonNode moodleCourses) {
         List<CourseDTO> courses = new ArrayList<>();
         moodleCourses.forEach(course -> courses.add(CourseDTO.builder()
-                                                             .id(course.getAsJsonObject().get("id").getAsInt())
-                                                             .shortname(course.getAsJsonObject()
-                                                                              .get("shortname")
-                                                                              .getAsString())
-                                                             .fullname(course.getAsJsonObject()
-                                                                             .get("fullname")
-                                                                             .getAsString())
-                                                             .enrolledUserCount(course.getAsJsonObject()
-                                                                                      .get("enrolledusercount")
-                                                                                      .getAsInt())
-                                                             .startDate(TimeUtil.parseZoneDateTime(course.getAsJsonObject()
-                                                                                                         .get("startdate")))
-                                                             .endDate(TimeUtil.parseZoneDateTime(course.getAsJsonObject()
-                                                                                                       .get("enddate")))
-                                                             .completed(course.getAsJsonObject()
-                                                                              .get("completed")
-                                                                              .getAsBoolean())
+                                                             .id(course.get("id").asLong())
+                                                             .shortname(course.get("shortname").asText())
+                                                             .fullname(course.get("fullname").asText())
+                                                             .enrolledUserCount(course.get("enrolledusercount").asInt())
+                                                             .startDate(TimeUtil.parseZoneDateTime(course.get(
+                                                                     "startdate").asLong()))
+                                                             .endDate(TimeUtil.parseZoneDateTime(course.get("enddate")
+                                                                                                       .asLong()))
+                                                             .completed(course.get("completed").asBoolean())
                                                              .build()));
         return courses;
     }

@@ -1,10 +1,9 @@
 package github.clone_code_detection.service.moodle;
 
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import github.clone_code_detection.entity.authenication.SignInRequest;
 import github.clone_code_detection.entity.authenication.UserImpl;
 import github.clone_code_detection.entity.fs.FileDocument;
@@ -60,7 +59,7 @@ public class ServiceMoodle {
     private static final String MOODLE_GET_SUBMISSIONS_FUNCTION = "mod_assign_get_submissions";
     private static final String MOODLE_GET_OWNERS_FUNCTION = "core_user_get_users_by_field";
     private static final LanguageUtil languageUtil = LanguageUtil.getInstance();
-    private static final Gson gson = new Gson();
+    private static final ObjectMapper mapper = new ObjectMapper();
     private final RepoSubmissionOwner repoSubmissionOwner;
     private final RepoRelationSubmissionSession repoRelationSubmissionSession;
     private final RepoUser repoUser;
@@ -203,7 +202,7 @@ public class ServiceMoodle {
         return request;
     }
 
-    public Page<CourseDTO> getCourses(Pageable pageable) {
+    public Page<CourseDTO> getCourses(Pageable pageable) throws JsonProcessingException {
         UserImpl user = ServiceHighlight.getUserFromContext();
         if (user == null || user.getId() == null) {
             log.error("[Service moodle] Fail to get user information");
@@ -211,7 +210,7 @@ public class ServiceMoodle {
         }
         UserReference reference = repoUserReference.findByInternalUserId(user.getId());
         ResponseEntity<String> coursesEntity = getCoursesOfUser(reference);
-        JsonArray moodleCourses = gson.fromJson(coursesEntity.getBody(), JsonArray.class);
+        JsonNode moodleCourses = mapper.readTree(coursesEntity.getBody());
         List<CourseDTO> courses = CourseDTO.from(moodleCourses);
         courses.sort(Comparator.comparing(CourseDTO::getId).reversed());
         return new PageImpl<>(courses.subList((int) pageable.getOffset(),
@@ -219,7 +218,7 @@ public class ServiceMoodle {
                                                              courses.size())), pageable, courses.size());
     }
 
-    private List<AssignDTO> enrichAssignments(UserReference reference, long courseId) {
+    private List<AssignDTO> enrichAssignments(UserReference reference, long courseId) throws JsonProcessingException {
         ResponseEntity<String> entity;
         UriComponentsBuilder builder = buildDefaultQueryParamsBuilder(reference.getToken(),
                                                                       MOODLE_GET_ASSIGNS_FUNCTION,
@@ -233,19 +232,19 @@ public class ServiceMoodle {
             throw new MoodleAssignmentException("Fail to enrich assignments from course id");
         }
 
-        JsonObject moodleAssigns = gson.fromJson(entity.getBody(), JsonObject.class);
+        JsonNode moodleAssigns = mapper.readTree(entity.getBody());
         return fulfillAssignments(moodleAssigns);
     }
 
-    private List<AssignDTO> fulfillAssignments(JsonObject assignOverview) {
-        JsonArray moodleCourses = assignOverview.getAsJsonArray("courses");
+    private List<AssignDTO> fulfillAssignments(JsonNode data) {
+        JsonNode moodleCourses = data.get("courses");
         List<AssignDTO> assigns = new ArrayList<>();
-        moodleCourses.forEach(moodleCourse -> assigns.addAll(AssignDTO.from(moodleCourse.getAsJsonObject()
-                                                                                        .getAsJsonArray("assignments"))));
+        moodleCourses.forEach(moodleCourse -> assigns.addAll(AssignDTO.from(moodleCourse.get("assignments"))));
         return assigns;
     }
 
-    private List<Submission> getSubmissionsInCourse(long courseId, List<Long> assignIds, UserReference reference) {
+    private List<Submission> getSubmissionsInCourse(long courseId, List<Long> assignIds, UserReference reference)
+            throws JsonProcessingException {
         UriComponentsBuilder builder = buildDefaultQueryParamsBuilder(reference.getToken(),
                                                                       MOODLE_GET_SUBMISSIONS_FUNCTION,
                                                                       moodleWebServiceUri);
@@ -257,19 +256,20 @@ public class ServiceMoodle {
             log.error("[Service moodle] Fail to get submissions by assignments");
             throw new MoodleSubmissionException("Fail to enrich submissions");
         }
-        JsonObject data = gson.fromJson(entity.getBody(), JsonObject.class);
-        return parseSubmissions(data.getAsJsonArray("assignments"), courseId, reference);
+        JsonNode data = mapper.readTree(entity.getBody());
+        return parseSubmissions(data.get("assignments"), courseId, reference);
     }
 
-    private List<Submission> parseSubmissions(@NotNull JsonArray assignments, long courseId, UserReference reference) {
+    private List<Submission> parseSubmissions(@NotNull JsonNode assignments, long courseId, UserReference reference)
+            throws JsonProcessingException {
         List<Submission> submissions = new ArrayList<>();
         Set<Long> ownerIds = new HashSet<>();
         Map<Long, List<Long>> mapListSubmissionIdByOwnerId = new HashMap<>();
         assignments.forEach(assignment -> {
-            long assignId = assignment.getAsJsonObject().get("assignmentid").getAsLong();
-            assignment.getAsJsonObject().getAsJsonArray("submissions").forEach(inputSubmission -> {
-                long ownerId = inputSubmission.getAsJsonObject().get("userid").getAsLong();
-                long submissionId = inputSubmission.getAsJsonObject().get("id").getAsLong();
+            long assignId = assignment.get("assignmentid").asLong();
+            assignment.get("submissions").forEach(inputSubmission -> {
+                long ownerId = inputSubmission.get("userid").asLong();
+                long submissionId = inputSubmission.get("id").asLong();
                 if (ownerId == reference.getReferenceUserId()) return;
 
                 SubmissionOwner owner = repoSubmissionOwner.findByReferenceOwnerId(ownerId);
@@ -279,20 +279,16 @@ public class ServiceMoodle {
                         mapListSubmissionIdByOwnerId.get(ownerId).add(submissionId);
                     else mapListSubmissionIdByOwnerId.put(ownerId, new ArrayList<>(List.of(submissionId)));
                 }
-                Submission submission = repoSubmission.findByReferenceSubmissionId(inputSubmission.getAsJsonObject()
-                                                                                                  .get("id")
-                                                                                                  .getAsLong());
-                List<RelationSubmissionSession> relations = getSubmissionRelations(inputSubmission.getAsJsonObject()
-                                                                                                  .getAsJsonArray(
-                                                                                                          "plugins"));
+                Submission submission = repoSubmission.findByReferenceSubmissionId(inputSubmission.get("id").asLong());
+                List<RelationSubmissionSession> relations = getSubmissionRelations(inputSubmission.get("plugins"));
                 if (submission == null) {
                     // Case new submission
                     submission = Submission.builder()
                                            .referenceSubmissionId(submissionId)
-                                           .createdAt(TimeUtil.parseZoneDateTime(inputSubmission.getAsJsonObject()
-                                                                                                .get("timecreated")))
-                                           .updatedAt(TimeUtil.parseZoneDateTime(inputSubmission.getAsJsonObject()
-                                                                                                .get("timemodified")))
+                                           .createdAt(TimeUtil.parseZoneDateTime(inputSubmission.get("timecreated")
+                                                                                                .asLong()))
+                                           .updatedAt(TimeUtil.parseZoneDateTime(inputSubmission.get("timemodified")
+                                                                                                .asLong()))
                                            .courseId(courseId)
                                            .assignId(assignId)
                                            .relations(relations)
@@ -300,8 +296,7 @@ public class ServiceMoodle {
                                            .build();
                 } else {
                     // Update submission if any new change
-                    submission.setUpdatedAt(TimeUtil.parseZoneDateTime(inputSubmission.getAsJsonObject()
-                                                                                      .get("timemodified")));
+                    submission.setUpdatedAt(TimeUtil.parseZoneDateTime(inputSubmission.get("timemodified").asLong()));
                     updateSubmissionRelations(submission, relations);
                 }
                 submissions.add(submission);
@@ -355,7 +350,8 @@ public class ServiceMoodle {
 
     private Map<Long, SubmissionOwner> getCourseSubmissionOwners(Set<Long> ownerIds,
                                                                  Map<Long, List<Long>> mapListSubmissionIdByOwnerId,
-                                                                 UserReference reference) {
+                                                                 UserReference reference)
+            throws JsonProcessingException {
         Map<Long, SubmissionOwner> mapOwnerBySubmissionReferenceId = new HashMap<>();
         List<SubmissionOwner> owners = getOwnersFromIds(ownerIds, reference);
         owners.forEach(owner -> mapListSubmissionIdByOwnerId.get(owner.getReferenceOwnerId())
@@ -365,7 +361,8 @@ public class ServiceMoodle {
         return mapOwnerBySubmissionReferenceId;
     }
 
-    private List<SubmissionOwner> getOwnersFromIds(Set<Long> ownerIds, UserReference reference) {
+    private List<SubmissionOwner> getOwnersFromIds(Set<Long> ownerIds, UserReference reference)
+            throws JsonProcessingException {
         UriComponentsBuilder builder = buildDefaultQueryParamsBuilder(reference.getToken(),
                                                                       MOODLE_GET_OWNERS_FUNCTION,
                                                                       moodleWebServiceUri).queryParam("field", "id");
@@ -377,52 +374,44 @@ public class ServiceMoodle {
             log.error("[Service moodle] Fail to enrich submission owners");
             throw new MoodleSubmissionException("Fail to enrich submission owners");
         }
-        JsonArray data = gson.fromJson(entity.getBody(), JsonArray.class);
+        JsonNode data = mapper.readTree(entity.getBody());
         return parseSubmissionOwners(data);
     }
 
-    private List<SubmissionOwner> parseSubmissionOwners(JsonArray data) {
+    private List<SubmissionOwner> parseSubmissionOwners(JsonNode data) {
         List<SubmissionOwner> owners = new ArrayList<>();
         data.forEach(owner -> owners.add(SubmissionOwner.builder()
-                                                        .email(owner.getAsJsonObject().get("email").getAsString())
-                                                        .fullname(owner.getAsJsonObject().get("fullname").getAsString())
-                                                        .referenceOwnerId(owner.getAsJsonObject().get("id").getAsLong())
-                                                        .profileImageUrl(owner.getAsJsonObject()
-                                                                              .get("profileimageurlsmall")
-                                                                              .getAsString())
+                                                        .email(owner.get("email").asText())
+                                                        .fullname(owner.get("fullname").asText())
+                                                        .referenceOwnerId(owner.get("id").asLong())
+                                                        .profileImageUrl(owner.get("profileimageurlsmall").asText())
                                                         .build()));
 
         return owners;
     }
 
-    private List<RelationSubmissionSession> getSubmissionRelations(JsonArray plugins) {
+    private List<RelationSubmissionSession> getSubmissionRelations(JsonNode plugins) {
         List<RelationSubmissionSession> relationSubmissionSessions = new ArrayList<>();
-        for (JsonElement plugin : plugins) {
-            if (plugin.getAsJsonObject().get("type").getAsString().equals("file")) {
-                for (JsonElement fileareas : plugin.getAsJsonObject().getAsJsonArray("fileareas")) {
-                    if (fileareas.getAsJsonObject().get("area").getAsString().equals("submission_files")) {
-                        for (JsonElement file : fileareas.getAsJsonObject().getAsJsonArray("files")) {
+        plugins.forEach(plugin -> {
+            if (plugin.get("type").asText().equals("file")) {
+                plugin.get("fileareas").forEach(fileareas -> {
+                    if (fileareas.get("area").asText().equals("submission_files")) {
+                        fileareas.get("files").forEach(file -> {
                             RelationSubmissionSession relation;
                             SubmissionFile submissionFile = SubmissionFile.builder()
-                                                                          .filename(file.getAsJsonObject()
-                                                                                        .get("filename")
-                                                                                        .getAsString())
-                                                                          .fileUri(file.getAsJsonObject()
-                                                                                       .get("fileurl")
-                                                                                       .getAsString())
-                                                                          .mimetype(file.getAsJsonObject()
-                                                                                        .get("mimetype")
-                                                                                        .getAsString())
-                                                                          .updatedAt(TimeUtil.parseZoneDateTime(file.getAsJsonObject()
-                                                                                                                    .get("timemodified")))
+                                                                          .filename(file.get("filename").asText())
+                                                                          .fileUri(file.get("fileurl").asText())
+                                                                          .mimetype(file.get("mimetype").asText())
+                                                                          .updatedAt(TimeUtil.parseZoneDateTime(file.get(
+                                                                                  "timemodified").asLong()))
                                                                           .build();
                             relation = RelationSubmissionSession.builder().file(submissionFile).build();
                             relationSubmissionSessions.add(relation);
-                        }
+                        });
                     }
-                }
+                });
             }
-        }
+        });
         return relationSubmissionSessions;
     }
 
@@ -442,7 +431,8 @@ public class ServiceMoodle {
         return entity;
     }
 
-    public UserDetails signin(SignInRequest request, HttpServletRequest httpServletRequest) {
+    public UserDetails signin(SignInRequest request, HttpServletRequest httpServletRequest)
+            throws JsonProcessingException {
         // Get token and userid from moodle
         Authentication authentication = getMoodleAccount(request);
 
@@ -455,7 +445,7 @@ public class ServiceMoodle {
     }
 
     @NotNull
-    private Authentication getMoodleAccount(SignInRequest request) {
+    private Authentication getMoodleAccount(SignInRequest request) throws JsonProcessingException {
         // Call moodle to get user_id and token
         UriComponentsBuilder getTokenParams = UriComponentsBuilder.fromPath(moodleSigninUri)
                                                                   .queryParam("username", request.getUsername())
@@ -463,7 +453,7 @@ public class ServiceMoodle {
                                                                   .queryParam("service", webServiceName);
         String uri = moodleClient.getUriTemplateHandler().expand(getTokenParams.toUriString()).toString();
         String response = moodleClient.getForObject(uri, String.class);
-        String token = gson.fromJson(response, JsonObject.class).getAsJsonObject().get("token").getAsString();
+        String token = mapper.readTree(response).get("token").asText();
         UserReference reference = repoUserReference.findByToken(token);
         if (reference == null) {
             // Enrich user id by token
@@ -475,7 +465,7 @@ public class ServiceMoodle {
             response = moodleClient.getForObject(moodleClient.getUriTemplateHandler()
                                                              .expand(getSiteInfoParams.toUriString())
                                                              .toString(), String.class);
-            long referenceUserId = gson.fromJson(response, JsonObject.class).get("userid").getAsLong();
+            long referenceUserId = mapper.readTree(response).get("userid").asLong();
             reference = UserReference.builder().token(token).referenceUserId(referenceUserId).build();
         }
         // Create user if not exist
@@ -497,7 +487,7 @@ public class ServiceMoodle {
                                                                                                         token)));
     }
 
-    public Page<AssignDTO> getAssigns(long courseId, Pageable pageable) {
+    public Page<AssignDTO> getAssigns(long courseId, Pageable pageable) throws JsonProcessingException {
         UserImpl user = ServiceHighlight.getUserFromContext();
         if (user == null || user.getId() == null) {
             log.error("[Service moodle] Fail to get user information");
@@ -511,7 +501,8 @@ public class ServiceMoodle {
                                                              assigns.size())), pageable, assigns.size());
     }
 
-    public Page<Submission.SubmissionDTO> getSubmissions(long courseId, long assignId, Pageable pageable) {
+    public Page<Submission.SubmissionDTO> getSubmissions(long courseId, long assignId, Pageable pageable)
+            throws JsonProcessingException {
         UserImpl user = ServiceHighlight.getUserFromContext();
         if (user == null || user.getId() == null) {
             log.error("[Service moodle] Fail to get user information");

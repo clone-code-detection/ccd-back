@@ -1,5 +1,6 @@
 package github.clone_code_detection.controller.moodle;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import github.clone_code_detection.controller.authen.AuthenticationController;
 import github.clone_code_detection.entity.authenication.SignInRequest;
 import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
@@ -55,7 +56,8 @@ public class MoodleController {
     @PostMapping(path = "/signin", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     @ResponseStatus(HttpStatus.OK)
     public AuthenticationController.UserAuthenticateResponse signinWithMoodleAccount(@Validated SignInRequest request,
-                                                                                     HttpServletRequest httpServletRequest) {
+                                                                                     HttpServletRequest httpServletRequest)
+            throws JsonProcessingException {
         assert request != null : new RuntimeException("Invalid request");
         UserDetails userDetails = serviceMoodle.signin(request, httpServletRequest);
         return new AuthenticationController.UserAuthenticateResponse(userDetails);
@@ -63,20 +65,25 @@ public class MoodleController {
 
     @GetMapping(path = "/courses")
     @ResponseStatus(HttpStatus.OK)
-    public Page<CourseDTO> getCourses(@PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public Page<CourseDTO> getCourses(@PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable)
+            throws JsonProcessingException {
         return serviceMoodle.getCourses(pageable);
     }
 
     @GetMapping(path = "/assigns")
+    @ResponseStatus(HttpStatus.OK)
     public Page<AssignDTO> getAssigns(@RequestParam("course_id") long courseId,
-                                      @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+                                      @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable)
+            throws JsonProcessingException {
         return serviceMoodle.getAssigns(courseId, pageable);
     }
 
     @GetMapping(path = "/submissions")
+    @ResponseStatus(HttpStatus.OK)
     public Page<Submission.SubmissionDTO> getSubmissions(@RequestParam("course_id") long courseId,
                                                          @RequestParam("assign_id") long assignId,
-                                                         @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+                                                         @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable)
+            throws JsonProcessingException {
         return serviceMoodle.getSubmissions(courseId, assignId, pageable);
     }
 
