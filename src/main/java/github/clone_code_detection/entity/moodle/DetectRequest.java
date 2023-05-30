@@ -14,5 +14,5 @@ import java.util.List;
 @AllArgsConstructor
 public class DetectRequest {
     @JsonProperty("submission_ids")
-    List<Integer> submissionIds;
+    List<Long> submissionIds;
 }
