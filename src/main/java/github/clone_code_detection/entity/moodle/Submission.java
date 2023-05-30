@@ -32,6 +32,10 @@ public class Submission {
     @Column(name = "reference_submission_id")
     private long referenceSubmissionId; // The submission id of moodle
 
+    @ManyToOne(cascade = {CascadeType.PERSIST})
+    @JoinColumn(name = "owner_id", referencedColumnName = "id")
+    private SubmissionOwner owner;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Temporal(TemporalType.TIMESTAMP)
     private java.time.ZonedDateTime createdAt = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
@@ -43,17 +47,46 @@ public class Submission {
 
     @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinColumn(name = "submission_id", referencedColumnName = "id")
-    private List<RelationSubmissionSession> sessionRelations;
+    private List<RelationSubmissionSession> relations;
+
+    public SubmissionDTO toDTO() {
+        return new SubmissionDTO() {
+            @Override
+            public long getId() {
+                return id;
+            }
+
+            @Override
+            public java.time.ZonedDateTime getCreatedAt() {
+                return createdAt;
+            }
+
+            @Override
+            public java.time.ZonedDateTime getUpdatedAt() {
+                return updatedAt;
+            }
+
+            @Override
+            public SubmissionOwner.SubmissionOwnerDTO getOwner() {
+                return owner.toDTO();
+            }
+
+            @Override
+            public List<RelationSubmissionSession.RelationSubmissionSessionDTO> getRelations() {
+                return relations.stream().map(RelationSubmissionSession::toDTO).toList();
+            }
+        };
+    }
 
     public interface SubmissionDTO {
-        long getReferenceSubmissionId();
+        long getId();
 
-        long getCourseId();
+        java.time.ZonedDateTime getCreatedAt();
 
-        long getCreatedAt();
+        java.time.ZonedDateTime getUpdatedAt();
 
-        long getUpdatedAt();
+        SubmissionOwner.SubmissionOwnerDTO getOwner();
 
-        List<RelationSubmissionSession> getSessionRelations();
+        List<RelationSubmissionSession.RelationSubmissionSessionDTO> getRelations();
     }
 }

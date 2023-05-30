@@ -14,11 +14,20 @@ import java.util.UUID;
 @Repository
 @Validated
 public interface RepoUser extends JpaRepository<UserImpl, UUID> {
-    // language=PostgreSQL
-    String saveUserWithNameAndPassword = "insert into authen.\"user\"(username, password)\n" + "values (:username, :password)\n";
+    // language=PostgresSQL
+    String saveUserWithNameAndPassword = """
+            insert into authen."user"(username, password)
+            values (:username, :password)
+            """;
 
-    // language=PostgreSQL
-    String addRoleToUserWithName = "insert into authen.relation_user_role(user_id, role_id)\n" + "select \"user\".id, \"role\".id\n" + "from authen.\"user\",\n" + "     authen.\"role\"\n" + "where username = (:username)\n" + "and role.name = (:role);";
+    // language=PostgresSQL
+    String addRoleToUserWithName = """
+            insert into authen.relation_user_role(user_id, role_id)
+            select "user".id, "role".id
+            from authen."user",
+                 authen."role"
+            where username = (:username)
+            and role.name = (:role);""";
 
     UserImpl findUserImplByUsername(@Nonnull String name);
 

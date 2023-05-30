@@ -67,7 +67,7 @@ public class ServiceAuthentication {
                                 .username(request.getUsername())
                                 .password(encodedPassword)
                                 .build();
-        if (request.getIsStandalone()) user = repo.createStandaloneUser(user);
+        if (Boolean.TRUE.equals(request.getIsStandalone())) user = repo.createStandaloneUser(user);
         else user = repo.createOrgUser(user);
 
         return user;

@@ -68,7 +68,7 @@ public class ApplicationSecurity {
         // set the name of the attribute the CsrfToken will be populated on
         requestHandler.setCsrfRequestAttributeName("_csrf");
         http.csrf()
-            .ignoringRequestMatchers("/authentication/**", "/api/highlight/**")
+            .ignoringRequestMatchers("/authentication/**", "/api/highlight/**", "/api/moodle/signin")
             .csrfTokenRequestHandler(requestHandler)
             .csrfTokenRepository(new HttpSessionCsrfTokenRepository())
             .and()
@@ -76,7 +76,7 @@ public class ApplicationSecurity {
             .configurationSource(corsConfigurationSource())
         ;
         http.authorizeHttpRequests()
-            .requestMatchers("/authentication/**", "/csrf/**",  "/api/highlight/**")
+            .requestMatchers("/authentication/**", "/csrf/**",  "/api/highlight/**", "/api/moodle/signin")
             .permitAll()
 
             .anyRequest()
