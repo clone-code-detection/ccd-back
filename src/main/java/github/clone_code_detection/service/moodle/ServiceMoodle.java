@@ -25,6 +25,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -200,7 +203,7 @@ public class ServiceMoodle {
         return request;
     }
 
-    public List<CourseDTO> getCourses() {
+    public Page<CourseDTO> getCourses(Pageable pageable) {
         UserImpl user = ServiceHighlight.getUserFromContext();
         if (user == null || user.getId() == null) {
             log.error("[Service moodle] Fail to get user information");
@@ -210,17 +213,18 @@ public class ServiceMoodle {
         ResponseEntity<String> coursesEntity = getCoursesOfUser(reference);
         JsonArray moodleCourses = gson.fromJson(coursesEntity.getBody(), JsonArray.class);
         List<CourseDTO> courses = CourseDTO.from(moodleCourses);
-        // enrich assignments belong to these courses
-        enrichAssignments(reference, courses);
-        return courses;
+        courses.sort(Comparator.comparing(CourseDTO::getId).reversed());
+        return new PageImpl<>(courses.subList((int) pageable.getOffset(),
+                                              (int) Math.min(pageable.getPageSize() + pageable.getOffset(),
+                                                             courses.size())), pageable, courses.size());
     }
 
-    private void enrichAssignments(UserReference reference, List<CourseDTO> courses) {
+    private List<AssignDTO> enrichAssignments(UserReference reference, long courseId) {
         ResponseEntity<String> entity;
         UriComponentsBuilder builder = buildDefaultQueryParamsBuilder(reference.getToken(),
                                                                       MOODLE_GET_ASSIGNS_FUNCTION,
                                                                       moodleWebServiceUri);
-        courses.forEach(course -> builder.queryParam("courseids[]", course.getId()));
+        builder.queryParam("courseids[]", courseId);
         entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
                                                        .expand(builder.toUriString())
                                                        .toString(), String.class);
@@ -230,29 +234,15 @@ public class ServiceMoodle {
         }
 
         JsonObject moodleAssigns = gson.fromJson(entity.getBody(), JsonObject.class);
-        fulfillAssignments(courses, moodleAssigns, reference);
+        return fulfillAssignments(moodleAssigns);
     }
 
-    private void fulfillAssignments(List<CourseDTO> courses, JsonObject assignOverview, UserReference reference) {
+    private List<AssignDTO> fulfillAssignments(JsonObject assignOverview) {
         JsonArray moodleCourses = assignOverview.getAsJsonArray("courses");
-        Map<Long, List<AssignDTO>> mapListAssignsByCourseId = new HashMap<>();
-        moodleCourses.forEach(moodleCourse -> {
-            long courseId = moodleCourse.getAsJsonObject().get("id").getAsLong();
-            List<AssignDTO> assigns = AssignDTO.from(moodleCourse.getAsJsonObject().getAsJsonArray("assignments"));
-            if (!assigns.isEmpty()) {
-                List<Submission> submissions = getSubmissionsInCourse(courseId,
-                                                                      assigns.stream().map(AssignDTO::getId).toList(),
-                                                                      reference);
-                repoSubmission.saveAll(submissions);
-                assigns.forEach(assign -> assign.setSubmissions(submissions.stream()
-                                                                           .filter(submission -> submission.getAssignId() == assign.getId())
-                                                                           .map(Submission::toDTO)
-                                                                           .toList()));
-            }
-            mapListAssignsByCourseId.put(courseId, assigns);
-        });
-        // Build query params to get all submission from these assignments
-        courses.forEach(course -> course.setAssigns(mapListAssignsByCourseId.get(course.getId())));
+        List<AssignDTO> assigns = new ArrayList<>();
+        moodleCourses.forEach(moodleCourse -> assigns.addAll(AssignDTO.from(moodleCourse.getAsJsonObject()
+                                                                                        .getAsJsonArray("assignments"))));
+        return assigns;
     }
 
     private List<Submission> getSubmissionsInCourse(long courseId, List<Long> assignIds, UserReference reference) {
@@ -505,5 +495,37 @@ public class ServiceMoodle {
         return authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(),
                                                                                           String.format("moodle@%s",
                                                                                                         token)));
+    }
+
+    public Page<AssignDTO> getAssigns(long courseId, Pageable pageable) {
+        UserImpl user = ServiceHighlight.getUserFromContext();
+        if (user == null || user.getId() == null) {
+            log.error("[Service moodle] Fail to get user information");
+            throw new MoodleCourseException("Fail to get user information");
+        }
+        UserReference reference = repoUserReference.findByInternalUserId(user.getId());
+        List<AssignDTO> assigns = enrichAssignments(reference, courseId);
+        assigns.sort(Comparator.comparing(AssignDTO::getId));
+        return new PageImpl<>(assigns.subList((int) pageable.getOffset(),
+                                              (int) Math.min(pageable.getPageSize() + pageable.getOffset(),
+                                                             assigns.size())), pageable, assigns.size());
+    }
+
+    public Page<Submission.SubmissionDTO> getSubmissions(long courseId, long assignId, Pageable pageable) {
+        UserImpl user = ServiceHighlight.getUserFromContext();
+        if (user == null || user.getId() == null) {
+            log.error("[Service moodle] Fail to get user information");
+            throw new MoodleCourseException("Fail to get user information");
+        }
+        UserReference reference = repoUserReference.findByInternalUserId(user.getId());
+        List<Submission> submissions = getSubmissionsInCourse(courseId, new ArrayList<>(List.of(assignId)), reference);
+        submissions = repoSubmission.saveAll(submissions);
+        submissions.sort(Comparator.comparing(Submission::getId));
+        return new PageImpl<>(submissions.subList((int) pageable.getOffset(),
+                                                  (int) Math.min(pageable.getPageSize() + pageable.getOffset(),
+                                                                 submissions.size()))
+                                         .stream()
+                                         .map(Submission::toDTO)
+                                         .toList(), pageable, submissions.size());
     }
 }

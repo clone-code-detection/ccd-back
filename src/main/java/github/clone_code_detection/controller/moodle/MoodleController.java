@@ -5,13 +5,15 @@ import github.clone_code_detection.entity.authenication.SignInRequest;
 import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
 import github.clone_code_detection.entity.highlight.request.HighlightSessionRequest;
 import github.clone_code_detection.entity.index.IndexInstruction;
-import github.clone_code_detection.entity.moodle.CourseDTO;
-import github.clone_code_detection.entity.moodle.DetectRequest;
-import github.clone_code_detection.entity.moodle.MoodleResponse;
+import github.clone_code_detection.entity.moodle.*;
 import github.clone_code_detection.service.highlight.ServiceHighlight;
 import github.clone_code_detection.service.moodle.ServiceMoodle;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -22,7 +24,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/moodle")
@@ -62,8 +63,21 @@ public class MoodleController {
 
     @GetMapping(path = "/courses")
     @ResponseStatus(HttpStatus.OK)
-    public List<CourseDTO> getCourses() {
-        return serviceMoodle.getCourses();
+    public Page<CourseDTO> getCourses(@PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        return serviceMoodle.getCourses(pageable);
+    }
+
+    @GetMapping(path = "/assigns")
+    public Page<AssignDTO> getAssigns(@RequestParam("course_id") long courseId,
+                                      @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        return serviceMoodle.getAssigns(courseId, pageable);
+    }
+
+    @GetMapping(path = "/submissions")
+    public Page<Submission.SubmissionDTO> getSubmissions(@RequestParam("course_id") long courseId,
+                                                         @RequestParam("assign_id") long assignId,
+                                                         @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        return serviceMoodle.getSubmissions(courseId, assignId, pageable);
     }
 
     @PostMapping(path = "/detect-submissions")

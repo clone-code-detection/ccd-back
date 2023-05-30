@@ -17,7 +17,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AssignDTO {
-    List<Submission.SubmissionDTO> submissions;
     private long id;
     @JsonProperty("cm_id")
     private long cmId;

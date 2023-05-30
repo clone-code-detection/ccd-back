@@ -17,8 +17,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CourseDTO {
-    @Builder.Default
-    List<AssignDTO> assigns = new ArrayList<>();
     private long id;
     private String shortname;
     private String fullname;
