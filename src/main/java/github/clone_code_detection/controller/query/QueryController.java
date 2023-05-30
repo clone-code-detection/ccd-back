@@ -5,10 +5,7 @@ import github.clone_code_detection.entity.query.QueryInstruction;
 import github.clone_code_detection.service.query.ServiceQuery;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
 
@@ -25,5 +22,10 @@ public class QueryController {
     @RequestMapping(path = "/form", method = RequestMethod.POST, consumes = {MediaType.APPLICATION_JSON_VALUE})
     public Collection<ElasticsearchDocument> queryDocument(@RequestBody QueryInstruction queryInstruction) {
         return serviceQuery.search(queryInstruction);
+    }
+
+    @RequestMapping(path = "/single-source-match/overview/{id}", method = RequestMethod.GET)
+    public Collection<ServiceQuery.TargetMatchOverview> handle(@PathVariable String id) {
+        return serviceQuery.handle(id);
     }
 }
