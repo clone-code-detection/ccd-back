@@ -101,8 +101,7 @@ public class ServiceMoodle {
                                    .queryParam("moodlewsrestformat", "json");
     }
 
-    public static Collection<HighlightSessionRequest> unzipMoodleFileAndGetRequests(@NotNull MultipartFile source)
-            throws IOException {
+    public static Collection<HighlightSessionRequest> unzipMoodleFileAndGetRequests(@NotNull MultipartFile source) throws IOException {
         // Moodle zip file has structure as list of folder, each folder is student's list file submissions
         ArrayList<HighlightSessionRequest> requests = new ArrayList<>(); // Each request will be the highlight session
         // Create zip handler for root zip file which got grom moodle
@@ -243,8 +242,9 @@ public class ServiceMoodle {
         return assigns;
     }
 
-    private List<Submission> getSubmissionsInCourse(long courseId, List<Long> assignIds, UserReference reference)
-            throws JsonProcessingException {
+    private List<Submission> getSubmissionsInCourse(long courseId,
+                                                    List<Long> assignIds,
+                                                    UserReference reference) throws JsonProcessingException {
         UriComponentsBuilder builder = buildDefaultQueryParamsBuilder(reference.getToken(),
                                                                       MOODLE_GET_SUBMISSIONS_FUNCTION,
                                                                       moodleWebServiceUri);
@@ -260,8 +260,9 @@ public class ServiceMoodle {
         return parseSubmissions(data.get("assignments"), courseId, reference);
     }
 
-    private List<Submission> parseSubmissions(@NotNull JsonNode assignments, long courseId, UserReference reference)
-            throws JsonProcessingException {
+    private List<Submission> parseSubmissions(@NotNull JsonNode assignments,
+                                              long courseId,
+                                              UserReference reference) throws JsonProcessingException {
         List<Submission> submissions = new ArrayList<>();
         Set<Long> ownerIds = new HashSet<>();
         Map<Long, List<Long>> mapListSubmissionIdByOwnerId = new HashMap<>();
@@ -350,8 +351,7 @@ public class ServiceMoodle {
 
     private Map<Long, SubmissionOwner> getCourseSubmissionOwners(Set<Long> ownerIds,
                                                                  Map<Long, List<Long>> mapListSubmissionIdByOwnerId,
-                                                                 UserReference reference)
-            throws JsonProcessingException {
+                                                                 UserReference reference) throws JsonProcessingException {
         Map<Long, SubmissionOwner> mapOwnerBySubmissionReferenceId = new HashMap<>();
         List<SubmissionOwner> owners = getOwnersFromIds(ownerIds, reference);
         owners.forEach(owner -> mapListSubmissionIdByOwnerId.get(owner.getReferenceOwnerId())
@@ -361,8 +361,8 @@ public class ServiceMoodle {
         return mapOwnerBySubmissionReferenceId;
     }
 
-    private List<SubmissionOwner> getOwnersFromIds(Set<Long> ownerIds, UserReference reference)
-            throws JsonProcessingException {
+    private List<SubmissionOwner> getOwnersFromIds(Set<Long> ownerIds,
+                                                   UserReference reference) throws JsonProcessingException {
         UriComponentsBuilder builder = buildDefaultQueryParamsBuilder(reference.getToken(),
                                                                       MOODLE_GET_OWNERS_FUNCTION,
                                                                       moodleWebServiceUri).queryParam("field", "id");
@@ -431,8 +431,8 @@ public class ServiceMoodle {
         return entity;
     }
 
-    public UserDetails signin(SignInRequest request, HttpServletRequest httpServletRequest)
-            throws JsonProcessingException {
+    public UserDetails signin(SignInRequest request,
+                              HttpServletRequest httpServletRequest) throws JsonProcessingException {
         // Get token and userid from moodle
         Authentication authentication = getMoodleAccount(request);
 
@@ -501,8 +501,9 @@ public class ServiceMoodle {
                                                              assigns.size())), pageable, assigns.size());
     }
 
-    public Page<Submission.SubmissionDTO> getSubmissions(long courseId, long assignId, Pageable pageable)
-            throws JsonProcessingException {
+    public Page<Submission.SubmissionDTO> getSubmissions(long courseId,
+                                                         long assignId,
+                                                         Pageable pageable) throws JsonProcessingException {
         UserImpl user = ServiceHighlight.getUserFromContext();
         if (user == null || user.getId() == null) {
             log.error("[Service moodle] Fail to get user information");

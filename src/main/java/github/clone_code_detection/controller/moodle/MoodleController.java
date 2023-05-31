@@ -41,8 +41,7 @@ public class MoodleController {
 
     @PostMapping(path = "/detect", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
-    public MoodleResponse createHighlightSessionForMoodle(@RequestParam("source") MultipartFile source)
-            throws IOException {
+    public MoodleResponse createHighlightSessionForMoodle(@RequestParam("source") MultipartFile source) throws IOException {
         // moodle source is a zip file that contains multiple folders.
         // Each folder is list of file submissions of one student.
         // For each file in student's folder, we consider it as one highlight session.
@@ -56,8 +55,7 @@ public class MoodleController {
     @PostMapping(path = "/signin", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     @ResponseStatus(HttpStatus.OK)
     public AuthenticationController.UserAuthenticateResponse signinWithMoodleAccount(@Validated SignInRequest request,
-                                                                                     HttpServletRequest httpServletRequest)
-            throws JsonProcessingException {
+                                                                                     HttpServletRequest httpServletRequest) throws JsonProcessingException {
         assert request != null : new RuntimeException("Invalid request");
         UserDetails userDetails = serviceMoodle.signin(request, httpServletRequest);
         return new AuthenticationController.UserAuthenticateResponse(userDetails);
@@ -65,16 +63,14 @@ public class MoodleController {
 
     @GetMapping(path = "/courses")
     @ResponseStatus(HttpStatus.OK)
-    public Page<CourseDTO> getCourses(@PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable)
-            throws JsonProcessingException {
+    public Page<CourseDTO> getCourses(@PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) throws JsonProcessingException {
         return serviceMoodle.getCourses(pageable);
     }
 
     @GetMapping(path = "/assigns")
     @ResponseStatus(HttpStatus.OK)
     public Page<AssignDTO> getAssigns(@RequestParam("course_id") long courseId,
-                                      @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable)
-            throws JsonProcessingException {
+                                      @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) throws JsonProcessingException {
         return serviceMoodle.getAssigns(courseId, pageable);
     }
 
@@ -82,8 +78,7 @@ public class MoodleController {
     @ResponseStatus(HttpStatus.OK)
     public Page<Submission.SubmissionDTO> getSubmissions(@RequestParam("course_id") long courseId,
                                                          @RequestParam("assign_id") long assignId,
-                                                         @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable)
-            throws JsonProcessingException {
+                                                         @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) throws JsonProcessingException {
         return serviceMoodle.getSubmissions(courseId, assignId, pageable);
     }
 
