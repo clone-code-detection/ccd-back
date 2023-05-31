@@ -22,13 +22,17 @@ public class RelationSubmissionSession {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @OneToOne(cascade = {CascadeType.PERSIST})
+    @OneToOne(cascade = {CascadeType.REMOVE})
     @JoinColumn(name = "session_id", referencedColumnName = "id")
     private HighlightSessionDocument session;
 
-    @OneToOne(cascade = {CascadeType.PERSIST})
+    @OneToOne(cascade = {CascadeType.ALL})
     @JoinColumn(name = "submission_file_id", referencedColumnName = "id")
     private SubmissionFile file;
+
+    private enum Status {
+        UN_DETECTED, UP_TO_DATE, OUT_DATE
+    }
 
     public RelationSubmissionSessionDTO toDTO() {
         return new RelationSubmissionSessionDTO() {
@@ -42,6 +46,15 @@ public class RelationSubmissionSession {
                 if (session != null) return session.getId();
                 return null;
             }
+
+            @Override
+            public Status getStatus() {
+                if (session == null)
+                    return Status.UN_DETECTED;
+                if (file.getUpdatedAt().isBefore(session.getUpdatedAt()))
+                    return Status.UP_TO_DATE;
+                return Status.OUT_DATE;
+            }
         };
     }
 
@@ -49,5 +62,6 @@ public class RelationSubmissionSession {
         SubmissionFile getFile();
 
         UUID getSessionId();
+        Status getStatus();
     }
 }

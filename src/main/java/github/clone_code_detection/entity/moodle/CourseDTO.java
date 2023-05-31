@@ -28,7 +28,7 @@ public class CourseDTO {
     private ZonedDateTime endDate;
     private boolean completed;
 
-    public static List<CourseDTO> from(JsonNode moodleCourses) {
+    public static List<CourseDTO> asList(JsonNode moodleCourses) {
         List<CourseDTO> courses = new ArrayList<>();
         moodleCourses.forEach(course -> courses.add(CourseDTO.builder()
                                                              .id(course.get("id").asLong())
@@ -42,5 +42,15 @@ public class CourseDTO {
                                                              .completed(course.get("completed").asBoolean())
                                                              .build()));
         return courses;
+    }
+
+    public static CourseDTO asDetail(JsonNode courseDetail) {
+        return CourseDTO.builder()
+                        .id(courseDetail.get("id").asLong())
+                        .shortname(courseDetail.get("shortname").asText())
+                        .fullname(courseDetail.get("fullname").asText())
+                        .startDate(TimeUtil.parseZoneDateTime(courseDetail.get("startdate").asLong()))
+                        .endDate(TimeUtil.parseZoneDateTime(courseDetail.get("enddate").asLong()))
+                        .build();
     }
 }

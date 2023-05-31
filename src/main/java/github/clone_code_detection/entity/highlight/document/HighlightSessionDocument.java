@@ -8,6 +8,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.UUID;
@@ -31,7 +33,12 @@ public class HighlightSessionDocument {
     @Builder.Default
     @Column(name = "created_time")
     @Temporal(TemporalType.TIMESTAMP)
-    private LocalDateTime created = LocalDateTime.now();
+    private ZonedDateTime created = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+
+    @Column(name = "updated_at")
+    @Builder.Default
+    @Temporal(TemporalType.TIMESTAMP)
+    private ZonedDateTime updatedAt = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
 
     @ManyToOne
     @JoinColumn(name = "user_id")

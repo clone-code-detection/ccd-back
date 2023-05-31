@@ -10,7 +10,6 @@ import github.clone_code_detection.entity.highlight.document.HighlightSessionSta
 import github.clone_code_detection.entity.highlight.document.HighlightSingleDocument;
 import github.clone_code_detection.entity.highlight.document.HighlightSingleTargetMatchDocument;
 import github.clone_code_detection.entity.highlight.report.HighlightSessionDetailDTO;
-import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
 import github.clone_code_detection.entity.highlight.report.HighlightSingleSourceDTO;
 import github.clone_code_detection.entity.highlight.report.HighlightWordMatchDTO;
 import github.clone_code_detection.entity.highlight.request.HighlightSessionRequest;
@@ -72,7 +71,12 @@ public class ServiceHighlight {
     private String minimumShouldMatch;
 
     @Autowired
-    public ServiceHighlight(ServiceIndex serviceIndex, RepoElasticsearchQuery repoElasticsearchQuery, RepoHighlightSessionDocument repoHighlightSessionDocument, RepoHighlightSingleMatchDocument repoHighlightSingleMatchDocument, RepoHighlightSingleTargetMatchDocument repoHighlightSingleTargetMatchDocument, RepoFileDocument repoFileDocument) {
+    public ServiceHighlight(ServiceIndex serviceIndex,
+                            RepoElasticsearchQuery repoElasticsearchQuery,
+                            RepoHighlightSessionDocument repoHighlightSessionDocument,
+                            RepoHighlightSingleMatchDocument repoHighlightSingleMatchDocument,
+                            RepoHighlightSingleTargetMatchDocument repoHighlightSingleTargetMatchDocument,
+                            RepoFileDocument repoFileDocument) {
         this.serviceIndex = serviceIndex;
         this.repoElasticsearchQuery = repoElasticsearchQuery;
         this.repoHighlightSessionDocument = repoHighlightSessionDocument;
@@ -83,13 +87,10 @@ public class ServiceHighlight {
 
     private static List<HighlightWordMatchDTO> extractTermVectorsResponse(MultiTermVectorsResponse response) {
         List<HighlightWordMatchDTO> res = new ArrayList<>();
-        assert response.getTermVectorsResponses()
-                       .size() == 2;
+        assert response.getTermVectorsResponses().size() == 2;
 
-        TermVectorsResponse source = response.getTermVectorsResponses()
-                                             .get(0);
-        TermVectorsResponse target = response.getTermVectorsResponses()
-                                             .get(1);
+        TermVectorsResponse source = response.getTermVectorsResponses().get(0);
+        TermVectorsResponse target = response.getTermVectorsResponses().get(1);
         // traverse every document in query
         Map<String, List<Integer[]>> sourceMap = extractMatches(source);
         Map<String, List<Integer[]>> targetMap = extractMatches(target);
@@ -110,8 +111,7 @@ public class ServiceHighlight {
      */
     @Nullable
     public static UserImpl getUserFromContext() {
-        Authentication authentication = SecurityContextHolder.getContext()
-                                                             .getAuthentication();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication.getPrincipal() instanceof UserImpl userImpl) return userImpl;
         return null;
     }
@@ -119,7 +119,7 @@ public class ServiceHighlight {
     private static Map<String, List<Integer[]>> extractMatches(TermVectorsResponse termVectorsResponse) {
         Map<String, List<Integer[]>> res = new HashMap<>();
         TermVectorsResponse.TermVector termVector = getTermVectorByFieldName(termVectorsResponse.getTermVectorsList(),
-                SOURCE_CODE_FIELD);
+                                                                             SOURCE_CODE_FIELD);
         if (termVector == null) return res;
         for (TermVectorsResponse.TermVector.Term term : termVector.getTerms()) {
             String termValue = term.getTerm();
@@ -135,22 +135,36 @@ public class ServiceHighlight {
         return res;
     }
 
-    private static TermVectorsResponse.TermVector getTermVectorByFieldName(List<TermVectorsResponse.TermVector> termVectors, String fieldName) {
+    private static TermVectorsResponse.TermVector getTermVectorByFieldName(List<TermVectorsResponse.TermVector> termVectors,
+                                                                           String fieldName) {
         for (TermVectorsResponse.TermVector termVector : termVectors) {
-            if (termVector.getFieldName()
-                          .equals(fieldName)) return termVector;
+            if (termVector.getFieldName().equals(fieldName)) return termVector;
         }
         return null;
     }
 
+    // Sorted lists
+    private static <T extends Comparable<T>> boolean containsAny(List<T> a, List<T> b) {
+        for (T t : b) {
+            if (Collections.binarySearch(a, t) >= 0) return true;
+        }
+        return false;
+    }
+
+    private static Set<Integer> getTargetStartingPositions(ArrayList<PriorityQueue<TokenWrapper>> sourceMapByPosition,
+                                                           Map<String, List<Integer>> targetByValue,
+                                                           int i) {
+        PriorityQueue<TokenWrapper> synonyms = sourceMapByPosition.get(i);
+        return synonyms.stream().map(TokenWrapper::getToken).flatMap(tokenValue -> {
+            if (!targetByValue.containsKey(tokenValue)) return Stream.empty();
+            return targetByValue.get(tokenValue).stream();
+        }).collect(Collectors.toSet());
+    }
+
     @Transactional
-    public HighlightSessionReportDTO createHighlightSession(HighlightSessionRequest request, IndexInstruction instruction) {
-        // Create new empty highlight session
-        HighlightSessionDocument.HighlightSessionDocumentBuilder sessionBuilder = HighlightSessionDocument.builder();
-        HighlightSessionDocument highlightSessionDocument = sessionBuilder.build();
-        highlightSessionDocument.setUser(getUserFromContext());
-        highlightSessionDocument.setName(request.getSessionName());
-        highlightSessionDocument = repoHighlightSessionDocument.save(highlightSessionDocument);
+    public HighlightSessionDocument createHighlightSession(HighlightSessionRequest request,
+                                                           IndexInstruction instruction) {
+        HighlightSessionDocument highlightSessionDocument = createEmptyHighlighSession(request);
         // Assign session id of empty highlight session into each source document
         Collection<FileDocument> sourceDocuments = request.getSources();
         // Save file linking id of session
@@ -161,17 +175,24 @@ public class ServiceHighlight {
         });
         instruction.setFiles(repoFileDocument.saveAll(sourceDocuments));
         executor.execute(new HighlightProcessor(highlightSessionDocument, instruction));
-        return HighlightSessionReportDTO.builder()
-                                        .sessionId(highlightSessionDocument.getId())
-                                        .sessionName(highlightSessionDocument.getName())
-                                        .build();
+        return highlightSessionDocument;
+    }
+
+    @NotNull
+    private HighlightSessionDocument createEmptyHighlighSession(HighlightSessionRequest request) {
+        // Create new empty highlight session
+        HighlightSessionDocument.HighlightSessionDocumentBuilder sessionBuilder = HighlightSessionDocument.builder();
+        HighlightSessionDocument highlightSessionDocument = sessionBuilder.build();
+        highlightSessionDocument.setUser(getUserFromContext());
+        highlightSessionDocument.setName(request.getSessionName());
+        highlightSessionDocument = repoHighlightSessionDocument.save(highlightSessionDocument);
+        return highlightSessionDocument;
     }
 
     public Collection<HighlightReturn> handleAdvancedHighlightById(String id) {
         if (id.equals("undefined")) return new ArrayList<>();
-        HighlightSingleTargetMatchDocument singleDocument = repoHighlightSingleTargetMatchDocument.findById(
-                                                                                                          UUID.fromString(id))
-                                                                                                  .orElseThrow();
+        HighlightSingleTargetMatchDocument singleDocument = repoHighlightSingleTargetMatchDocument.findById(UUID.fromString(
+                id)).orElseThrow();
         return handleAdvancedHighlight(singleDocument);
     }
 
@@ -180,7 +201,7 @@ public class ServiceHighlight {
      */
     public Map<String, List<Integer>> mapTokensByValue(@NonNull TermVectorsResponse termVectorsResponse) {
         TermVectorsResponse.TermVector termVector = getTermVectorByFieldName(termVectorsResponse.getTermVectorsList(),
-                SOURCE_CODE_FIELD);
+                                                                             SOURCE_CODE_FIELD);
         if (termVector == null) throw new RuntimeException();
         Map<String, List<Integer>> res = new HashMap<>();
         for (TermVectorsResponse.TermVector.Term term : termVector.getTerms()) {
@@ -196,27 +217,24 @@ public class ServiceHighlight {
     // PriorityQueue is ordered by term length
     public ArrayList<PriorityQueue<TokenWrapper>> mapTokensByPosition(@NonNull TermVectorsResponse termVectorsResponse) {
         TermVectorsResponse.TermVector termVector = getTermVectorByFieldName(termVectorsResponse.getTermVectorsList(),
-                SOURCE_CODE_FIELD);
+                                                                             SOURCE_CODE_FIELD);
         if (termVector == null) throw new RuntimeException();
         int size = termVector.getTerms()
                              .stream()
-                             .flatMap(term -> term.getTokens()
-                                                  .stream())
+                             .flatMap(term -> term.getTokens().stream())
                              .map(TermVectorsResponse.TermVector.Token::getPosition)
                              .max(Comparator.naturalOrder())
                              .orElseThrow();
         ArrayList<PriorityQueue<TokenWrapper>> res = new ArrayList<>();
         for (int i = 0; i <= size; i++)
-            res.add(new PriorityQueue<>(Comparator.comparing(TokenWrapper::getLength)
-                                                  .reversed()));
+            res.add(new PriorityQueue<>(Comparator.comparing(TokenWrapper::getLength).reversed()));
 
         for (TermVectorsResponse.TermVector.Term term : termVector.getTerms()) {
             var tokenValue = term.getTerm();
             for (TermVectorsResponse.TermVector.Token token : term.getTokens()) {
                 TokenWrapper tokenWrapper = TokenWrapper.fromToken(tokenValue, token);
                 Integer position = tokenWrapper.getPosition();
-                res.get(position)
-                   .add(tokenWrapper);
+                res.get(position).add(tokenWrapper);
             }
         }
         return res;
@@ -224,11 +242,11 @@ public class ServiceHighlight {
 
     /**
      * @return list of extract return
+     *
      * @implNote: requires field mapping to have term vector position offset
      */
     public Collection<HighlightReturn> handleAdvancedHighlight(HighlightSingleTargetMatchDocument targetMatchDocument) {
-        var source = targetMatchDocument.getSource()
-                                        .getSource();
+        var source = targetMatchDocument.getSource().getSource();
         var target = targetMatchDocument.getTarget();
         MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(source, target);
         List<TermVectorsResponse> termVectorsResponses = multiTermVectors.getTermVectorsResponses();
@@ -239,7 +257,8 @@ public class ServiceHighlight {
         return getExtractReturnCollection(sourceTermVectorResponse, targetTermVectorResponse);
     }
 
-    public Collection<HighlightReturn> getExtractReturnCollection(TermVectorsResponse source, TermVectorsResponse target) {
+    public Collection<HighlightReturn> getExtractReturnCollection(TermVectorsResponse source,
+                                                                  TermVectorsResponse target) {
         // map source tokens by position
         ArrayList<PriorityQueue<TokenWrapper>> sourceMapByPosition = mapTokensByPosition(source);
         // map tokens by position
@@ -259,23 +278,9 @@ public class ServiceHighlight {
         return res;
     }
 
-    // Sorted lists
-    private static <T extends Comparable<T>> boolean containsAny(List<T> a, List<T> b) {
-        for (T t : b) {
-            if (Collections.binarySearch(a, t) >= 0) return true;
-        }
-        return false;
-    }
-
     private boolean condition(Collection<TokenWrapper> target, Collection<TokenWrapper> source) {
-        return containsAny(target.stream()
-                                 .map(TokenWrapper::getToken)
-                                 .sorted()
-                                 .collect(Collectors.toList()),
-                source.stream()
-                      .map(TokenWrapper::getToken)
-                      .sorted()
-                      .collect(Collectors.toList()));
+        return containsAny(target.stream().map(TokenWrapper::getToken).sorted().collect(Collectors.toList()),
+                           source.stream().map(TokenWrapper::getToken).sorted().collect(Collectors.toList()));
     }
 
     private HighlightReturn extracted(ArrayList<PriorityQueue<TokenWrapper>> sourceMapByPosition,
@@ -320,8 +325,9 @@ public class ServiceHighlight {
         for (Pair<Integer, Integer> tagetMatchPair : pairs) {
             int length = tagetMatchPair.getSecond() - tagetMatchPair.getFirst();
             if (maxCommonLength == length) {
-                var matchBlock = extractBlockFromPosition(tagetMatchPair.getFirst(), tagetMatchPair.getSecond(),
-                        targetMapByPosition);
+                var matchBlock = extractBlockFromPosition(tagetMatchPair.getFirst(),
+                                                          tagetMatchPair.getSecond(),
+                                                          targetMapByPosition);
                 res.targetBlock(matchBlock);
             }
         }
@@ -330,38 +336,21 @@ public class ServiceHighlight {
         return res;
     }
 
-    private static Set<Integer> getTargetStartingPositions(ArrayList<PriorityQueue<TokenWrapper>> sourceMapByPosition,
-                                                           Map<String, List<Integer>> targetByValue,
-                                                           int i) {
-        PriorityQueue<TokenWrapper> synonyms = sourceMapByPosition.get(i);
-        return synonyms.stream()
-                       .map(TokenWrapper::getToken)
-                       .flatMap(tokenValue -> {
-                           if (!targetByValue.containsKey(tokenValue)) return Stream.empty();
-                           return targetByValue.get(tokenValue)
-                                               .stream();
-                       })
-                       .collect(Collectors.toSet());
-    }
-
-
     /**
      * @param start
      * @param end
      * @param mapByPosition
      * @return
+     *
      * @implNote end is exclusive
      */
-    private Pair<Integer, Integer> extractBlockFromPosition(Integer start, Integer end,
+    private Pair<Integer, Integer> extractBlockFromPosition(Integer start,
+                                                            Integer end,
                                                             ArrayList<PriorityQueue<TokenWrapper>> mapByPosition) {
         assert end - 1 >= start;
-        TokenWrapper startToken = mapByPosition.get(start)
-                                               .iterator()
-                                               .next();
+        TokenWrapper startToken = mapByPosition.get(start).iterator().next();
         var startOffset = startToken.startOffset;
-        TokenWrapper endToken = mapByPosition.get(end - 1)
-                                             .iterator()
-                                             .next();
+        TokenWrapper endToken = mapByPosition.get(end - 1).iterator().next();
         var endOffset = endToken.endOffset;
         return Pair.of(startOffset, endOffset);
     }
@@ -375,17 +364,16 @@ public class ServiceHighlight {
 
     @Transactional
     public HighlightSessionDetailDTO getHighlightSessionById(String uuid) {
-        Optional<HighlightSessionDocument> sessionDocumentById = repoHighlightSessionDocument.findById(
-                UUID.fromString(uuid));
-        HighlightSessionDocument resource = sessionDocumentById.orElseThrow(
-                () -> new ResourceNotFoundException("Resource with uuid not found"));
+        Optional<HighlightSessionDocument> sessionDocumentById = repoHighlightSessionDocument.findById(UUID.fromString(
+                uuid));
+        HighlightSessionDocument resource = sessionDocumentById.orElseThrow(() -> new ResourceNotFoundException(
+                "Resource with uuid not found"));
         return HighlightSessionDetailDTO.from(resource);
     }
 
     @Nonnull
     private List<HighlightWordMatchDTO> getHighlightWordMatchDTOS(HighlightSingleTargetMatchDocument singleDocument) {
-        FileDocument source = singleDocument.getSource()
-                                            .getSource();
+        FileDocument source = singleDocument.getSource().getSource();
         FileDocument target = singleDocument.getTarget();
         MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(source, target);
         return extractTermVectorsResponse(multiTermVectors);
@@ -454,9 +442,7 @@ public class ServiceHighlight {
         HighlightSingleDocument.HighlightSingleDocumentBuilder builder = HighlightSingleDocument.builder();
         // get hits
         Collection<HighlightSingleTargetMatchDocument> matches = new ArrayList<>();
-        HighlightSingleDocument highlightSingleDocument = builder.source(source)
-                                                                 .matches(matches)
-                                                                 .build();
+        HighlightSingleDocument highlightSingleDocument = builder.source(source).matches(matches).build();
         for (SearchHit hit : search.getHits()) {
             String id = hit.getId();
             UUID fromString;
@@ -485,21 +471,21 @@ public class ServiceHighlight {
             Collection<FileDocument> subFiles = files.stream().toList().subList(startIndex, endIndex);
             // Create multisearch query
             Collection<QueryInstruction> instructions = new ArrayList<>();
-            subFiles.forEach(file -> instructions
-                    .add(QueryInstruction
-                            .builder()
-                            .queryDocument(file)
-                            .includeHighlight(true)
-                            .minimumShouldMatch(minimumShouldMatch)
-                            .build()));
+            subFiles.forEach(file -> instructions.add(QueryInstruction.builder()
+                                                                      .queryDocument(file)
+                                                                      .includeHighlight(true)
+                                                                      .minimumShouldMatch(minimumShouldMatch)
+                                                                      .build()));
             try {
                 MultiSearchResponse multiSearchResponse = repoElasticsearchQuery.multiquery(instructions);
                 for (int index = 0; index < multiSearchResponse.getResponses().length; ++index) {
                     MultiSearchResponse.Item searchResponse = multiSearchResponse.getResponses()[index];
                     if (searchResponse.isFailure()) {
-                        log.error("[Service highlight] Search response in multi highlight is fail. Error: {}", searchResponse.getFailureMessage());
+                        log.error("[Service highlight] Search response in multi highlight is fail. Error: {}",
+                                  searchResponse.getFailureMessage());
                     } else if (searchResponse.getResponse() != null) {
-                        highlightSingleDocuments.add(parseResponse(subFiles.stream().toList().get(index), searchResponse.getResponse()));
+                        highlightSingleDocuments.add(parseResponse(subFiles.stream().toList().get(index),
+                                                                   searchResponse.getResponse()));
                     }
                 }
             } catch (IOException e) {
@@ -524,18 +510,20 @@ public class ServiceHighlight {
         private TokenWrapper() {
         }
 
-        public Integer getLength() {
-            return endOffset - startOffset;
-        }
-
         public static TokenWrapper fromToken(String tokenValue, TermVectorsResponse.TermVector.Token token) {
             TokenWrapper tokenWrapper = mapper.convertValue(token, TokenWrapper.class);
             tokenWrapper.token = tokenValue;
             return tokenWrapper;
         }
+
+        public Integer getLength() {
+            return endOffset - startOffset;
+        }
     }
 
     public static class HighlightReturn {
+        @JsonProperty("has_match")
+        private final boolean hasMatch;
         // pair is start and end offset
         @JsonProperty("source_block")
         Pair<Integer, Integer> sourceBlock;
@@ -544,8 +532,6 @@ public class ServiceHighlight {
         private List<Pair<Integer, Integer>> targetBlocks;
         @JsonIgnore
         private int longestCommonLength;
-        @JsonProperty("has_match")
-        final private boolean hasMatch;
 
         public HighlightReturn(int longestCommonLength) {
             this.longestCommonLength = longestCommonLength;
@@ -563,9 +549,8 @@ public class ServiceHighlight {
             return this;
         }
 
-        public HighlightReturn targetBlock(Pair<Integer, Integer> block) {
+        public void targetBlock(Pair<Integer, Integer> block) {
             this.targetBlocks.add(block);
-            return this;
         }
     }
 
@@ -594,26 +579,27 @@ public class ServiceHighlight {
             } catch (Exception e) {
                 // Update status to failed for future retry
                 session.setStatus(HighlightSessionStatus.FAILED);
-                session.setException(
-                        new HighlightSessionException("[Service highlight] Error while processing highlight",
-                                e).toString());
+                session.setException(new HighlightSessionException(
+                        "[Service highlight] Error while processing highlight",
+                        e).toString());
                 repoHighlightSessionDocument.save(session);
-                log.error("[Service highlight] detect highlight session {} failed with error: {}", session.getName(),
-                        e.getMessage());
+                log.error("[Service highlight] detect highlight session {} failed with error: {}",
+                          session.getName(),
+                          e.getMessage());
             }
         }
 
         @Transactional
         public void markSessionAsProcessing() {
             try {
-                session.setStatus(HighlightSessionStatus.PROCESSING);
-                repoHighlightSessionDocument.save(session);
+                repoHighlightSessionDocument.updateStatusByIdEquals(HighlightSessionStatus.PROCESSING, session.getId());
             } catch (Exception e) {
                 log.error("[Service highlight] Can't update session to PROCESSING");
                 session.setStatus(HighlightSessionStatus.FAILED);
-                session.setException(
-                        new HighlightSessionException("[Service highlight] Can't update session to PROCESSING",
-                                e).toString());
+                session.setException(new HighlightSessionException(
+                        "[Service highlight] Can't update session to PROCESSING",
+                        e).toString());
+                repoHighlightSessionDocument.save(session);
             }
         }
     }

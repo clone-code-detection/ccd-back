@@ -13,7 +13,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -41,21 +40,24 @@ public class MoodleController {
 
     @PostMapping(path = "/detect", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
-    public MoodleResponse createHighlightSessionForMoodle(@RequestParam("source") MultipartFile source) throws IOException {
+    public MoodleResponse createHighlightSessionForMoodle(@RequestParam("source") MultipartFile source)
+            throws IOException {
         // moodle source is a zip file that contains multiple folders.
         // Each folder is list of file submissions of one student.
         // For each file in student's folder, we consider it as one highlight session.
         Collection<HighlightSessionRequest> requests = ServiceMoodle.unzipMoodleFileAndGetRequests(source);
         Collection<HighlightSessionReportDTO> reports = new ArrayList<>();
-        requests.forEach(request -> reports.add(serviceHighlight.createHighlightSession(request,
-                                                                                        IndexInstruction.getDefaultInstruction())));
+        requests.forEach(request -> reports.add(HighlightSessionReportDTO.from(serviceHighlight.createHighlightSession(
+                request,
+                IndexInstruction.getDefaultInstruction()))));
         return MoodleResponse.builder().message("OK").data(reports).build();
     }
 
     @PostMapping(path = "/signin", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     @ResponseStatus(HttpStatus.OK)
     public AuthenticationController.UserAuthenticateResponse signinWithMoodleAccount(@Validated SignInRequest request,
-                                                                                     HttpServletRequest httpServletRequest) throws JsonProcessingException {
+                                                                                     HttpServletRequest httpServletRequest)
+            throws JsonProcessingException {
         assert request != null : new RuntimeException("Invalid request");
         UserDetails userDetails = serviceMoodle.signin(request, httpServletRequest);
         return new AuthenticationController.UserAuthenticateResponse(userDetails);
@@ -63,14 +65,13 @@ public class MoodleController {
 
     @GetMapping(path = "/courses")
     @ResponseStatus(HttpStatus.OK)
-    public Page<CourseDTO> getCourses(@PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) throws JsonProcessingException {
+    public Page<CourseDTO> getCourses(@PageableDefault Pageable pageable) {
         return serviceMoodle.getCourses(pageable);
     }
 
     @GetMapping(path = "/assigns")
     @ResponseStatus(HttpStatus.OK)
-    public Page<AssignDTO> getAssigns(@RequestParam("course_id") long courseId,
-                                      @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) throws JsonProcessingException {
+    public AssignsOverviewDTO getAssigns(@RequestParam("course_id") long courseId, @PageableDefault Pageable pageable) {
         return serviceMoodle.getAssigns(courseId, pageable);
     }
 
@@ -78,13 +79,13 @@ public class MoodleController {
     @ResponseStatus(HttpStatus.OK)
     public Page<Submission.SubmissionDTO> getSubmissions(@RequestParam("course_id") long courseId,
                                                          @RequestParam("assign_id") long assignId,
-                                                         @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) throws JsonProcessingException {
+                                                         @PageableDefault Pageable pageable) {
         return serviceMoodle.getSubmissions(courseId, assignId, pageable);
     }
 
     @PostMapping(path = "/detect-submissions")
     @ResponseStatus(HttpStatus.OK)
-    public MoodleResponse detectSelectedSubmissions(@RequestBody DetectRequest request) {
-        return MoodleResponse.builder().build();
+    public MoodleResponse detectSelectedSubmissions(@RequestBody DetectRequest request) throws IOException {
+        return serviceMoodle.detectSubmissions(request.getSubmissionIds());
     }
 }

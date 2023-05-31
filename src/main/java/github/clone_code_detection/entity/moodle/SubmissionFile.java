@@ -28,6 +28,7 @@ public class SubmissionFile {
     private String filename;
 
     @Column(name = "updated_at")
+    @Temporal(TemporalType.TIMESTAMP)
     private ZonedDateTime updatedAt;
 
     @Column(name = "mimetype")

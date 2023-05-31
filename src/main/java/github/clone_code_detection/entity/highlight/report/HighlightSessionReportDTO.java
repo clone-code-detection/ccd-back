@@ -1,6 +1,7 @@
 package github.clone_code_detection.entity.highlight.report;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import github.clone_code_detection.entity.highlight.document.HighlightSessionDocument;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -21,4 +22,11 @@ public class HighlightSessionReportDTO {
     @Builder.Default
     @Setter(AccessLevel.NONE)
     private LocalDateTime created = LocalDateTime.now();
+
+    public static HighlightSessionReportDTO from(HighlightSessionDocument document) {
+        return HighlightSessionReportDTO.builder()
+                                 .sessionId(document.getId())
+                                 .sessionName(document.getName())
+                                 .build();
+    }
 }

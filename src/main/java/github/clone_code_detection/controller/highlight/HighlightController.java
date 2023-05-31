@@ -66,7 +66,7 @@ public class HighlightController {
                                                                  .sessionName(FileSystemUtil.getFileName(source))
                                                                  .sources(FileSystemUtil.extractDocuments(source))
                                                                  .build();
-        return serviceHighlight.createHighlightSession(request, IndexInstruction.getDefaultInstruction());
+        return HighlightSessionReportDTO.from(serviceHighlight.createHighlightSession(request, IndexInstruction.getDefaultInstruction()));
     }
 
     @GetMapping(path = "/advance-target-highlight/{id}")

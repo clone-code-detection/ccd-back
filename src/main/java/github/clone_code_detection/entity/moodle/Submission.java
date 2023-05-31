@@ -45,7 +45,7 @@ public class Submission {
     @Builder.Default
     private java.time.ZonedDateTime updatedAt = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
 
-    @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @OneToMany(cascade = {CascadeType.ALL})
     @JoinColumn(name = "submission_id", referencedColumnName = "id")
     private List<RelationSubmissionSession> relations;
 
