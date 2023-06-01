@@ -7,7 +7,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -44,7 +43,7 @@ public class HighlightSessionDocument {
     @JoinColumn(name = "user_id")
     private UserImpl user;
 
-    @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
+    @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE}, fetch = FetchType.EAGER)
     @JoinColumn(name = "session_id", referencedColumnName = "id")
     private Collection<HighlightSingleDocument> matches = new ArrayList<>();
 
@@ -61,7 +60,7 @@ public class HighlightSessionDocument {
 
         String getName();
 
-        LocalDateTime getCreated();
+        ZonedDateTime getCreated();
 
         HighlightSessionStatus getStatus();
 

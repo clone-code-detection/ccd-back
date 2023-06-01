@@ -150,8 +150,6 @@ public class ServiceMoodle {
                                                           .author(author)
                                                           .build());
                         } catch (UnsupportedLanguage e) {
-                            //                            log.warn("[Service moodle] File {} is ignored because its language isn't supported",
-                            //                                     zipEntry.getName());
                         }
 
                     }
@@ -204,7 +202,6 @@ public class ServiceMoodle {
                                           .content(byteArrayOutputStream.toByteArray())
                                           .build());
         } catch (UnsupportedLanguage e) {
-            //            log.warn("[Service moodle] File {} is ignored because its language isn't supported", zipEntry.getName());
         }
     }
 
@@ -590,7 +587,6 @@ public class ServiceMoodle {
                                                                               UserReference reference)
             throws IOException {
         if (needModifyRelations == null || needModifyRelations.isEmpty()) return new ArrayList<>();
-        List<HighlightSessionReportDTO> reportDTOS = new ArrayList<>();
         // Get list of sessions
         // Get all file ids
         List<HighlightSessionDocument> sessions = new ArrayList<>();
@@ -607,13 +603,14 @@ public class ServiceMoodle {
                                                                                .getIndexFromFileName(source.getFileName()),
                                                                    source.getId().toString()))
                                             .toList());
-            reportDTOS.add(detectSubmission(relation, reference));
+            relation.getRelation().setSession(null);
         });
         // Perform deleting from ES index
         deleteDocumentsFromElasticsearch(pairIndexWithIds);
         // Clear all sessions and their files
         repoHighlightSessionDocument.deleteAll(sessions);
-        return reportDTOS;
+
+        return needModifyRelations.stream().map(relation -> detectSubmission(relation, reference)).toList();
     }
 
     private void deleteDocumentsFromElasticsearch(List<Pair<String, String>> pairIndexWithId) throws IOException {
@@ -667,7 +664,6 @@ public class ServiceMoodle {
                                               .author(owner.getFullname())
                                               .build());
                 } catch (UnsupportedLanguage e) {
-                    //                    log.warn("[Service moodle] File {} is ignored because its language isn't supported", filename);
                 }
 
             }

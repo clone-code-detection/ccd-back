@@ -173,7 +173,8 @@ public class ServiceHighlight {
             sourceDocument.setSessionId(sessionId);
             sourceDocument.setUser(getUserFromContext());
         });
-        instruction.setFiles(repoFileDocument.saveAll(sourceDocuments));
+        sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
+        instruction.setFiles(sourceDocuments);
         executor.execute(new HighlightProcessor(highlightSessionDocument, instruction));
         return highlightSessionDocument;
     }
@@ -468,14 +469,14 @@ public class ServiceHighlight {
         int startIndex = 0;
         while (startIndex < files.size()) {
             int endIndex = Math.min(batchSize + startIndex, files.size());
-            Collection<FileDocument> subFiles = files.stream().toList().subList(startIndex, endIndex);
             // Create multisearch query
             Collection<QueryInstruction> instructions = new ArrayList<>();
-            subFiles.forEach(file -> instructions.add(QueryInstruction.builder()
-                                                                      .queryDocument(file)
-                                                                      .includeHighlight(true)
-                                                                      .minimumShouldMatch(minimumShouldMatch)
-                                                                      .build()));
+            for (int i = startIndex; i < endIndex; ++i)
+                instructions.add(QueryInstruction.builder()
+                                                 .queryDocument(files.stream().toList().get(i))
+                                                 .includeHighlight(true)
+                                                 .minimumShouldMatch(minimumShouldMatch)
+                                                 .build());
             try {
                 MultiSearchResponse multiSearchResponse = repoElasticsearchQuery.multiquery(instructions);
                 for (int index = 0; index < multiSearchResponse.getResponses().length; ++index) {
@@ -484,7 +485,7 @@ public class ServiceHighlight {
                         log.error("[Service highlight] Search response in multi highlight is fail. Error: {}",
                                   searchResponse.getFailureMessage());
                     } else if (searchResponse.getResponse() != null) {
-                        highlightSingleDocuments.add(parseResponse(subFiles.stream().toList().get(index),
+                        highlightSingleDocuments.add(parseResponse(files.stream().toList().get(index + startIndex),
                                                                    searchResponse.getResponse()));
                     }
                 }
@@ -577,15 +578,15 @@ public class ServiceHighlight {
                 repoHighlightSessionDocument.save(session);
                 serviceIndex.bulkIndexAllDocuments(instruction);
             } catch (Exception e) {
+                log.error("[Service highlight] detect highlight session {} failed with error: {}",
+                          session.getName(),
+                          e.getMessage());
                 // Update status to failed for future retry
                 session.setStatus(HighlightSessionStatus.FAILED);
                 session.setException(new HighlightSessionException(
                         "[Service highlight] Error while processing highlight",
                         e).toString());
                 repoHighlightSessionDocument.save(session);
-                log.error("[Service highlight] detect highlight session {} failed with error: {}",
-                          session.getName(),
-                          e.getMessage());
             }
         }
 

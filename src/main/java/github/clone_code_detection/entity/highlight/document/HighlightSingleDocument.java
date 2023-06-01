@@ -25,7 +25,7 @@ public class HighlightSingleDocument {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @OneToOne(cascade = {CascadeType.PERSIST, CascadeType.REMOVE})
+    @OneToOne(cascade = {CascadeType.REMOVE, CascadeType.MERGE})
     @JoinColumn(name = "source_file_id", referencedColumnName = "id")
     private FileDocument source;
 

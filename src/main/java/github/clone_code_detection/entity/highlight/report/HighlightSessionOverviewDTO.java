@@ -8,7 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.UUID;
 
@@ -19,15 +19,14 @@ import java.util.UUID;
 public class HighlightSessionOverviewDTO {
     private HighlightSessionOverviewSummary summary;
     private Collection<HighlightSessionOverviewDetail> collection;
+
     public static HighlightSessionOverviewDTO from(Collection<HighlightSessionDocument.HighlightSessionProjection> sessions) {
-        return HighlightSessionOverviewDTO
-                .builder()
-                .summary(HighlightSessionOverviewSummary.builder().build())
-                .collection(sessions
-                        .stream()
-                        .map(HighlightSessionOverviewDetail::from)
-                        .toList())
-                .build();
+        return HighlightSessionOverviewDTO.builder()
+                                          .summary(HighlightSessionOverviewSummary.builder().build())
+                                          .collection(sessions.stream()
+                                                              .map(HighlightSessionOverviewDetail::from)
+                                                              .toList())
+                                          .build();
     }
 
     @Builder
@@ -35,6 +34,7 @@ public class HighlightSessionOverviewDTO {
     private static class HighlightSessionOverviewSummary {
         private String language;
     }
+
     @Builder
     @Data
     @NoArgsConstructor
@@ -42,21 +42,26 @@ public class HighlightSessionOverviewDTO {
     private static class HighlightSessionOverviewDetail {
         private UUID id;
         private String name;
-        private LocalDateTime created;
+        private ZonedDateTime created;
         private HighlightSessionStatus status;
         @JsonProperty("total_files")
         private int totalFiles;
         @JsonProperty("matched_files")
         private int matchedFiles;
+
         public static HighlightSessionOverviewDetail from(HighlightSessionDocument.HighlightSessionProjection session) {
             return HighlightSessionOverviewDetail.builder()
-                    .id(session.getId())
-                    .name(session.getName())
-                    .created(session.getCreated())
-                    .status(session.getStatus())
-                    .totalFiles(session.getMatches().size())
-                    .matchedFiles((int) session.getMatches().stream().filter(match -> !match.getMatches().isEmpty()).count())
-                    .build();
+                                                 .id(session.getId())
+                                                 .name(session.getName())
+                                                 .created(session.getCreated())
+                                                 .status(session.getStatus())
+                                                 .totalFiles(session.getMatches().size())
+                                                 .matchedFiles((int) session.getMatches()
+                                                                            .stream()
+                                                                            .filter(match -> !match.getMatches()
+                                                                                                   .isEmpty())
+                                                                            .count())
+                                                 .build();
         }
     }
 }
