@@ -57,8 +57,7 @@ public class MoodleController {
     @ResponseStatus(HttpStatus.OK)
     public MoodleResponse signinWithMoodleAccount(@Validated SignInRequest request) throws AuthenticationException {
         assert request != null : new RuntimeException("Invalid request");
-        serviceMoodle.linkCurrentUserToMoodleAccount(request);
-        return MoodleResponse.builder().message("Link to moodle account is done").build();
+        return serviceMoodle.linkCurrentUserToMoodleAccount(request);
     }
 
     @GetMapping(path = "/courses")

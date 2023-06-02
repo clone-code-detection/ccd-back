@@ -62,6 +62,7 @@ public class ServiceMoodle {
     private static final String MOODLE_GET_COURSE_DETAIL_FUNCTION = "core_course_get_courses_by_field";
     private static final String MOODLE_GET_SITE_INFO_FUNCTION = "core_webservice_get_site_info";
     private static final LanguageUtil languageUtil = LanguageUtil.getInstance();
+    private final RepoUser repoUser;
     private final RepoHighlightSessionDocument repoHighlightSessionDocument;
     private final RepoMoodleUser repoMoodleUser;
     private final RepoRelationSubmissionSession repoRelationSubmissionSession;
@@ -85,7 +86,8 @@ public class ServiceMoodle {
                          RepoMoodleUser repoMoodleUser,
                          ServiceHighlight serviceHighlight,
                          RepoElasticsearchDelete repoElasticsearchDelete,
-                         RepoHighlightSessionDocument repoHighlightSessionDocument) {
+                         RepoHighlightSessionDocument repoHighlightSessionDocument,
+                         RepoUser repoUser) {
         this.repoSubmission = repoSubmission;
         this.repoUserReference = repoUserReference;
         this.moodleClient = moodleClient;
@@ -94,6 +96,7 @@ public class ServiceMoodle {
         this.serviceHighlight = serviceHighlight;
         this.repoElasticsearchDelete = repoElasticsearchDelete;
         this.repoHighlightSessionDocument = repoHighlightSessionDocument;
+        this.repoUser = repoUser;
     }
 
     public static Collection<HighlightSessionRequest> unzipMoodleFileAndGetRequests(@NotNull MultipartFile source)
@@ -208,7 +211,7 @@ public class ServiceMoodle {
                               list.size());
     }
 
-    public void linkCurrentUserToMoodleAccount(SignInRequest request) throws AuthenticationException {
+    public MoodleResponse linkCurrentUserToMoodleAccount(SignInRequest request) throws AuthenticationException {
         // Get token and userid from moodle
         UserImpl user = ServiceHighlight.getUserFromContext();
         if (user == null) throw new AuthenticationException("User not found");
@@ -216,7 +219,10 @@ public class ServiceMoodle {
             UserReference reference = getMoodleAccount(request);
             reference.setInternalUser(user);
             user.setReference(reference);
+            repoUser.save(user);
+            return MoodleResponse.builder().message("Link to moodle account successfully").build();
         }
+        return MoodleResponse.builder().message("Moodle account already been linked").build();
     }
 
     public CourseOverviewDTO getCourseOverview(Pageable pageable) {
@@ -518,37 +524,36 @@ public class ServiceMoodle {
             throw new MoodleAuthenticationException("Fail to signin by moodle account " + request.getUsername());
         }
         String token = entity.getBody().get("token").asText();
-        UserReference reference = repoUserReference.findFirstByToken(token);
-        if (reference == null) {
-            // Enrich user id by token
-            UriComponentsBuilder getSiteInfoParams = buildDefaultUriBuilder(token,
-                                                                            MOODLE_GET_SITE_INFO_FUNCTION,
-                                                                            moodleWebServiceUri);
-            entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
-                                                           .expand(getSiteInfoParams.toUriString())
-                                                           .toString(), JsonNode.class);
-            if (!entity.getStatusCode().is2xxSuccessful() || entity.getBody() == null) {
-                log.error("[Service moodle] Can enrich user info by moodle account");
-                throw new MoodleAuthenticationException("Fail to enrich user info by moodle account " + request.getUsername());
-            }
-            long referenceUserId = entity.getBody().get("userid").asLong();
-            reference = UserReference.builder().token(token).build();
-            // Enrich user info from user id
-            UriComponentsBuilder builder = buildDefaultUriBuilder(reference.getToken(),
-                                                                  MOODLE_GET_OWNERS_FUNCTION,
-                                                                  moodleWebServiceUri).queryParam("field", "id")
-                                                                                      .queryParam("values[]",
-                                                                                                  referenceUserId);
-            entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
-                                                           .expand(builder.toUriString())
-                                                           .toString(), JsonNode.class);
-            if (!entity.getStatusCode().is2xxSuccessful()) {
-                log.error("[Service moodle] Fail to enrich submission owners");
-                throw new MoodleSubmissionException("Fail to enrich submission owners");
-            }
-            reference.setReferenceUser(MoodleUser.from(Objects.requireNonNull(entity.getBody()).get(0)));
+        // Enrich user id by token
+        UriComponentsBuilder getSiteInfoParams = buildDefaultUriBuilder(token,
+                                                                        MOODLE_GET_SITE_INFO_FUNCTION,
+                                                                        moodleWebServiceUri);
+        entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
+                                                       .expand(getSiteInfoParams.toUriString())
+                                                       .toString(), JsonNode.class);
+        if (!entity.getStatusCode().is2xxSuccessful() || entity.getBody() == null) {
+            log.error("[Service moodle] Can enrich user info by moodle account");
+            throw new MoodleAuthenticationException("Fail to enrich user info by moodle account " + request.getUsername());
         }
-        return reference;
+        long referenceUserId = entity.getBody().get("userid").asLong();
+        // Enrich user info from user id
+        UriComponentsBuilder enrichUserInfoParams = buildDefaultUriBuilder(token,
+                                                                           MOODLE_GET_OWNERS_FUNCTION,
+                                                                           moodleWebServiceUri).queryParam("field",
+                                                                                                           "id")
+                                                                                               .queryParam("values[]",
+                                                                                                           referenceUserId);
+        entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
+                                                       .expand(enrichUserInfoParams.toUriString())
+                                                       .toString(), JsonNode.class);
+        if (!entity.getStatusCode().is2xxSuccessful()) {
+            log.error("[Service moodle] Fail to enrich submission owners");
+            throw new MoodleSubmissionException("Fail to enrich submission owners");
+        }
+        return UserReference.builder()
+                            .token(token)
+                            .referenceUser(MoodleUser.from(Objects.requireNonNull(entity.getBody()).get(0)))
+                            .build();
     }
 
     private Course enrichCourseDetail(long courseId, UserReference reference) {
