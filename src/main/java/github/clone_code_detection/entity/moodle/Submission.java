@@ -34,7 +34,7 @@ public class Submission {
 
     @ManyToOne(cascade = {CascadeType.PERSIST})
     @JoinColumn(name = "owner_id", referencedColumnName = "id")
-    private SubmissionOwner owner;
+    private MoodleUser owner;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Temporal(TemporalType.TIMESTAMP)
@@ -67,7 +67,7 @@ public class Submission {
             }
 
             @Override
-            public SubmissionOwner.SubmissionOwnerDTO getOwner() {
+            public MoodleUser.MoodleUserDTO getOwner() {
                 return owner.toDTO();
             }
 
@@ -85,7 +85,7 @@ public class Submission {
 
         java.time.ZonedDateTime getUpdatedAt();
 
-        SubmissionOwner.SubmissionOwnerDTO getOwner();
+        MoodleUser.MoodleUserDTO getOwner();
 
         List<RelationSubmissionSession.RelationSubmissionSessionDTO> getRelations();
     }

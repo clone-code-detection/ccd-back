@@ -16,7 +16,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class AssignDTO {
+public class Assign {
     private long id;
     @JsonProperty("cm_id")
     private long cmId;
@@ -25,16 +25,16 @@ public class AssignDTO {
     private ZonedDateTime dueDate;
     private String intro; // WARNING: this intro is the html element as string. Ex: "<p dir=\"ltr\" style=\"text-align: left;\">Add zip file for highlighting&nbsp;</p>"
 
-    public static List<AssignDTO> from(JsonNode moodleAssigns) {
-        List<AssignDTO> assigns = new ArrayList<>();
-        moodleAssigns.forEach(moodleAssign -> assigns.add(AssignDTO.builder()
-                                                                   .id(moodleAssign.get("id").asLong())
-                                                                   .cmId(moodleAssign.get("cmid").asLong())
-                                                                   .dueDate(TimeUtil.parseZoneDateTime(moodleAssign.get(
+    public static List<Assign> from(JsonNode moodleAssigns) {
+        List<Assign> assigns = new ArrayList<>();
+        moodleAssigns.forEach(moodleAssign -> assigns.add(Assign.builder()
+                                                                .id(moodleAssign.get("id").asLong())
+                                                                .cmId(moodleAssign.get("cmid").asLong())
+                                                                .dueDate(TimeUtil.parseZoneDateTime(moodleAssign.get(
                                                                            "duedate").asLong()))
-                                                                   .name(moodleAssign.get("name").asText())
-                                                                   .intro(moodleAssign.get("intro").asText())
-                                                                   .build()));
+                                                                .name(moodleAssign.get("name").asText())
+                                                                .intro(moodleAssign.get("intro").asText())
+                                                                .build()));
         return assigns;
     }
 }

@@ -1,22 +1,22 @@
 package github.clone_code_detection.controller.moodle;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import github.clone_code_detection.controller.authen.AuthenticationController;
 import github.clone_code_detection.entity.authenication.SignInRequest;
 import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
 import github.clone_code_detection.entity.highlight.request.HighlightSessionRequest;
 import github.clone_code_detection.entity.index.IndexInstruction;
-import github.clone_code_detection.entity.moodle.*;
+import github.clone_code_detection.entity.moodle.DetectRequest;
+import github.clone_code_detection.entity.moodle.MoodleResponse;
+import github.clone_code_detection.entity.moodle.dto.AssignDTO;
+import github.clone_code_detection.entity.moodle.dto.CourseDTO;
+import github.clone_code_detection.entity.moodle.dto.CourseOverviewDTO;
 import github.clone_code_detection.service.highlight.ServiceHighlight;
 import github.clone_code_detection.service.moodle.ServiceMoodle;
-import jakarta.servlet.http.HttpServletRequest;
+import org.apache.http.auth.AuthenticationException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -55,32 +55,30 @@ public class MoodleController {
 
     @PostMapping(path = "/signin", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     @ResponseStatus(HttpStatus.OK)
-    public AuthenticationController.UserAuthenticateResponse signinWithMoodleAccount(@Validated SignInRequest request,
-                                                                                     HttpServletRequest httpServletRequest)
-            throws JsonProcessingException {
+    public MoodleResponse signinWithMoodleAccount(@Validated SignInRequest request) throws AuthenticationException {
         assert request != null : new RuntimeException("Invalid request");
-        UserDetails userDetails = serviceMoodle.signin(request, httpServletRequest);
-        return new AuthenticationController.UserAuthenticateResponse(userDetails);
+        serviceMoodle.linkCurrentUserToMoodleAccount(request);
+        return MoodleResponse.builder().message("Link to moodle account is done").build();
     }
 
     @GetMapping(path = "/courses")
     @ResponseStatus(HttpStatus.OK)
-    public Page<CourseDTO> getCourses(@PageableDefault Pageable pageable) {
-        return serviceMoodle.getCourses(pageable);
+    public CourseOverviewDTO getCourses(@PageableDefault Pageable pageable) {
+        return serviceMoodle.getCourseOverview(pageable);
     }
 
-    @GetMapping(path = "/assigns")
+    @GetMapping(path = "/course")
     @ResponseStatus(HttpStatus.OK)
-    public AssignsOverviewDTO getAssigns(@RequestParam("course_id") long courseId, @PageableDefault Pageable pageable) {
-        return serviceMoodle.getAssigns(courseId, pageable);
+    public CourseDTO getCourseDetail(@RequestParam("course_id") long courseId, @PageableDefault Pageable pageable) {
+        return serviceMoodle.getCourseDetail(courseId, pageable);
     }
 
-    @GetMapping(path = "/submissions")
+    @GetMapping(path = "/assign")
     @ResponseStatus(HttpStatus.OK)
-    public Page<Submission.SubmissionDTO> getSubmissions(@RequestParam("course_id") long courseId,
-                                                         @RequestParam("assign_id") long assignId,
-                                                         @PageableDefault Pageable pageable) {
-        return serviceMoodle.getSubmissions(courseId, assignId, pageable);
+    public AssignDTO getAssignDetail(@RequestParam("course_id") long courseId,
+                                     @RequestParam("assign_id") long assignId,
+                                     @PageableDefault Pageable pageable) {
+        return serviceMoodle.getAssignDetail(courseId, assignId, pageable);
     }
 
     @PostMapping(path = "/detect-submissions")
