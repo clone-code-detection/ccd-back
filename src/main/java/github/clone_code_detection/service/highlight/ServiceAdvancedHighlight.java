@@ -3,10 +3,10 @@ package github.clone_code_detection.service.highlight;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import github.clone_code_detection.entity.fs.FileDocument;
-import github.clone_code_detection.entity.highlight.document.HighlightSingleDocument;
-import github.clone_code_detection.entity.highlight.document.HighlightSingleTargetMatchDocument;
+import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
+import github.clone_code_detection.entity.highlight.document.ReportTargetDocument;
 import github.clone_code_detection.repo.RepoElasticsearchQuery;
-import github.clone_code_detection.repo.RepoHighlightSingleMatchDocument;
+import github.clone_code_detection.repo.RepoReportSourceDocument;
 import org.elasticsearch.client.core.MultiTermVectorsResponse;
 import org.elasticsearch.client.core.TermVectorsResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,32 +19,31 @@ import java.util.UUID;
 
 @Service
 public class ServiceAdvancedHighlight {
-    private final RepoHighlightSingleMatchDocument repoHighlightSingleMatchDocument;
+    private final RepoReportSourceDocument repoReportSourceDocument;
     private final RepoElasticsearchQuery repoElasticsearchQuery;
     private final ServiceHighlight serviceHighlight;
 
     @Autowired
-    public ServiceAdvancedHighlight(RepoHighlightSingleMatchDocument repoHighlightSingleMatchDocument, RepoElasticsearchQuery repoElasticsearchQuery, ServiceHighlight serviceHighlight) {
-        this.repoHighlightSingleMatchDocument = repoHighlightSingleMatchDocument;
+    public ServiceAdvancedHighlight(RepoReportSourceDocument repoReportSourceDocument,
+                                    RepoElasticsearchQuery repoElasticsearchQuery,
+                                    ServiceHighlight serviceHighlight) {
+        this.repoReportSourceDocument = repoReportSourceDocument;
         this.repoElasticsearchQuery = repoElasticsearchQuery;
         this.serviceHighlight = serviceHighlight;
     }
 
     public Collection<ExtendHighlightReturn> advanceHighlightBySourceId(String id) {
         if (id.equals("undefined")) return new ArrayList<>();
-        HighlightSingleDocument singleDocument = repoHighlightSingleMatchDocument.findById(UUID.fromString(id))
-                                                                                 .orElseThrow();
+        ReportSourceDocument singleDocument = repoReportSourceDocument.findById(UUID.fromString(id)).orElseThrow();
         List<FileDocument> documents = new ArrayList<>(singleDocument.getMatches()
                                                                      .stream()
-                                                                     .map(HighlightSingleTargetMatchDocument::getTarget)
+                                                                     .map(ReportTargetDocument::getTarget)
                                                                      .toList());
         documents.add(singleDocument.getSource());
-        MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(
-                documents.toArray(FileDocument[]::new));
+        MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(documents.toArray(
+                FileDocument[]::new));
 
-        HighlightSingleTargetMatchDocument[] matches = singleDocument.getMatches()
-                                                                     .toArray(
-                                                                             HighlightSingleTargetMatchDocument[]::new);
+        ReportTargetDocument[] matches = singleDocument.getMatches().toArray(ReportTargetDocument[]::new);
 
         var res = new ArrayList<ExtendHighlightReturn>();
         List<TermVectorsResponse> termVectorsResponses = multiTermVectors.getTermVectorsResponses();
@@ -64,11 +63,10 @@ public class ServiceAdvancedHighlight {
     }
 
     public static class ExtendHighlightReturn {
-        @JsonProperty("highlight_target_id")
-        private String targetId;
-
         @JsonUnwrapped
         private final ServiceHighlight.HighlightReturn highlightReturn;
+        @JsonProperty("highlight_target_id")
+        private String targetId;
 
         public ExtendHighlightReturn(ServiceHighlight.HighlightReturn highlightReturn) {
             this.highlightReturn = highlightReturn;

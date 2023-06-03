@@ -10,6 +10,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.DefaultUriBuilderFactory;
 
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
 
 @Configuration
 public class BeanProvider {
@@ -25,6 +29,10 @@ public class BeanProvider {
     Integer moodlePort;
     @Value("${moodle.protocol}")
     String moodleProtocol;
+    @Value("${thread_pool_executor.max-pool}")
+    Integer executorMaxThread;
+    @Value("${thread_pool_executor.capacity}")
+    Integer executorQueueCapacity;
 
     @Bean
     public RestHighLevelClient getElasticsearchClient() {
@@ -37,5 +45,16 @@ public class BeanProvider {
         DefaultUriBuilderFactory defaultUriBuilderFactory = new DefaultUriBuilderFactory();
         defaultUriBuilderFactory.setEncodingMode(DefaultUriBuilderFactory.EncodingMode.VALUES_ONLY);
         return new RestTemplateBuilder().rootUri(uri).uriTemplateHandler(defaultUriBuilderFactory).build();
+    }
+
+    @Bean
+    public ThreadPoolExecutor getThreadPoolExecutor() {
+        ArrayBlockingQueue<Runnable> queue = new ArrayBlockingQueue<Runnable>(executorQueueCapacity);
+        return new ThreadPoolExecutor(0,
+                                      executorMaxThread,
+                                      60,
+                                      TimeUnit.SECONDS,
+                                      queue,
+                                      new ThreadPoolExecutor.AbortPolicy());
     }
 }

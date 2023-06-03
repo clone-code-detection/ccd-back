@@ -5,11 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import github.clone_code_detection.entity.authenication.SignInRequest;
 import github.clone_code_detection.entity.authenication.UserImpl;
 import github.clone_code_detection.entity.fs.FileDocument;
-import github.clone_code_detection.entity.highlight.document.HighlightSessionDocument;
-import github.clone_code_detection.entity.highlight.document.HighlightSingleDocument;
-import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
-import github.clone_code_detection.entity.highlight.request.HighlightSessionRequest;
-import github.clone_code_detection.entity.index.IndexInstruction;
+import github.clone_code_detection.entity.highlight.request.SimilarityDetectRequest;
 import github.clone_code_detection.entity.moodle.*;
 import github.clone_code_detection.entity.moodle.dto.AssignDTO;
 import github.clone_code_detection.entity.moodle.dto.CourseDTO;
@@ -21,16 +17,15 @@ import github.clone_code_detection.exceptions.moodle.MoodleCourseException;
 import github.clone_code_detection.exceptions.moodle.MoodleSubmissionException;
 import github.clone_code_detection.repo.*;
 import github.clone_code_detection.service.highlight.ServiceHighlight;
+import github.clone_code_detection.service.user.ServiceAuthentication;
 import github.clone_code_detection.util.FileSystemUtil;
 import github.clone_code_detection.util.LanguageUtil;
 import github.clone_code_detection.util.TimeUtil;
+import github.clone_code_detection.util.ZipUtil;
 import jakarta.validation.constraints.NotNull;
-import lombok.Builder;
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.http.auth.AuthenticationException;
-import org.modelmapper.internal.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageImpl;
@@ -43,10 +38,10 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -62,13 +57,13 @@ public class ServiceMoodle {
     private static final String MOODLE_GET_COURSE_DETAIL_FUNCTION = "core_course_get_courses_by_field";
     private static final String MOODLE_GET_SITE_INFO_FUNCTION = "core_webservice_get_site_info";
     private static final LanguageUtil languageUtil = LanguageUtil.getInstance();
+    private final ThreadPoolExecutor threadPoolExecutor;
     private final RepoUser repoUser;
-    private final RepoHighlightSessionDocument repoHighlightSessionDocument;
     private final RepoMoodleUser repoMoodleUser;
-    private final RepoRelationSubmissionSession repoRelationSubmissionSession;
-    private final RepoUserReference repoUserReference;
+    private final RepoRelationSubmissionReport repoRelationSubmissionReport;
     private final RepoSubmission repoSubmission;
     private final RestTemplate moodleClient;
+    private final RepoSimilarityReport repoSimilarityReport;
     private final ServiceHighlight serviceHighlight;
     private final RepoElasticsearchDelete repoElasticsearchDelete;
     @Value("${moodle.web-service}")
@@ -79,30 +74,30 @@ public class ServiceMoodle {
     String moodleWebServiceUri;
 
     @Autowired
-    public ServiceMoodle(RepoUserReference repoUserReference,
+    public ServiceMoodle(ThreadPoolExecutor threadPoolExecutor,
                          RepoSubmission repoSubmission,
                          RestTemplate moodleClient,
-                         RepoRelationSubmissionSession repoRelationSubmissionSession,
+                         RepoRelationSubmissionReport repoRelationSubmissionReport,
                          RepoMoodleUser repoMoodleUser,
                          ServiceHighlight serviceHighlight,
                          RepoElasticsearchDelete repoElasticsearchDelete,
-                         RepoHighlightSessionDocument repoHighlightSessionDocument,
+                         RepoSimilarityReport repoSimilarityReport,
                          RepoUser repoUser) {
+        this.threadPoolExecutor = threadPoolExecutor;
         this.repoSubmission = repoSubmission;
-        this.repoUserReference = repoUserReference;
         this.moodleClient = moodleClient;
-        this.repoRelationSubmissionSession = repoRelationSubmissionSession;
+        this.repoRelationSubmissionReport = repoRelationSubmissionReport;
         this.repoMoodleUser = repoMoodleUser;
         this.serviceHighlight = serviceHighlight;
         this.repoElasticsearchDelete = repoElasticsearchDelete;
-        this.repoHighlightSessionDocument = repoHighlightSessionDocument;
+        this.repoSimilarityReport = repoSimilarityReport;
         this.repoUser = repoUser;
     }
 
-    public static Collection<HighlightSessionRequest> unzipMoodleFileAndGetRequests(@NotNull MultipartFile source)
+    public static Collection<SimilarityDetectRequest> unzipMoodleFileAndGetRequests(@NotNull MultipartFile source)
             throws IOException {
         // Moodle zip file has structure as list of folder, each folder is student's list file submissions
-        ArrayList<HighlightSessionRequest> requests = new ArrayList<>(); // Each request will be the highlight session
+        ArrayList<SimilarityDetectRequest> requests = new ArrayList<>(); // Each request will be the highlight session
         // Create zip handler for root zip file which got grom moodle
         try (ZipInputStream zipInputStream = new ZipInputStream(source.getInputStream())) {
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -119,15 +114,15 @@ public class ServiceMoodle {
                 }
                 byteArrayOutputStream.reset();
                 // get the exists highlight session request or new request which has been added into Collection
-                HighlightSessionRequest request = getExistRequestOrCreateNew(requests, sessionName);
+                SimilarityDetectRequest request = getExistRequestOrCreateNew(requests, sessionName);
 
                 Collection<FileDocument> fileDocuments = new ArrayList<>();
                 zipInputStream.transferTo(byteArrayOutputStream);
                 switch (FilenameUtils.getExtension(zipEntry.getName())) {
                     case "" -> {continue;}
                     case "zip" ->
-                            fileDocuments.addAll(getFileDocumentFromNestedZipFile(byteArrayOutputStream.toByteArray(),
-                                                                                  author));
+                            fileDocuments.addAll(ZipUtil.getFileDocumentFromZipFile(byteArrayOutputStream.toByteArray(),
+                                                                                    author));
                     default -> {
                         try {
                             languageUtil.getIndexFromFileName(zipEntry.getName());
@@ -155,48 +150,12 @@ public class ServiceMoodle {
                                    .queryParam("moodlewsrestformat", "json");
     }
 
-    private static Collection<FileDocument> getFileDocumentFromNestedZipFile(byte @NotNull [] bytes,
-                                                                             @NotNull String author) {
-        Collection<FileDocument> fileDocuments = new ArrayList<>();
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes);
-        try (ZipInputStream zipInputStream = new ZipInputStream(byteArrayInputStream)) {
-            ZipEntry zipEntry;
-            while ((zipEntry = zipInputStream.getNextEntry()) != null) {
-                if (zipEntry.isDirectory()) continue;
-                byteArrayOutputStream.reset();
-                extracted(author, fileDocuments, byteArrayOutputStream, zipInputStream, zipEntry);
-            }
-            zipInputStream.closeEntry();
-        } catch (IOException e) {
-            log.error("[Service moodle] Got error while unzip project file: {}", e.getMessage());
-            return new ArrayList<>();
-        }
-        return fileDocuments;
-    }
-
-    private static void extracted(String author,
-                                  Collection<FileDocument> fileDocuments,
-                                  ByteArrayOutputStream byteArrayOutputStream,
-                                  ZipInputStream zipInputStream,
-                                  ZipEntry zipEntry) throws IOException {
-        try {
-            languageUtil.getIndexFromFileName(zipEntry.getName());
-            zipInputStream.transferTo(byteArrayOutputStream);
-            fileDocuments.add(FileDocument.builder()
-                                          .author(author)
-                                          .fileName(zipEntry.getName())
-                                          .content(byteArrayOutputStream.toByteArray())
-                                          .build());
-        } catch (UnsupportedLanguage ignored) {}
-    }
-
-    private static HighlightSessionRequest getExistRequestOrCreateNew(ArrayList<HighlightSessionRequest> requests,
+    private static SimilarityDetectRequest getExistRequestOrCreateNew(ArrayList<SimilarityDetectRequest> requests,
                                                                       String sessionName) {
-        for (HighlightSessionRequest request : requests) {
-            if (request.getSessionName().equals(sessionName)) return request;
+        for (SimilarityDetectRequest request : requests) {
+            if (request.getReportName().equals(sessionName)) return request;
         }
-        HighlightSessionRequest request = HighlightSessionRequest.builder().sessionName(sessionName).build();
+        SimilarityDetectRequest request = SimilarityDetectRequest.builder().reportName(sessionName).build();
         requests.add(request);
         return request;
     }
@@ -211,9 +170,19 @@ public class ServiceMoodle {
                               list.size());
     }
 
+    @NotNull
+    private static UserImpl getUser() {
+        UserImpl user = ServiceAuthentication.getUserFromContext();
+        if (user == null || user.getId() == null || user.getReference() == null) {
+            log.error("[Service moodle] Fail to get user information");
+            throw new MoodleCourseException("Fail to get user information");
+        }
+        return user;
+    }
+
     public MoodleResponse linkCurrentUserToMoodleAccount(SignInRequest request) throws AuthenticationException {
         // Get token and userid from moodle
-        UserImpl user = ServiceHighlight.getUserFromContext();
+        UserImpl user = ServiceAuthentication.getUserFromContext();
         if (user == null) throw new AuthenticationException("User not found");
         if (user.getReference() == null) {
             UserReference reference = getMoodleAccount(request);
@@ -226,11 +195,7 @@ public class ServiceMoodle {
     }
 
     public CourseOverviewDTO getCourseOverview(Pageable pageable) {
-        UserImpl user = ServiceHighlight.getUserFromContext();
-        if (user == null || user.getId() == null) {
-            log.error("[Service moodle] Fail to get user information");
-            throw new MoodleCourseException("Fail to get user information");
-        }
+        UserImpl user = getUser();
         ResponseEntity<JsonNode> entity = getCoursesOfUser(user.getReference());
         List<Course> courses = Course.asList(Objects.requireNonNull(entity.getBody()));
         courses.sort(Comparator.comparing(Course::getId).reversed());
@@ -241,11 +206,7 @@ public class ServiceMoodle {
     }
 
     public CourseDTO getCourseDetail(long courseId, Pageable pageable) {
-        UserImpl user = ServiceHighlight.getUserFromContext();
-        if (user == null || user.getId() == null) {
-            log.error("[Service moodle] Fail to get user information");
-            throw new MoodleCourseException("Fail to get user information");
-        }
+        UserImpl user = getUser();
         CourseDTO overviewDTO = CourseDTO.builder().build();
         List<Assign> assigns = enrichAssignments(user.getReference(), courseId);
         assigns.sort(Comparator.comparing(Assign::getId));
@@ -255,19 +216,16 @@ public class ServiceMoodle {
     }
 
     public AssignDTO getAssignDetail(long courseId, long assignId, Pageable pageable) {
-        UserImpl user = ServiceHighlight.getUserFromContext();
-        if (user == null || user.getId() == null) {
-            log.error("[Service moodle] Fail to get user information");
-            throw new MoodleCourseException("Fail to get user information");
-        }
-        UserReference reference = repoUserReference.findFirstByInternalUserId(user.getId());
-        List<Submission> submissions = getSubmissionsInCourse(courseId, new ArrayList<>(List.of(assignId)), reference);
+        UserImpl user = getUser();
+        List<Submission> submissions = getSubmissionsInCourse(courseId,
+                                                              new ArrayList<>(List.of(assignId)),
+                                                              user.getReference());
         submissions = repoSubmission.saveAll(submissions);
         submissions.sort(Comparator.comparing(Submission::getId));
-        Assign assign = enrichAssignments(reference, courseId).stream()
-                                                              .filter(e -> e.getId() == assignId)
-                                                              .findFirst()
-                                                              .orElse(null);
+        Assign assign = enrichAssignments(user.getReference(), courseId).stream()
+                                                                        .filter(e -> e.getId() == assignId)
+                                                                        .findFirst()
+                                                                        .orElse(null);
         if (pageable.getPageNumber() * pageable.getPageSize() > submissions.size()) return AssignDTO.builder()
                                                                                                     .submissions(new PageImpl<>(
                                                                                                             new ArrayList<>(),
@@ -286,27 +244,16 @@ public class ServiceMoodle {
                         .build();
     }
 
-    public MoodleResponse detectSubmissions(List<Long> submissionIds) throws IOException {
-        UserImpl user = ServiceHighlight.getUserFromContext();
-        if (user == null || user.getId() == null) {
-            log.error("[Service moodle] Fail to get user information");
-            throw new MoodleCourseException("Fail to get user information");
-        }
-        List<HighlightSessionReportDTO> sessionReportDTOS = new ArrayList<>();
-        // Get list of submissions
-        List<Submission> submissions = repoSubmission.findAllByIdIn(submissionIds);
-        // Classify submissions
-        // They will be split into 3 groups:
-        // + Modify: the submission has been detected, but new file are updated -> need overwrite session
-        // + Add: the submission hasn't been detected yet -> detect
-        // + Ignore: the submission has been detected, and there is no relation that has been updated -> ignore
-        Map<String, List<RelationWithOwner>> mapRelationWithOwnerByNeed = classifySubmissions(submissions);
-        sessionReportDTOS.addAll(handleNeedAddSubmissions(mapRelationWithOwnerByNeed.get("add"), user.getReference()));
-        sessionReportDTOS.addAll(handleNeedModifySubmissions(mapRelationWithOwnerByNeed.get("modify"),
-                                                             user.getReference()));
-        sessionReportDTOS.addAll(handleNeedIgnoreSubmissions(mapRelationWithOwnerByNeed.get("ignore")));
-        repoSubmission.saveAll(submissions);
-        return MoodleResponse.builder().data(sessionReportDTOS).build();
+    public MoodleResponse detectSelectedSubmissions(List<Long> submissionIds) {
+        UserImpl user = getUser();
+        threadPoolExecutor.submit(new DetectSelectedSubmissionJob(repoSimilarityReport,
+                                                                  serviceHighlight,
+                                                                  repoElasticsearchDelete,
+                                                                  user,
+                                                                  submissionIds,
+                                                                  repoSubmission,
+                                                                  moodleClient));
+        return MoodleResponse.builder().message("Receive detect signal successfully").build();
     }
 
     private List<Assign> enrichAssignments(UserReference reference, long courseId) {
@@ -365,7 +312,7 @@ public class ServiceMoodle {
                 }
                 Submission submission = repoSubmission.findFirstByReferenceSubmissionId(inputSubmission.get("id")
                                                                                                        .asLong());
-                List<RelationSubmissionSession> relations = getSubmissionRelations(inputSubmission.get("plugins"));
+                List<RelationSubmissionReport> relations = getSubmissionRelations(inputSubmission.get("plugins"));
                 if (submission == null) {
                     // Case new submission
                     submission = Submission.builder()
@@ -399,16 +346,16 @@ public class ServiceMoodle {
         return submissions;
     }
 
-    private void updateSubmissionRelations(Submission submission, List<RelationSubmissionSession> newRelations) {
-        List<RelationSubmissionSession> currentRelations = submission.getRelations();
+    private void updateSubmissionRelations(Submission submission, List<RelationSubmissionReport> newRelations) {
+        List<RelationSubmissionReport> currentRelations = submission.getRelations();
         // Modified current relation that still exists in new relation
-        List<RelationSubmissionSession> needDeleteRelations = new ArrayList<>();
-        List<RelationSubmissionSession> finalRelations = new ArrayList<>();
-        Map<String, RelationSubmissionSession> mapNewRelationByIndex = new HashMap<>();
+        List<RelationSubmissionReport> needDeleteRelations = new ArrayList<>();
+        List<RelationSubmissionReport> finalRelations = new ArrayList<>();
+        Map<String, RelationSubmissionReport> mapNewRelationByIndex = new HashMap<>();
         // Insert for new that is not found in current
         newRelations.forEach(newRelation -> {
             if (currentRelations.stream()
-                                .map(RelationSubmissionSession::getFile)
+                                .map(RelationSubmissionReport::getFile)
                                 .map(SubmissionFile::getFilename)
                                 .noneMatch(currentFilename -> currentFilename.equals(newRelation.getFile()
                                                                                                 .getFilename()))) {
@@ -418,7 +365,7 @@ public class ServiceMoodle {
             mapNewRelationByIndex.put(newRelation.getFile().getFilename(), newRelation);
         });
         currentRelations.forEach(currentRelation -> {
-            RelationSubmissionSession newRelation = mapNewRelationByIndex.get(currentRelation.getFile().getFilename());
+            RelationSubmissionReport newRelation = mapNewRelationByIndex.get(currentRelation.getFile().getFilename());
             if (newRelation == null) {
                 // Case current not found in new then delete
                 needDeleteRelations.add(currentRelation);
@@ -429,7 +376,7 @@ public class ServiceMoodle {
                 finalRelations.add(currentRelation);
             }
         });
-        repoRelationSubmissionSession.deleteAll(needDeleteRelations);
+        repoRelationSubmissionReport.deleteAll(needDeleteRelations);
         submission.setRelations(finalRelations);
     }
 
@@ -467,8 +414,8 @@ public class ServiceMoodle {
         return owners;
     }
 
-    private List<RelationSubmissionSession> getSubmissionRelations(JsonNode plugins) {
-        List<RelationSubmissionSession> relationSubmissionSessions = new ArrayList<>();
+    private List<RelationSubmissionReport> getSubmissionRelations(JsonNode plugins) {
+        List<RelationSubmissionReport> relationSubmissionReports = new ArrayList<>();
         plugins.forEach(plugin -> {
             if (plugin.get("type").asText().equals("file")) {
                 plugin.get("fileareas").forEach(fileareas -> {
@@ -481,15 +428,15 @@ public class ServiceMoodle {
                                                                           .updatedAt(TimeUtil.parseZoneDateTime(file.get(
                                                                                   "timemodified").asLong()))
                                                                           .build();
-                            relationSubmissionSessions.add(RelationSubmissionSession.builder()
-                                                                                    .file(submissionFile)
-                                                                                    .build());
+                            relationSubmissionReports.add(RelationSubmissionReport.builder()
+                                                                                  .file(submissionFile)
+                                                                                  .build());
                         });
                     }
                 });
             }
         });
-        return relationSubmissionSessions;
+        return relationSubmissionReports;
     }
 
     @NotNull
@@ -572,140 +519,4 @@ public class ServiceMoodle {
         return Course.asDetail(Objects.requireNonNull(entity.getBody()).get("courses").get(0));
     }
 
-    private Collection<HighlightSessionReportDTO> handleNeedIgnoreSubmissions(List<RelationWithOwner> relationWithOwners) {
-        if (relationWithOwners == null || relationWithOwners.isEmpty()) return new ArrayList<>();
-        return relationWithOwners.stream()
-                                 .map(RelationWithOwner::getRelation)
-                                 .map(RelationSubmissionSession::getSession)
-                                 .map(HighlightSessionReportDTO::from)
-                                 .toList();
-    }
-
-    private Collection<HighlightSessionReportDTO> handleNeedModifySubmissions(List<RelationWithOwner> needModifyRelations,
-                                                                              UserReference reference)
-            throws IOException {
-        if (needModifyRelations == null || needModifyRelations.isEmpty()) return new ArrayList<>();
-        // Get list of sessions
-        // Get all file ids
-        List<HighlightSessionDocument> sessions = new ArrayList<>();
-        List<Pair<String, String>> pairIndexWithIds = new ArrayList<>();
-
-        needModifyRelations.forEach(relation -> {
-            sessions.add(relation.getRelation().getSession());
-            pairIndexWithIds.addAll(relation.getRelation()
-                                            .getSession()
-                                            .getMatches()
-                                            .stream()
-                                            .map(HighlightSingleDocument::getSource)
-                                            .map(source -> Pair.of(LanguageUtil.getInstance()
-                                                                               .getIndexFromFileName(source.getFileName()),
-                                                                   source.getId().toString()))
-                                            .toList());
-            relation.getRelation().setSession(null);
-        });
-        // Perform deleting from ES index
-        deleteDocumentsFromElasticsearch(pairIndexWithIds);
-        // Clear all sessions and their files
-        repoHighlightSessionDocument.deleteAll(sessions);
-
-        return needModifyRelations.stream().map(relation -> detectSubmission(relation, reference)).toList();
-    }
-
-    private void deleteDocumentsFromElasticsearch(List<Pair<String, String>> pairIndexWithId) throws IOException {
-        repoElasticsearchDelete.bulkDeleteByIds(pairIndexWithId);
-    }
-
-    private Collection<HighlightSessionReportDTO> handleNeedAddSubmissions(List<RelationWithOwner> needAddRelations,
-                                                                           UserReference reference) {
-        if (needAddRelations == null || needAddRelations.isEmpty()) return new ArrayList<>();
-        List<HighlightSessionReportDTO> reportDTOS = new ArrayList<>();
-        needAddRelations.forEach(relation -> reportDTOS.add(detectSubmission(relation, reference)));
-        return reportDTOS;
-    }
-
-    private HighlightSessionReportDTO detectSubmission(RelationWithOwner relationWithOwner, UserReference reference) {
-        // Each relation will have detected request
-        HighlightSessionRequest request = buildRequestFromMoodleFile(relationWithOwner.getRelation().getFile(),
-                                                                     reference,
-                                                                     relationWithOwner.getOwner());
-        HighlightSessionDocument session = serviceHighlight.createHighlightSession(request,
-                                                                                   IndexInstruction.getDefaultInstruction());
-        relationWithOwner.getRelation().setSession(session);
-        return HighlightSessionReportDTO.from(session);
-    }
-
-    private HighlightSessionRequest buildRequestFromMoodleFile(SubmissionFile file,
-                                                               UserReference reference,
-                                                               MoodleUser owner) {
-        // Enrich zip file from moodle
-        byte[] data = getSubmissionFileFromMoodle(file.getFileUri(), reference);
-        List<FileDocument> documents = parseFileDocuments(file, data, owner);
-        return HighlightSessionRequest.builder()
-                                      .sessionName(FileSystemUtil.getFileName(file.getFilename()))
-                                      .sources(documents)
-                                      .build();
-    }
-
-    private List<FileDocument> parseFileDocuments(SubmissionFile file, byte[] data, MoodleUser owner) {
-        String filename = file.getFilename();
-        List<FileDocument> documents = new ArrayList<>();
-        switch (FilenameUtils.getExtension(filename)) {
-            case "" -> {return documents;}
-            case "zip" -> documents.addAll(getFileDocumentFromNestedZipFile(data, owner.getFullname()));
-            default -> {
-                try {
-                    languageUtil.getIndexFromFileName(filename);
-                    // For source code file, only 1 file document is created
-                    documents.add(FileDocument.builder()
-                                              .content(data)
-                                              .fileName(filename)
-                                              .author(owner.getFullname())
-                                              .build());
-                } catch (UnsupportedLanguage ignored) {}
-
-            }
-        }
-        return documents;
-    }
-
-    private byte[] getSubmissionFileFromMoodle(String fileUri, UserReference reference) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(fileUri)
-                                                           .queryParam("token", reference.getToken());
-        ResponseEntity<byte[]> entity = moodleClient.getForEntity(builder.toUriString(), byte[].class);
-        if (!entity.getStatusCode().is2xxSuccessful()) {
-            log.error("[Service moodle] Fail to get submission file at url: {}", fileUri);
-            throw new MoodleSubmissionException("Fail to get submission file at url " + fileUri);
-        }
-        return entity.getBody();
-    }
-
-    private Map<String, List<RelationWithOwner>> classifySubmissions(List<Submission> submissions) {
-        Map<String, List<RelationWithOwner>> mapRelationsByNeed = new HashMap<>();
-        submissions.forEach(submission -> submission.getRelations().forEach(relation -> {
-            RelationWithOwner relationWithOwner = RelationWithOwner.builder()
-                                                                   .owner(submission.getOwner())
-                                                                   .relation(relation)
-                                                                   .build();
-            // If session is null then this relation need to add
-            // If submission relation has session id = null then add new
-            if (relation.getSession() == null)
-                mapRelationsByNeed.computeIfAbsent("add", key -> new ArrayList<>()).add(relationWithOwner);
-            else {
-                // Check case session's updated_at < submission file's updated_at -> file is updated after detect
-                // Else all sessions are detected and no file hasn't been updated after detection
-                if (relation.getSession().getUpdatedAt().isBefore(relation.getFile().getUpdatedAt()))
-                    mapRelationsByNeed.computeIfAbsent("modify", key -> new ArrayList<>()).add(relationWithOwner);
-                else mapRelationsByNeed.computeIfAbsent("ignore", key -> new ArrayList<>()).add(relationWithOwner);
-            }
-        }));
-        return mapRelationsByNeed;
-    }
-
-
-    @Builder
-    @Data
-    private static class RelationWithOwner {
-        MoodleUser owner;
-        RelationSubmissionSession relation;
-    }
 }

@@ -19,8 +19,8 @@ import java.util.UUID;
 @NoArgsConstructor
 
 @Entity
-@Table(name = "highlight_session", schema = "highlight")
-public class HighlightSessionDocument {
+@Table(name = "similarity_report", schema = "highlight")
+public class SimilarityReport {
     @Id
     @Column(name = "id", columnDefinition = "uuid")
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -43,27 +43,30 @@ public class HighlightSessionDocument {
     @JoinColumn(name = "user_id")
     private UserImpl user;
 
+    @OneToOne(cascade = {CascadeType.ALL}, fetch = FetchType.LAZY)
+    private SimilarityReportMeta meta;
+
     @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE}, fetch = FetchType.EAGER)
-    @JoinColumn(name = "session_id", referencedColumnName = "id")
-    private Collection<HighlightSingleDocument> matches = new ArrayList<>();
+    @JoinColumn(name = "report_id", referencedColumnName = "id")
+    private Collection<ReportSourceDocument> sources = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     @Builder.Default
-    private HighlightSessionStatus status = HighlightSessionStatus.INIT;
+    private SimilarityReportStatus status = SimilarityReportStatus.INIT;
 
     @Column(name = "exception", columnDefinition = "TEXT")
     private String exception;
 
-    public interface HighlightSessionProjection {
+    public interface SimilarityReportDTO {
         UUID getId();
 
         String getName();
 
         ZonedDateTime getCreated();
 
-        HighlightSessionStatus getStatus();
+        SimilarityReportStatus getStatus();
 
-        Collection<HighlightSingleDocument> getMatches();
+        Collection<ReportSourceDocument> getSources();
     }
 }

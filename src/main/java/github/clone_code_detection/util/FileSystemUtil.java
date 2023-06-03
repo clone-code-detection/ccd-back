@@ -2,7 +2,7 @@ package github.clone_code_detection.util;
 
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.exceptions.highlight.FileNotSupportedException;
-import github.clone_code_detection.service.highlight.ServiceHighlight;
+import github.clone_code_detection.service.user.ServiceAuthentication;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,8 +20,7 @@ public class FileSystemUtil {
 
     public static byte[] getContent(MultipartFile file) {
         try {
-            return file.getInputStream()
-                    .readAllBytes();
+            return file.getInputStream().readAllBytes();
         } catch (IOException e) {
             return new byte[0];
         }
@@ -30,6 +29,7 @@ public class FileSystemUtil {
     /**
      * @param file the source code file or zip file
      * @return Collection of file document extracted from file
+     *
      * @implNote extract from zip if exists or single-content-collection
      */
     public static Collection<FileDocument> extractDocuments(MultipartFile file) {
@@ -42,10 +42,10 @@ public class FileSystemUtil {
             byte[] content;
             content = FileSystemUtil.getContent(file);
             return List.of(FileDocument.builder()
-                    .fileName(fileName)
-                    .content(content)
-                    .user(ServiceHighlight.getUserFromContext())
-                    .build());
+                                       .fileName(fileName)
+                                       .content(content)
+                                       .user(ServiceAuthentication.getUserFromContext())
+                                       .build());
         }
     }
 
@@ -61,11 +61,10 @@ public class FileSystemUtil {
             return;
         }
         try {
-            LanguageUtil.getInstance()
-                    .getIndexFromExtension(extension);
+            LanguageUtil.getInstance().getIndexFromExtension(extension);
         } catch (Exception ignore) {
-            throw new FileNotSupportedException(
-                    MessageFormat.format("Extension of type {0} is not supported", extension));
+            throw new FileNotSupportedException(MessageFormat.format("Extension of type {0} is not supported",
+                                                                     extension));
         }
     }
 
@@ -83,8 +82,7 @@ public class FileSystemUtil {
      * @return name of that file without extension
      */
     public static String getFileName(String originalFilename) {
-        if (originalFilename == null)
-            return "";
+        if (originalFilename == null) return "";
         return originalFilename.substring(0, originalFilename.lastIndexOf("."));
     }
 }

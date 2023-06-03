@@ -5,48 +5,37 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import github.clone_code_detection.entity.authenication.UserImpl;
 import github.clone_code_detection.entity.fs.FileDocument;
-import github.clone_code_detection.entity.highlight.document.HighlightSessionDocument;
-import github.clone_code_detection.entity.highlight.document.HighlightSessionStatus;
-import github.clone_code_detection.entity.highlight.document.HighlightSingleDocument;
-import github.clone_code_detection.entity.highlight.document.HighlightSingleTargetMatchDocument;
-import github.clone_code_detection.entity.highlight.report.HighlightSessionDetailDTO;
-import github.clone_code_detection.entity.highlight.report.HighlightSingleSourceDTO;
-import github.clone_code_detection.entity.highlight.report.HighlightWordMatchDTO;
-import github.clone_code_detection.entity.highlight.request.HighlightSessionRequest;
+import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
+import github.clone_code_detection.entity.highlight.document.ReportTargetDocument;
+import github.clone_code_detection.entity.highlight.document.SimilarityReport;
+import github.clone_code_detection.entity.highlight.dto.ReportSourceDocumentDTO;
+import github.clone_code_detection.entity.highlight.dto.SimilarityReportDetailDTO;
+import github.clone_code_detection.entity.highlight.dto.SimilarityTextMatchDTO;
+import github.clone_code_detection.entity.highlight.request.SimilarityDetectRequest;
 import github.clone_code_detection.entity.index.IndexInstruction;
-import github.clone_code_detection.entity.query.QueryInstruction;
-import github.clone_code_detection.exceptions.highlight.ElasticsearchMultiHighlightException;
-import github.clone_code_detection.exceptions.highlight.ElasticsearchQueryException;
-import github.clone_code_detection.exceptions.highlight.HighlightSessionException;
 import github.clone_code_detection.exceptions.highlight.ResourceNotFoundException;
 import github.clone_code_detection.repo.*;
 import github.clone_code_detection.service.index.ServiceIndex;
+import github.clone_code_detection.service.query.ServiceQuery;
+import github.clone_code_detection.service.user.ServiceAuthentication;
 import github.clone_code_detection.util.FileSystemUtil;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.search.MultiSearchResponse;
-import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.core.MultiTermVectorsResponse;
 import org.elasticsearch.client.core.TermVectorsResponse;
 import org.elasticsearch.common.util.set.Sets;
-import org.elasticsearch.search.SearchHit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.util.Pair;
 import org.springframework.lang.NonNull;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -60,11 +49,12 @@ import static github.clone_code_detection.repo.RepoElasticsearchQuery.SOURCE_COD
 public class ServiceHighlight {
     private final ServiceIndex serviceIndex;
     private final RepoElasticsearchQuery repoElasticsearchQuery;
-    private final RepoHighlightSessionDocument repoHighlightSessionDocument;
-    private final RepoHighlightSingleMatchDocument repoHighlightSingleMatchDocument;
-    private final RepoHighlightSingleTargetMatchDocument repoHighlightSingleTargetMatchDocument;
+    private final RepoSimilarityReport repoSimilarityReport;
+    private final RepoReportSourceDocument repoReportSourceDocument;
+    private final RepoReportTargetDocument repoReportTargetDocument;
     private final RepoFileDocument repoFileDocument;
-    private final ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+    private final ThreadPoolExecutor threadPoolExecutor;
+    private final ServiceQuery serviceQuery;
     @Value("${elasticsearch.query.batch-size}")
     private int batchSize;
     @Value("${elasticsearch.query.minimum-should-match}")
@@ -73,20 +63,24 @@ public class ServiceHighlight {
     @Autowired
     public ServiceHighlight(ServiceIndex serviceIndex,
                             RepoElasticsearchQuery repoElasticsearchQuery,
-                            RepoHighlightSessionDocument repoHighlightSessionDocument,
-                            RepoHighlightSingleMatchDocument repoHighlightSingleMatchDocument,
-                            RepoHighlightSingleTargetMatchDocument repoHighlightSingleTargetMatchDocument,
-                            RepoFileDocument repoFileDocument) {
+                            RepoSimilarityReport repoSimilarityReport,
+                            RepoReportSourceDocument repoReportSourceDocument,
+                            RepoReportTargetDocument repoReportTargetDocument,
+                            RepoFileDocument repoFileDocument,
+                            ThreadPoolExecutor threadPoolExecutor,
+                            ServiceQuery serviceQuery) {
         this.serviceIndex = serviceIndex;
         this.repoElasticsearchQuery = repoElasticsearchQuery;
-        this.repoHighlightSessionDocument = repoHighlightSessionDocument;
-        this.repoHighlightSingleMatchDocument = repoHighlightSingleMatchDocument;
-        this.repoHighlightSingleTargetMatchDocument = repoHighlightSingleTargetMatchDocument;
+        this.repoSimilarityReport = repoSimilarityReport;
+        this.repoReportSourceDocument = repoReportSourceDocument;
+        this.repoReportTargetDocument = repoReportTargetDocument;
         this.repoFileDocument = repoFileDocument;
+        this.threadPoolExecutor = threadPoolExecutor;
+        this.serviceQuery = serviceQuery;
     }
 
-    private static List<HighlightWordMatchDTO> extractTermVectorsResponse(MultiTermVectorsResponse response) {
-        List<HighlightWordMatchDTO> res = new ArrayList<>();
+    private static List<SimilarityTextMatchDTO> extractTermVectorsResponse(MultiTermVectorsResponse response) {
+        List<SimilarityTextMatchDTO> res = new ArrayList<>();
         assert response.getTermVectorsResponses().size() == 2;
 
         TermVectorsResponse source = response.getTermVectorsResponses().get(0);
@@ -96,24 +90,14 @@ public class ServiceHighlight {
         Map<String, List<Integer[]>> targetMap = extractMatches(target);
         Set<String> commonKey = Sets.intersection(sourceMap.keySet(), targetMap.keySet());
         for (String common : commonKey) {
-            HighlightWordMatchDTO wordMatchDTO = HighlightWordMatchDTO.builder()
-                                                                      .word(common)
-                                                                      .sourceMatches(sourceMap.get(common))
-                                                                      .targetMatches(targetMap.get(common))
-                                                                      .build();
+            SimilarityTextMatchDTO wordMatchDTO = SimilarityTextMatchDTO.builder()
+                                                                        .text(common)
+                                                                        .sourceMatches(sourceMap.get(common))
+                                                                        .targetMatches(targetMap.get(common))
+                                                                        .build();
             res.add(wordMatchDTO);
         }
         return res;
-    }
-
-    /**
-     * Get user from SecurityContextHolder
-     */
-    @Nullable
-    public static UserImpl getUserFromContext() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication.getPrincipal() instanceof UserImpl userImpl) return userImpl;
-        return null;
     }
 
     private static Map<String, List<Integer[]>> extractMatches(TermVectorsResponse termVectorsResponse) {
@@ -151,7 +135,7 @@ public class ServiceHighlight {
         return false;
     }
 
-    private static Set<Integer> getTargetStartingPositions(ArrayList<PriorityQueue<TokenWrapper>> sourceMapByPosition,
+    private static Set<Integer> getTargetStartingPositions(List<PriorityQueue<TokenWrapper>> sourceMapByPosition,
                                                            Map<String, List<Integer>> targetByValue,
                                                            int i) {
         PriorityQueue<TokenWrapper> synonyms = sourceMapByPosition.get(i);
@@ -162,38 +146,68 @@ public class ServiceHighlight {
     }
 
     @Transactional
-    public HighlightSessionDocument createHighlightSession(HighlightSessionRequest request,
-                                                           IndexInstruction instruction) {
-        HighlightSessionDocument highlightSessionDocument = createEmptyHighlighSession(request);
+    public SimilarityReport createSimilarityReport(SimilarityDetectRequest request, IndexInstruction instruction) {
+        SimilarityReport similarityReport = createEmptyReport(request);
         // Assign session id of empty highlight session into each source document
         Collection<FileDocument> sourceDocuments = request.getSources();
         // Save file linking id of session
-        final UUID sessionId = highlightSessionDocument.getId();
-        sourceDocuments.forEach(sourceDocument -> {
-            sourceDocument.setSessionId(sessionId);
-            sourceDocument.setUser(getUserFromContext());
-        });
         sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
         instruction.setFiles(sourceDocuments);
-        executor.execute(new HighlightProcessor(highlightSessionDocument, instruction));
-        return highlightSessionDocument;
+        threadPoolExecutor.submit(new DetectSimilarityJob(similarityReport.getId(),
+                                                          instruction,
+                                                          serviceIndex,
+                                                          repoSimilarityReport,
+                                                          repoElasticsearchQuery,
+                                                          serviceQuery,
+                                                          batchSize,
+                                                          minimumShouldMatch));
+        return similarityReport;
+    }
+
+    @Transactional
+    public SimilarityReport createSimilarityReport(SimilarityDetectRequest request,
+                                                   IndexInstruction instruction,
+                                                   UserImpl user) {
+        SimilarityReport similarityReport = createEmptyReport(request, user);
+        // Assign session id of empty highlight session into each source document
+        Collection<FileDocument> sourceDocuments = request.getSources();
+        // Save file linking id of session
+        sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
+        instruction.setFiles(sourceDocuments);
+        threadPoolExecutor.submit(new DetectSimilarityJob(similarityReport.getId(),
+                                                          instruction,
+                                                          serviceIndex,
+                                                          repoSimilarityReport,
+                                                          repoElasticsearchQuery,
+                                                          serviceQuery,
+                                                          batchSize,
+                                                          minimumShouldMatch));
+        return similarityReport;
     }
 
     @NotNull
-    private HighlightSessionDocument createEmptyHighlighSession(HighlightSessionRequest request) {
+    private SimilarityReport createEmptyReport(SimilarityDetectRequest request) {
         // Create new empty highlight session
-        HighlightSessionDocument.HighlightSessionDocumentBuilder sessionBuilder = HighlightSessionDocument.builder();
-        HighlightSessionDocument highlightSessionDocument = sessionBuilder.build();
-        highlightSessionDocument.setUser(getUserFromContext());
-        highlightSessionDocument.setName(request.getSessionName());
-        highlightSessionDocument = repoHighlightSessionDocument.save(highlightSessionDocument);
-        return highlightSessionDocument;
+        SimilarityReport.SimilarityReportBuilder sessionBuilder = SimilarityReport.builder();
+        SimilarityReport similarityReport = sessionBuilder.build();
+        similarityReport.setUser(ServiceAuthentication.getUserFromContext());
+        similarityReport.setName(request.getReportName());
+        return repoSimilarityReport.save(similarityReport);
+    }
+
+    @NotNull
+    private SimilarityReport createEmptyReport(SimilarityDetectRequest request, UserImpl user) {
+        // Create new empty highlight session
+        SimilarityReport.SimilarityReportBuilder sessionBuilder = SimilarityReport.builder();
+        SimilarityReport similarityReport = sessionBuilder.build();
+        similarityReport.setUser(user);
+        similarityReport.setName(request.getReportName());
+        return repoSimilarityReport.save(similarityReport);
     }
 
     public Collection<HighlightReturn> handleAdvancedHighlightById(String id) {
         if (id.equals("undefined")) return new ArrayList<>();
-        HighlightSingleTargetMatchDocument singleDocument = repoHighlightSingleTargetMatchDocument.findById(UUID.fromString(
-                id)).orElseThrow();
+        ReportTargetDocument singleDocument = repoReportTargetDocument.findById(UUID.fromString(id)).orElseThrow();
         return handleAdvancedHighlight(singleDocument);
     }
 
@@ -216,7 +230,7 @@ public class ServiceHighlight {
     }
 
     // PriorityQueue is ordered by term length
-    public ArrayList<PriorityQueue<TokenWrapper>> mapTokensByPosition(@NonNull TermVectorsResponse termVectorsResponse) {
+    public List<PriorityQueue<TokenWrapper>> mapTokensByPosition(@NonNull TermVectorsResponse termVectorsResponse) {
         TermVectorsResponse.TermVector termVector = getTermVectorByFieldName(termVectorsResponse.getTermVectorsList(),
                                                                              SOURCE_CODE_FIELD);
         if (termVector == null) throw new RuntimeException();
@@ -246,7 +260,7 @@ public class ServiceHighlight {
      *
      * @implNote: requires field mapping to have term vector position offset
      */
-    public Collection<HighlightReturn> handleAdvancedHighlight(HighlightSingleTargetMatchDocument targetMatchDocument) {
+    public Collection<HighlightReturn> handleAdvancedHighlight(ReportTargetDocument targetMatchDocument) {
         var source = targetMatchDocument.getSource().getSource();
         var target = targetMatchDocument.getTarget();
         MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(source, target);
@@ -261,9 +275,9 @@ public class ServiceHighlight {
     public Collection<HighlightReturn> getExtractReturnCollection(TermVectorsResponse source,
                                                                   TermVectorsResponse target) {
         // map source tokens by position
-        ArrayList<PriorityQueue<TokenWrapper>> sourceMapByPosition = mapTokensByPosition(source);
+        List<PriorityQueue<TokenWrapper>> sourceMapByPosition = mapTokensByPosition(source);
         // map tokens by position
-        ArrayList<PriorityQueue<TokenWrapper>> targetMapByPosition = mapTokensByPosition(target);
+        List<PriorityQueue<TokenWrapper>> targetMapByPosition = mapTokensByPosition(target);
         // map tokens by value
         Map<String, List<Integer>> targetByValue = mapTokensByValue(target);
 
@@ -284,8 +298,8 @@ public class ServiceHighlight {
                            source.stream().map(TokenWrapper::getToken).sorted().collect(Collectors.toList()));
     }
 
-    private HighlightReturn extracted(ArrayList<PriorityQueue<TokenWrapper>> sourceMapByPosition,
-                                      ArrayList<PriorityQueue<TokenWrapper>> targetMapByPosition,
+    private HighlightReturn extracted(List<PriorityQueue<TokenWrapper>> sourceMapByPosition,
+                                      List<PriorityQueue<TokenWrapper>> targetMapByPosition,
                                       Map<String, List<Integer>> targetByValue,
                                       int i) {
         Set<Integer> targetStartingPositions = getTargetStartingPositions(sourceMapByPosition, targetByValue, i);
@@ -338,16 +352,14 @@ public class ServiceHighlight {
     }
 
     /**
-     * @param start
-     * @param end
-     * @param mapByPosition
-     * @return
-     *
-     * @implNote end is exclusive
+     * @param start         start index inclusive
+     * @param end           end index exclusive
+     * @param mapByPosition map
+     * @return pair
      */
     private Pair<Integer, Integer> extractBlockFromPosition(Integer start,
                                                             Integer end,
-                                                            ArrayList<PriorityQueue<TokenWrapper>> mapByPosition) {
+                                                            List<PriorityQueue<TokenWrapper>> mapByPosition) {
         assert end - 1 >= start;
         TokenWrapper startToken = mapByPosition.get(start).iterator().next();
         var startOffset = startToken.startOffset;
@@ -357,23 +369,21 @@ public class ServiceHighlight {
     }
 
     @Transactional
-    public HighlightSingleSourceDTO getSingleSourceMatchById(String uuid) {
-        HighlightSingleDocument singleDocument = repoHighlightSingleMatchDocument.findById(UUID.fromString(uuid))
-                                                                                 .orElseThrow();
-        return HighlightSingleSourceDTO.from(singleDocument, this::getHighlightWordMatchDTOS);
+    public ReportSourceDocumentDTO getReportSourceDocumentById(String uuid) {
+        ReportSourceDocument singleDocument = repoReportSourceDocument.findById(UUID.fromString(uuid)).orElseThrow();
+        return ReportSourceDocumentDTO.from(singleDocument, this::getReportTextMatch);
     }
 
     @Transactional
-    public HighlightSessionDetailDTO getHighlightSessionById(String uuid) {
-        Optional<HighlightSessionDocument> sessionDocumentById = repoHighlightSessionDocument.findById(UUID.fromString(
-                uuid));
-        HighlightSessionDocument resource = sessionDocumentById.orElseThrow(() -> new ResourceNotFoundException(
+    public SimilarityReportDetailDTO getSimilarityReportById(String uuid) {
+        Optional<SimilarityReport> sessionDocumentById = repoSimilarityReport.findById(UUID.fromString(uuid));
+        SimilarityReport resource = sessionDocumentById.orElseThrow(() -> new ResourceNotFoundException(
                 "Resource with uuid not found"));
-        return HighlightSessionDetailDTO.from(resource);
+        return SimilarityReportDetailDTO.from(resource);
     }
 
     @Nonnull
-    private List<HighlightWordMatchDTO> getHighlightWordMatchDTOS(HighlightSingleTargetMatchDocument singleDocument) {
+    private List<SimilarityTextMatchDTO> getReportTextMatch(ReportTargetDocument singleDocument) {
         FileDocument source = singleDocument.getSource().getSource();
         FileDocument target = singleDocument.getTarget();
         MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(source, target);
@@ -381,24 +391,24 @@ public class ServiceHighlight {
     }
 
     @Transactional
-    public HighlightSessionDetailDTO highlight(@NotNull MultipartFile source, @Nonnull IndexInstruction instruction) {
+    public SimilarityReportDetailDTO detectSync(@NotNull MultipartFile source, @Nonnull IndexInstruction instruction) {
         // Validate and extract file from source
         FileSystemUtil.validate(source);
         Collection<FileDocument> sourceDocuments = FileSystemUtil.extractDocuments(source);
         // Highlight source documents
-        HighlightSessionDocument.HighlightSessionDocumentBuilder sessionBuilder = HighlightSessionDocument.builder();
-        List<HighlightSingleDocument> hits = new ArrayList<>();
+        SimilarityReport.SimilarityReportBuilder sessionBuilder = SimilarityReport.builder();
+        List<ReportSourceDocument> hits = new ArrayList<>();
         for (FileDocument sourceDocument : sourceDocuments) {
             // for each document, get highlight request
-            HighlightSingleDocument highlightSingleDocument = extractSingleDocument(sourceDocument);
-            hits.add(highlightSingleDocument);
+            ReportSourceDocument reportSourceDocument = serviceQuery.extractSingleDocument(sourceDocument);
+            hits.add(reportSourceDocument);
         }
         // Build highlight session
-        sessionBuilder.matches(hits);
-        HighlightSessionDocument highlightSessionDocument = sessionBuilder.build();
-        highlightSessionDocument.setUser(getUserFromContext());
-        highlightSessionDocument.setName(FileSystemUtil.getFileName(source));
-        highlightSessionDocument = repoHighlightSessionDocument.save(highlightSessionDocument);
+        sessionBuilder.sources(hits);
+        SimilarityReport similarityReport = sessionBuilder.build();
+        similarityReport.setUser(ServiceAuthentication.getUserFromContext());
+        similarityReport.setName(FileSystemUtil.getFileName(source));
+        similarityReport = repoSimilarityReport.save(similarityReport);
 
         // Save source files before indexing
         sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
@@ -406,97 +416,14 @@ public class ServiceHighlight {
         instruction.setFiles(sourceDocuments);
         serviceIndex.indexAllDocuments(instruction);
 
-        return HighlightSessionDetailDTO.from(highlightSessionDocument);
+        return SimilarityReportDetailDTO.from(similarityReport);
     }
 
     @Transactional
-    public Collection<HighlightSessionDocument.HighlightSessionProjection> getAllSession() {
-        UserImpl principal = getUserFromContext();
+    public Collection<SimilarityReport.SimilarityReportDTO> getAllReports() {
+        UserImpl principal = ServiceAuthentication.getUserFromContext();
         assert principal != null;
-        return repoHighlightSessionDocument.getAllByUserId(principal.getId());
-    }
-
-    /**
-     * For each file, query with highlight enabled
-     */
-    private HighlightSingleDocument extractSingleDocument(FileDocument source) {
-        QueryInstruction queryInstruction = QueryInstruction.builder()
-                                                            .queryDocument(source)
-                                                            .includeHighlight(true)
-                                                            .minimumShouldMatch("40%")
-                                                            .build();
-        SearchResponse searchResponse;
-        try {
-            searchResponse = repoElasticsearchQuery.query(queryInstruction);
-        } catch (IOException e) {
-            log.error("Error querying elasticsearch", e);
-            throw new ElasticsearchQueryException("[Service highlight] Failed to query es");
-        }
-        // parse response
-        return parseResponse(source, searchResponse);
-    }
-
-    /**
-     * Extract match fields from es search response
-     */
-    private HighlightSingleDocument parseResponse(FileDocument source, SearchResponse search) {
-        HighlightSingleDocument.HighlightSingleDocumentBuilder builder = HighlightSingleDocument.builder();
-        // get hits
-        Collection<HighlightSingleTargetMatchDocument> matches = new ArrayList<>();
-        HighlightSingleDocument highlightSingleDocument = builder.source(source).matches(matches).build();
-        for (SearchHit hit : search.getHits()) {
-            String id = hit.getId();
-            UUID fromString;
-            try {
-                fromString = UUID.fromString(id);
-            } catch (Exception ig) {
-                continue;
-            }
-            Optional<FileDocument> fileDocument = repoFileDocument.findById(fromString);
-            if (fileDocument.isEmpty()) continue;
-            HighlightSingleTargetMatchDocument singleMatch = HighlightSingleTargetMatchDocument.builder()
-                                                                                               .score(hit.getScore())
-                                                                                               .source(highlightSingleDocument)
-                                                                                               .target(fileDocument.get())
-                                                                                               .build();
-            matches.add(singleMatch);
-        }
-        return highlightSingleDocument;
-    }
-
-    public Collection<HighlightSingleDocument> multihighlight(Collection<FileDocument> files) {
-        Collection<HighlightSingleDocument> highlightSingleDocuments = new ArrayList<>();
-        int startIndex = 0;
-        while (startIndex < files.size()) {
-            int endIndex = Math.min(batchSize + startIndex, files.size());
-            // Create multisearch query
-            Collection<QueryInstruction> instructions = new ArrayList<>();
-            for (int i = startIndex; i < endIndex; ++i)
-                instructions.add(QueryInstruction.builder()
-                                                 .queryDocument(files.stream().toList().get(i))
-                                                 .includeHighlight(true)
-                                                 .minimumShouldMatch(minimumShouldMatch)
-                                                 .build());
-            try {
-                MultiSearchResponse multiSearchResponse = repoElasticsearchQuery.multiquery(instructions);
-                for (int index = 0; index < multiSearchResponse.getResponses().length; ++index) {
-                    MultiSearchResponse.Item searchResponse = multiSearchResponse.getResponses()[index];
-                    if (searchResponse.isFailure()) {
-                        log.error("[Service highlight] Search response in multi highlight is fail. Error: {}",
-                                  searchResponse.getFailureMessage());
-                    } else if (searchResponse.getResponse() != null) {
-                        highlightSingleDocuments.add(parseResponse(files.stream().toList().get(index + startIndex),
-                                                                   searchResponse.getResponse()));
-                    }
-                }
-            } catch (IOException e) {
-                log.error("[Service highlight] Multi highlight failed. Error: {}", e.getMessage());
-                throw new ElasticsearchMultiHighlightException("Multi highlight failed", e);
-            } finally {
-                startIndex = endIndex;
-            }
-        }
-        return highlightSingleDocuments;
+        return repoSimilarityReport.getAllByUserId(principal.getId());
     }
 
     @Data
@@ -555,53 +482,4 @@ public class ServiceHighlight {
         }
     }
 
-    @Data
-    private class HighlightProcessor implements Runnable {
-        private final HighlightSessionDocument session;
-        private final IndexInstruction instruction;
-
-        public HighlightProcessor(HighlightSessionDocument session, IndexInstruction instruction) {
-            this.session = session;
-            this.instruction = instruction;
-        }
-
-        @Override
-        @Transactional
-        public void run() {
-            try {
-                markSessionAsProcessing();
-                // Detect highlight session
-                Collection<FileDocument> files = instruction.getFiles();
-                List<HighlightSingleDocument> hits = new ArrayList<>(multihighlight(files));
-                session.setMatches(hits);
-                session.setStatus(HighlightSessionStatus.DONE);
-                repoHighlightSessionDocument.save(session);
-                serviceIndex.bulkIndexAllDocuments(instruction);
-            } catch (Exception e) {
-                log.error("[Service highlight] detect highlight session {} failed with error: {}",
-                          session.getName(),
-                          e.getMessage());
-                // Update status to failed for future retry
-                session.setStatus(HighlightSessionStatus.FAILED);
-                session.setException(new HighlightSessionException(
-                        "[Service highlight] Error while processing highlight",
-                        e).toString());
-                repoHighlightSessionDocument.save(session);
-            }
-        }
-
-        @Transactional
-        public void markSessionAsProcessing() {
-            try {
-                repoHighlightSessionDocument.updateStatusByIdEquals(HighlightSessionStatus.PROCESSING, session.getId());
-            } catch (Exception e) {
-                log.error("[Service highlight] Can't update session to PROCESSING");
-                session.setStatus(HighlightSessionStatus.FAILED);
-                session.setException(new HighlightSessionException(
-                        "[Service highlight] Can't update session to PROCESSING",
-                        e).toString());
-                repoHighlightSessionDocument.save(session);
-            }
-        }
-    }
 }

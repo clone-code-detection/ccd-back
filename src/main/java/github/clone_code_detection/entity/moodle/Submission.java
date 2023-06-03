@@ -45,9 +45,9 @@ public class Submission {
     @Builder.Default
     private java.time.ZonedDateTime updatedAt = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
 
-    @OneToMany(cascade = {CascadeType.ALL})
+    @OneToMany(cascade = {CascadeType.ALL}, fetch = FetchType.EAGER)
     @JoinColumn(name = "submission_id", referencedColumnName = "id")
-    private List<RelationSubmissionSession> relations;
+    private List<RelationSubmissionReport> relations;
 
     public SubmissionDTO toDTO() {
         return new SubmissionDTO() {
@@ -72,8 +72,8 @@ public class Submission {
             }
 
             @Override
-            public List<RelationSubmissionSession.RelationSubmissionSessionDTO> getRelations() {
-                return relations.stream().map(RelationSubmissionSession::toDTO).toList();
+            public List<RelationSubmissionReport.RelationSubmissionSessionDTO> getRelations() {
+                return relations.stream().map(RelationSubmissionReport::toDTO).toList();
             }
         };
     }
@@ -87,6 +87,6 @@ public class Submission {
 
         MoodleUser.MoodleUserDTO getOwner();
 
-        List<RelationSubmissionSession.RelationSubmissionSessionDTO> getRelations();
+        List<RelationSubmissionReport.RelationSubmissionSessionDTO> getRelations();
     }
 }

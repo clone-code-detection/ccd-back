@@ -1,8 +1,8 @@
 package github.clone_code_detection.controller.moodle;
 
 import github.clone_code_detection.entity.authenication.SignInRequest;
-import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
-import github.clone_code_detection.entity.highlight.request.HighlightSessionRequest;
+import github.clone_code_detection.entity.highlight.dto.SimilarityReportInfoDTO;
+import github.clone_code_detection.entity.highlight.request.SimilarityDetectRequest;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.entity.moodle.DetectRequest;
 import github.clone_code_detection.entity.moodle.MoodleResponse;
@@ -45,9 +45,9 @@ public class MoodleController {
         // moodle source is a zip file that contains multiple folders.
         // Each folder is list of file submissions of one student.
         // For each file in student's folder, we consider it as one highlight session.
-        Collection<HighlightSessionRequest> requests = ServiceMoodle.unzipMoodleFileAndGetRequests(source);
-        Collection<HighlightSessionReportDTO> reports = new ArrayList<>();
-        requests.forEach(request -> reports.add(HighlightSessionReportDTO.from(serviceHighlight.createHighlightSession(
+        Collection<SimilarityDetectRequest> requests = ServiceMoodle.unzipMoodleFileAndGetRequests(source);
+        Collection<SimilarityReportInfoDTO> reports = new ArrayList<>();
+        requests.forEach(request -> reports.add(SimilarityReportInfoDTO.from(serviceHighlight.createSimilarityReport(
                 request,
                 IndexInstruction.getDefaultInstruction()))));
         return MoodleResponse.builder().message("OK").data(reports).build();
@@ -82,7 +82,7 @@ public class MoodleController {
 
     @PostMapping(path = "/detect-submissions")
     @ResponseStatus(HttpStatus.OK)
-    public MoodleResponse detectSelectedSubmissions(@RequestBody DetectRequest request) throws IOException {
-        return serviceMoodle.detectSubmissions(request.getSubmissionIds());
+    public MoodleResponse detectSelectedSubmissions(@RequestBody DetectRequest request) {
+        return serviceMoodle.detectSelectedSubmissions(request.getSubmissionIds());
     }
 }

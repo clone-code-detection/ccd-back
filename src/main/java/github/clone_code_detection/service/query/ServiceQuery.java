@@ -4,48 +4,42 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import github.clone_code_detection.entity.ElasticsearchDocument;
 import github.clone_code_detection.entity.authenication.UserImpl;
-import github.clone_code_detection.entity.highlight.document.HighlightSingleDocument;
-import github.clone_code_detection.entity.highlight.document.HighlightSingleTargetMatchDocument;
+import github.clone_code_detection.entity.fs.FileDocument;
+import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
+import github.clone_code_detection.entity.highlight.document.ReportTargetDocument;
 import github.clone_code_detection.entity.query.QueryInstruction;
 import github.clone_code_detection.exceptions.es.ElasticsearchResponseParseException;
+import github.clone_code_detection.exceptions.highlight.ElasticsearchQueryException;
 import github.clone_code_detection.repo.RepoElasticsearchQuery;
-import github.clone_code_detection.repo.RepoHighlightSingleMatchDocument;
+import github.clone_code_detection.repo.RepoFileDocument;
+import github.clone_code_detection.repo.RepoReportSourceDocument;
 import github.clone_code_detection.util.JsonUtil;
 import lombok.Builder;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.search.SearchHit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Nonnull;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import java.io.IOException;
+import java.util.*;
 
 @Service
 @Slf4j
 public class ServiceQuery implements IServiceQuery {
     private final RepoElasticsearchQuery repoElasticsearchQuery;
-    private final RepoHighlightSingleMatchDocument repoHighlightSingleMatchDocument;
+    private final RepoReportSourceDocument repoReportSourceDocument;
+    private final RepoFileDocument repoFileDocument;
 
     @Autowired
-    public ServiceQuery(RepoElasticsearchQuery repoElasticsearchQuery, RepoHighlightSingleMatchDocument repoHighlightSessionDocument) {
+    public ServiceQuery(RepoElasticsearchQuery repoElasticsearchQuery,
+                        RepoReportSourceDocument repoHighlightSessionDocument,
+                        RepoFileDocument repoFileDocument) {
         this.repoElasticsearchQuery = repoElasticsearchQuery;
-        this.repoHighlightSingleMatchDocument = repoHighlightSessionDocument;
-    }
-
-    @SneakyThrows
-    @Override
-    public List<ElasticsearchDocument> search(@Nonnull QueryInstruction queryInstruction) {
-        return Arrays.stream(repoElasticsearchQuery.query(queryInstruction)
-                                                   .getHits()
-                                                   .getHits())
-                     .map(SearchHit::getSourceAsString)
-                     .map(ServiceQuery::parseResponse)
-                     .collect(Collectors.toList());
+        this.repoReportSourceDocument = repoHighlightSessionDocument;
+        this.repoFileDocument = repoFileDocument;
     }
 
     private static ElasticsearchDocument parseResponse(String value) {
@@ -56,6 +50,23 @@ public class ServiceQuery implements IServiceQuery {
         }
     }
 
+    private static TargetMatchOverview extract(ReportTargetDocument document) {
+        UserImpl user = document.getTarget().getUser();
+        String userName = user != null ? user.getUsername() : "anonymous";
+        String targetId = document.getId().toString();
+        Float score = document.getScore();
+        return TargetMatchOverview.builder().author(userName).id(targetId).score(score).build();
+    }
+
+    @SneakyThrows
+    @Override
+    public List<ElasticsearchDocument> search(@Nonnull QueryInstruction queryInstruction) {
+        return Arrays.stream(repoElasticsearchQuery.query(queryInstruction).getHits().getHits())
+                     .map(SearchHit::getSourceAsString)
+                     .map(ServiceQuery::parseResponse)
+                     .toList();
+    }
+
     public Collection<TargetMatchOverview> handle(String id) {
         UUID fromString;
         try {
@@ -63,26 +74,56 @@ public class ServiceQuery implements IServiceQuery {
         } catch (Exception ig) {
             throw new RuntimeException("Invalid id", ig);
         }
-        HighlightSingleDocument singleDocument = repoHighlightSingleMatchDocument.findById(fromString)
-                                                                                 .orElseThrow();
-        return singleDocument.getMatches()
-                             .stream()
-                             .map(ServiceQuery::extract)
-                             .toList();
+        ReportSourceDocument singleDocument = repoReportSourceDocument.findById(fromString).orElseThrow();
+        return singleDocument.getMatches().stream().map(ServiceQuery::extract).toList();
     }
 
-    private static TargetMatchOverview extract(HighlightSingleTargetMatchDocument document) {
-        UserImpl user = document.getTarget()
-                                .getUser();
-        String userName = user != null ? user.getUsername() : "anonymous";
-        String targetId = document.getId()
-                                  .toString();
-        Float score = document.getScore();
-        return TargetMatchOverview.builder()
-                                  .author(userName)
-                                  .id(targetId)
-                                  .score(score)
-                                  .build();
+    /**
+     * For each file, query with highlight enabled
+     */
+    public ReportSourceDocument extractSingleDocument(FileDocument source) {
+        QueryInstruction queryInstruction = QueryInstruction.builder()
+                                                            .queryDocument(source)
+                                                            .includeHighlight(true)
+                                                            .minimumShouldMatch("40%")
+                                                            .build();
+        SearchResponse searchResponse;
+        try {
+            searchResponse = repoElasticsearchQuery.query(queryInstruction);
+        } catch (IOException e) {
+            log.error("Error querying elasticsearch", e);
+            throw new ElasticsearchQueryException("[Service highlight] Failed to query es");
+        }
+        // parse response
+        return parseResponse(source, searchResponse);
+    }
+
+    /**
+     * Extract match fields from es search response
+     */
+    public ReportSourceDocument parseResponse(FileDocument source, SearchResponse search) {
+        ReportSourceDocument.ReportSourceDocumentBuilder builder = ReportSourceDocument.builder();
+        // get hits
+        Collection<ReportTargetDocument> matches = new ArrayList<>();
+        ReportSourceDocument reportSourceDocument = builder.source(source).matches(matches).build();
+        for (SearchHit hit : search.getHits()) {
+            String id = hit.getId();
+            UUID fromString;
+            try {
+                fromString = UUID.fromString(id);
+            } catch (Exception ig) {
+                continue;
+            }
+            Optional<FileDocument> fileDocument = repoFileDocument.findById(fromString);
+            if (fileDocument.isEmpty()) continue;
+            ReportTargetDocument singleMatch = ReportTargetDocument.builder()
+                                                                   .score(hit.getScore())
+                                                                   .source(reportSourceDocument)
+                                                                   .target(fileDocument.get())
+                                                                   .build();
+            matches.add(singleMatch);
+        }
+        return reportSourceDocument;
     }
 
     @Builder
@@ -95,7 +136,5 @@ public class ServiceQuery implements IServiceQuery {
 
         @JsonProperty("target_match_id")
         private String id;
-
-        // TODO: created time, origin
     }
 }

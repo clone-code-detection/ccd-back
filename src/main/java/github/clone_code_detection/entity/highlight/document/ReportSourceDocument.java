@@ -18,17 +18,17 @@ import java.util.UUID;
 @Data
 
 @Entity
-@Table(name = "highlight_single_document", schema = "highlight")
-public class HighlightSingleDocument {
+@Table(name = "report_source_document", schema = "highlight")
+public class ReportSourceDocument {
     @Id
     @Column(name = "id", columnDefinition = "uuid")
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @OneToOne(cascade = {CascadeType.REMOVE, CascadeType.MERGE})
+    @OneToOne(cascade = {CascadeType.REMOVE, CascadeType.MERGE, CascadeType.PERSIST})
     @JoinColumn(name = "source_file_id", referencedColumnName = "id")
     private FileDocument source;
 
     @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE}, fetch = FetchType.EAGER, mappedBy = "source")
-    private Collection<HighlightSingleTargetMatchDocument> matches = new ArrayList<>();
+    private Collection<ReportTargetDocument> matches = new ArrayList<>();
 }

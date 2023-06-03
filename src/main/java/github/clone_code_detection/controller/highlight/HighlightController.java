@@ -1,10 +1,10 @@
 package github.clone_code_detection.controller.highlight;
 
-import github.clone_code_detection.entity.highlight.report.HighlightSessionDetailDTO;
-import github.clone_code_detection.entity.highlight.report.HighlightSessionOverviewDTO;
-import github.clone_code_detection.entity.highlight.report.HighlightSessionReportDTO;
-import github.clone_code_detection.entity.highlight.report.HighlightSingleSourceDTO;
-import github.clone_code_detection.entity.highlight.request.HighlightSessionRequest;
+import github.clone_code_detection.entity.highlight.dto.ReportSourceDocumentDTO;
+import github.clone_code_detection.entity.highlight.dto.SimilarityReportDetailDTO;
+import github.clone_code_detection.entity.highlight.dto.SimilarityReportInfoDTO;
+import github.clone_code_detection.entity.highlight.dto.SimilarityReportOverviewDTO;
+import github.clone_code_detection.entity.highlight.request.SimilarityDetectRequest;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.service.highlight.ServiceAdvancedHighlight;
 import github.clone_code_detection.service.highlight.ServiceHighlight;
@@ -33,40 +33,40 @@ public class HighlightController {
     @PostMapping(path = "/query",
             consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
-    public HighlightSessionDetailDTO queryDocument(@RequestParam("source") MultipartFile source) {
-        return serviceHighlight.highlight(source, IndexInstruction.getDefaultInstruction());
+    public SimilarityReportDetailDTO queryDocument(@RequestParam("source") MultipartFile source) {
+        return serviceHighlight.detectSync(source, IndexInstruction.getDefaultInstruction());
     }
 
     @GetMapping(path = "/get-session-by-id/{id}")
     @ResponseStatus(HttpStatus.OK)
-    public HighlightSessionDetailDTO getSessionById(@PathVariable(name = "id") String id) {
-        return serviceHighlight.getHighlightSessionById(id);
+    public SimilarityReportDetailDTO getReportById(@PathVariable(name = "id") String id) {
+        return serviceHighlight.getSimilarityReportById(id);
     }
 
     @GetMapping(path = "/all-session")
     @ResponseStatus(HttpStatus.OK)
-    public HighlightSessionOverviewDTO getAllSession() {
-        return HighlightSessionOverviewDTO.from(serviceHighlight.getAllSession());
+    public SimilarityReportOverviewDTO getAllSimilarityReports() {
+        return SimilarityReportOverviewDTO.from(serviceHighlight.getAllReports());
     }
 
     @GetMapping(path = "/get-match-source/{id}")
     @ResponseStatus(HttpStatus.OK)
-    public HighlightSingleSourceDTO getSingeSourceById(@PathVariable(name = "id") String id) {
-        return serviceHighlight.getSingleSourceMatchById(id);
+    public ReportSourceDocumentDTO getReportSourceDocumentById(@PathVariable(name = "id") String id) {
+        return serviceHighlight.getReportSourceDocumentById(id);
     }
 
     @PostMapping(path = "/detect",
             consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
-    public HighlightSessionReportDTO createHighlightSession(@RequestParam("source") MultipartFile source) {
+    public SimilarityReportInfoDTO createSimilarityReport(@RequestParam("source") MultipartFile source) {
         // Validate and extract file from source
         FileSystemUtil.validate(source);
         // Create highlight session request
-        HighlightSessionRequest request = HighlightSessionRequest.builder()
-                                                                 .sessionName(FileSystemUtil.getFileName(source))
+        SimilarityDetectRequest request = SimilarityDetectRequest.builder()
+                                                                 .reportName(FileSystemUtil.getFileName(source))
                                                                  .sources(FileSystemUtil.extractDocuments(source))
                                                                  .build();
-        return HighlightSessionReportDTO.from(serviceHighlight.createHighlightSession(request, IndexInstruction.getDefaultInstruction()));
+        return SimilarityReportInfoDTO.from(serviceHighlight.createSimilarityReport(request, IndexInstruction.getDefaultInstruction()));
     }
 
     @GetMapping(path = "/advance-target-highlight/{id}")
