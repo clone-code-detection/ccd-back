@@ -1,4 +1,4 @@
-package github.clone_code_detection.service.highlight;
+package github.clone_code_detection.service.query;
 
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
@@ -11,7 +11,8 @@ import github.clone_code_detection.exceptions.highlight.HighlightSessionExceptio
 import github.clone_code_detection.repo.RepoElasticsearchQuery;
 import github.clone_code_detection.repo.RepoSimilarityReport;
 import github.clone_code_detection.service.index.ServiceIndex;
-import github.clone_code_detection.service.query.ServiceQuery;
+import lombok.Builder;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.MultiSearchResponse;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,35 +24,19 @@ import java.util.List;
 import java.util.UUID;
 
 @Slf4j
-class DetectSimilarityJob implements Runnable {
-    private final UUID reportId;
-    private final IndexInstruction instruction;
-    private final ServiceIndex serviceIndex;
-    private final RepoSimilarityReport repoSimilarityReport;
-    private final RepoElasticsearchQuery repoElasticsearchQuery;
-    private final ServiceQuery serviceQuery;
-    private final int batchSize;
-    private final String minimumShouldMatch;
-    private SimilarityReport report;
+@Builder
+@Data
+public class DetectSimilarityJob implements Runnable {
+    private RepoSimilarityReport repoSimilarityReport;
+    private RepoElasticsearchQuery repoElasticsearchQuery;
+    private ServiceQuery serviceQuery;
+    private ServiceIndex serviceIndex;
 
-    public DetectSimilarityJob(UUID reportId,
-                               IndexInstruction instruction,
-                               ServiceIndex serviceIndex,
-                               RepoSimilarityReport repoSimilarityReport,
-                               RepoElasticsearchQuery repoElasticsearchQuery,
-                               ServiceQuery serviceQuery,
-                               int batchSize,
-                               String minimumShouldMatch) {
-        this.serviceIndex = serviceIndex;
-        this.repoSimilarityReport = repoSimilarityReport;
-        this.reportId = reportId;
-        this.instruction = instruction;
-        this.repoElasticsearchQuery = repoElasticsearchQuery;
-        this.serviceQuery = serviceQuery;
-        this.batchSize = batchSize;
-        this.minimumShouldMatch = minimumShouldMatch;
-        this.report = null;
-    }
+    private UUID reportId;
+    private IndexInstruction instruction;
+    private int batchSize;
+    private String minimumShouldMatch;
+    private SimilarityReport report;
 
     @Override
     @Transactional
@@ -60,38 +45,39 @@ class DetectSimilarityJob implements Runnable {
             markSessionAsProcessing();
             // Detect highlight session
             Collection<FileDocument> files = instruction.getFiles();
-            List<ReportSourceDocument> hits = new ArrayList<>(multihighlight(files));
+            List<ReportSourceDocument> hits = new ArrayList<>(multiHighlight(files));
             report.setSources(hits);
             report.setStatus(SimilarityReportStatus.DONE);
             repoSimilarityReport.save(report);
             serviceIndex.bulkIndexAllDocuments(instruction);
         } catch (Exception e) {
             log.error("[Service highlight] detect highlight session {} failed with error: {}",
-                      report.getName(),
-                      e.getMessage());
+                    report.getName(),
+                    e.getMessage());
             // Update status to failed for future retry
             report.setStatus(SimilarityReportStatus.FAILED);
             report.setException(new HighlightSessionException("[Service highlight] Error while processing highlight",
-                                                              e).toString());
+                    e).toString());
             repoSimilarityReport.save(report);
         }
     }
 
     @Transactional
     public void markSessionAsProcessing() {
-        report = repoSimilarityReport.findById(reportId).orElseThrow();
+        report = repoSimilarityReport.findById(reportId)
+                                     .orElseThrow();
         try {
             repoSimilarityReport.updateStatusByIdEquals(SimilarityReportStatus.PROCESSING, report.getId());
         } catch (Exception e) {
             log.error("[Service highlight] Can't update session to PROCESSING");
             report.setStatus(SimilarityReportStatus.FAILED);
             report.setException(new HighlightSessionException("[Service highlight] Can't update session to PROCESSING",
-                                                              e).toString());
+                    e).toString());
             repoSimilarityReport.save(report);
         }
     }
 
-    public Collection<ReportSourceDocument> multihighlight(Collection<FileDocument> files) {
+    public Collection<ReportSourceDocument> multiHighlight(Collection<FileDocument> files) {
         Collection<ReportSourceDocument> reportSourceDocuments = new ArrayList<>();
         int startIndex = 0;
         while (startIndex < files.size()) {
@@ -100,7 +86,9 @@ class DetectSimilarityJob implements Runnable {
             Collection<QueryInstruction> instructions = new ArrayList<>();
             for (int i = startIndex; i < endIndex; ++i)
                 instructions.add(QueryInstruction.builder()
-                                                 .queryDocument(files.stream().toList().get(i))
+                                                 .queryDocument(files.stream()
+                                                                     .toList()
+                                                                     .get(i))
                                                  .includeHighlight(true)
                                                  .minimumShouldMatch(minimumShouldMatch)
                                                  .build());
@@ -110,12 +98,12 @@ class DetectSimilarityJob implements Runnable {
                     MultiSearchResponse.Item searchResponse = multiSearchResponse.getResponses()[index];
                     if (searchResponse.isFailure()) {
                         log.error("[Service highlight] Search response in multi highlight is fail. Error: {}",
-                                  searchResponse.getFailureMessage());
+                                searchResponse.getFailureMessage());
                     } else if (searchResponse.getResponse() != null) {
                         reportSourceDocuments.add(serviceQuery.parseResponse(files.stream()
                                                                                   .toList()
                                                                                   .get(index + startIndex),
-                                                                             searchResponse.getResponse()));
+                                searchResponse.getResponse()));
                     }
                 }
             } catch (IOException e) {

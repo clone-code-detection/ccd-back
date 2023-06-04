@@ -12,7 +12,7 @@ import github.clone_code_detection.exceptions.moodle.MoodleSubmissionException;
 import github.clone_code_detection.repo.RepoElasticsearchDelete;
 import github.clone_code_detection.repo.RepoSimilarityReport;
 import github.clone_code_detection.repo.RepoSubmission;
-import github.clone_code_detection.service.highlight.ServiceHighlight;
+import github.clone_code_detection.service.query.ServiceQuery;
 import github.clone_code_detection.util.FileSystemUtil;
 import github.clone_code_detection.util.LanguageUtil;
 import github.clone_code_detection.util.ZipUtil;
@@ -32,51 +32,62 @@ import java.util.List;
 import java.util.Map;
 
 @Slf4j
+@Builder
 public class DetectSelectedSubmissionJob implements Runnable {
     private static final LanguageUtil languageUtil = LanguageUtil.getInstance();
     final UserImpl user;
     final List<Long> submissionIds;
     private final RepoSimilarityReport repoSimilarityReport;
     private final RepoSubmission repoSubmission;
-    private final ServiceHighlight serviceHighlight;
+    private final ServiceQuery serviceQuery;
     private final RepoElasticsearchDelete repoElasticsearchDelete;
     private final RestTemplate moodleClient;
 
     public DetectSelectedSubmissionJob(RepoSimilarityReport repoSimilarityReport,
-                                       ServiceHighlight serviceHighlight,
                                        RepoElasticsearchDelete repoElasticsearchDelete,
                                        UserImpl user,
                                        List<Long> submissionIds,
                                        RepoSubmission repoSubmission,
-                                       RestTemplate moodleClient) {
+                                       ServiceQuery serviceQuery, RestTemplate moodleClient) {
         this.repoSimilarityReport = repoSimilarityReport;
-        this.serviceHighlight = serviceHighlight;
         this.repoElasticsearchDelete = repoElasticsearchDelete;
         this.user = user;
         this.submissionIds = submissionIds;
         this.repoSubmission = repoSubmission;
+        this.serviceQuery = serviceQuery;
         this.moodleClient = moodleClient;
     }
 
     private Map<String, List<RelationWithOwner>> classifySubmissions(List<Submission> submissions) {
         Map<String, List<RelationWithOwner>> mapRelationsByNeed = new HashMap<>();
-        submissions.forEach(submission -> submission.getRelations().forEach(relation -> {
-            RelationWithOwner relationWithOwner = RelationWithOwner.builder()
-                                                                   .owner(submission.getOwner())
-                                                                   .relation(relation)
-                                                                   .build();
-            // If session is null then this relation need to add
-            // If submission relation has session id = null then add new
-            if (relation.getReport() == null)
-                mapRelationsByNeed.computeIfAbsent("add", key -> new ArrayList<>()).add(relationWithOwner);
-            else {
-                // Check case session's updated_at < submission file's updated_at -> file is updated after detect
-                // Else all sessions are detected and no file hasn't been updated after detection
-                if (relation.getReport().getUpdatedAt().isBefore(relation.getFile().getUpdatedAt()))
-                    mapRelationsByNeed.computeIfAbsent("modify", key -> new ArrayList<>()).add(relationWithOwner);
-                else mapRelationsByNeed.computeIfAbsent("ignore", key -> new ArrayList<>()).add(relationWithOwner);
-            }
-        }));
+        submissions.forEach(submission -> submission.getRelations()
+                                                    .forEach(relation -> {
+                                                        RelationWithOwner relationWithOwner = RelationWithOwner.builder()
+                                                                                                               .owner(submission.getOwner())
+                                                                                                               .relation(
+                                                                                                                       relation)
+                                                                                                               .build();
+                                                        // If session is null then this relation need to add
+                                                        // If submission relation has session id = null then add new
+                                                        if (relation.getReport() == null)
+                                                            mapRelationsByNeed.computeIfAbsent("add",
+                                                                                      key -> new ArrayList<>())
+                                                                              .add(relationWithOwner);
+                                                        else {
+                                                            // Check case session's updated_at < submission file's updated_at -> file is updated after detect
+                                                            // Else all sessions are detected and no file hasn't been updated after detection
+                                                            if (relation.getReport()
+                                                                        .getUpdatedAt()
+                                                                        .isBefore(relation.getFile()
+                                                                                          .getUpdatedAt()))
+                                                                mapRelationsByNeed.computeIfAbsent("modify",
+                                                                                          key -> new ArrayList<>())
+                                                                                  .add(relationWithOwner);
+                                                            else mapRelationsByNeed.computeIfAbsent("ignore",
+                                                                                           key -> new ArrayList<>())
+                                                                                   .add(relationWithOwner);
+                                                        }
+                                                    }));
         return mapRelationsByNeed;
     }
 
@@ -89,17 +100,21 @@ public class DetectSelectedSubmissionJob implements Runnable {
         List<Pair<String, String>> pairIndexWithIds = new ArrayList<>();
 
         needModifyRelations.forEach(relation -> {
-            sessions.add(relation.getRelation().getReport());
+            sessions.add(relation.getRelation()
+                                 .getReport());
             pairIndexWithIds.addAll(relation.getRelation()
                                             .getReport()
                                             .getSources()
                                             .stream()
                                             .map(ReportSourceDocument::getSource)
                                             .map(source -> Pair.of(LanguageUtil.getInstance()
-                                                                               .getIndexFromFileName(source.getFileName()),
-                                                                   source.getId().toString()))
+                                                                               .getIndexFromFileName(
+                                                                                       source.getFileName()),
+                                                    source.getId()
+                                                          .toString()))
                                             .toList());
-            relation.getRelation().setReport(null);
+            relation.getRelation()
+                    .setReport(null);
         });
         // Perform deleting from ES index
         deleteDocumentsFromElasticsearch(pairIndexWithIds);
@@ -120,14 +135,16 @@ public class DetectSelectedSubmissionJob implements Runnable {
 
     private void detectSubmission(RelationWithOwner relationWithOwner, UserReference reference) {
         // Each relation will have detected request
-        SimilarityDetectRequest request = buildRequestFromMoodleFile(relationWithOwner.getRelation().getFile(),
-                                                                     reference,
-                                                                     relationWithOwner.getOwner());
-        SimilarityReport session = serviceHighlight.createSimilarityReport(request,
-                                                                           IndexInstruction.getDefaultInstruction(),
-                                                                           user);
+        SimilarityDetectRequest request = buildRequestFromMoodleFile(relationWithOwner.getRelation()
+                                                                                      .getFile(),
+                reference,
+                relationWithOwner.getOwner());
+        SimilarityReport session = serviceQuery.createSimilarityReport(request,
+                IndexInstruction.getDefaultInstruction(),
+                user);
 
-        relationWithOwner.getRelation().setReport(session);
+        relationWithOwner.getRelation()
+                         .setReport(session);
     }
 
     private SimilarityDetectRequest buildRequestFromMoodleFile(SubmissionFile file,
@@ -146,7 +163,9 @@ public class DetectSelectedSubmissionJob implements Runnable {
         String filename = file.getFilename();
         List<FileDocument> documents = new ArrayList<>();
         switch (FilenameUtils.getExtension(filename)) {
-            case "" -> {return documents;}
+            case "" -> {
+                return documents;
+            }
             case "zip" -> documents.addAll(ZipUtil.getFileDocumentFromZipFile(data, owner.getFullname()));
             default -> {
                 try {
@@ -157,7 +176,8 @@ public class DetectSelectedSubmissionJob implements Runnable {
                                               .fileName(filename)
                                               .author(owner.getFullname())
                                               .build());
-                } catch (UnsupportedLanguage ignored) {}
+                } catch (UnsupportedLanguage ignored) {
+                }
 
             }
         }
@@ -168,7 +188,8 @@ public class DetectSelectedSubmissionJob implements Runnable {
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(fileUri)
                                                            .queryParam("token", reference.getToken());
         ResponseEntity<byte[]> entity = moodleClient.getForEntity(builder.toUriString(), byte[].class);
-        if (!entity.getStatusCode().is2xxSuccessful()) {
+        if (!entity.getStatusCode()
+                   .is2xxSuccessful()) {
             log.error("[Service moodle] Fail to get submission file at url: {}", fileUri);
             throw new MoodleSubmissionException("Fail to get submission file at url " + fileUri);
         }
@@ -191,18 +212,22 @@ public class DetectSelectedSubmissionJob implements Runnable {
             repoSubmission.saveAll(submissions);
         } catch (Exception e) {
             log.error("[Detect selected submissions job] Error: {}. Submissions: {}",
-                      e.getMessage(),
-                      submissions.stream().map(Submission::getId).toList());
+                    e.getMessage(),
+                    submissions.stream()
+                               .map(Submission::getId)
+                               .toList());
             for (StackTraceElement stackTraceElement : e.getStackTrace()) {
                 System.out.printf("Line %d: %s - %s\n",
-                                  stackTraceElement.getLineNumber(),
-                                  stackTraceElement.getClassName(),
-                                  stackTraceElement.getMethodName());
+                        stackTraceElement.getLineNumber(),
+                        stackTraceElement.getClassName(),
+                        stackTraceElement.getMethodName());
             }
             throw new RuntimeException(e);
         }
         log.info("[Detect selected submissions job] Detect successfully for submissions: {}",
-                 submissions.stream().map(Submission::getId).toList());
+                submissions.stream()
+                           .map(Submission::getId)
+                           .toList());
     }
 
     @Builder
