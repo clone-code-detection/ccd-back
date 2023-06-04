@@ -1,34 +1,31 @@
 package github.clone_code_detection.service.query;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import github.clone_code_detection.entity.ElasticsearchDocument;
 import github.clone_code_detection.entity.authenication.UserImpl;
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
 import github.clone_code_detection.entity.highlight.document.ReportTargetDocument;
 import github.clone_code_detection.entity.query.QueryInstruction;
-import github.clone_code_detection.exceptions.es.ElasticsearchResponseParseException;
 import github.clone_code_detection.exceptions.highlight.ElasticsearchQueryException;
 import github.clone_code_detection.repo.RepoElasticsearchQuery;
 import github.clone_code_detection.repo.RepoFileDocument;
 import github.clone_code_detection.repo.RepoReportSourceDocument;
-import github.clone_code_detection.util.JsonUtil;
 import lombok.Builder;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.search.SearchHit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @Slf4j
-public class ServiceQuery implements IServiceQuery {
+public class ServiceQuery {
     private final RepoElasticsearchQuery repoElasticsearchQuery;
     private final RepoReportSourceDocument repoReportSourceDocument;
     private final RepoFileDocument repoFileDocument;
@@ -42,29 +39,12 @@ public class ServiceQuery implements IServiceQuery {
         this.repoFileDocument = repoFileDocument;
     }
 
-    private static ElasticsearchDocument parseResponse(String value) {
-        try {
-            return JsonUtil.jsonFromString(value, ElasticsearchDocument.class);
-        } catch (JsonProcessingException e) {
-            throw new ElasticsearchResponseParseException("Failed to parse elasticsearch response", e);
-        }
-    }
-
     private static TargetMatchOverview extract(ReportTargetDocument document) {
         UserImpl user = document.getTarget().getUser();
         String userName = user != null ? user.getUsername() : "anonymous";
         String targetId = document.getId().toString();
         Float score = document.getScore();
         return TargetMatchOverview.builder().author(userName).id(targetId).score(score).build();
-    }
-
-    @SneakyThrows
-    @Override
-    public List<ElasticsearchDocument> search(@Nonnull QueryInstruction queryInstruction) {
-        return Arrays.stream(repoElasticsearchQuery.query(queryInstruction).getHits().getHits())
-                     .map(SearchHit::getSourceAsString)
-                     .map(ServiceQuery::parseResponse)
-                     .toList();
     }
 
     public Collection<TargetMatchOverview> handle(String id) {
