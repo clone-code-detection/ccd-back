@@ -11,32 +11,26 @@ import github.clone_code_detection.entity.highlight.document.SimilarityReport;
 import github.clone_code_detection.entity.highlight.dto.ReportSourceDocumentDTO;
 import github.clone_code_detection.entity.highlight.dto.SimilarityReportDetailDTO;
 import github.clone_code_detection.entity.highlight.dto.SimilarityTextMatchDTO;
-import github.clone_code_detection.entity.highlight.request.SimilarityDetectRequest;
-import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.exceptions.highlight.ResourceNotFoundException;
-import github.clone_code_detection.repo.*;
-import github.clone_code_detection.service.index.ServiceIndex;
-import github.clone_code_detection.service.query.ServiceQuery;
+import github.clone_code_detection.repo.RepoElasticsearchQuery;
+import github.clone_code_detection.repo.RepoReportSourceDocument;
+import github.clone_code_detection.repo.RepoReportTargetDocument;
+import github.clone_code_detection.repo.RepoSimilarityReport;
 import github.clone_code_detection.service.user.ServiceAuthentication;
-import github.clone_code_detection.util.FileSystemUtil;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.client.core.MultiTermVectorsResponse;
 import org.elasticsearch.client.core.TermVectorsResponse;
 import org.elasticsearch.common.util.set.Sets;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.util.Pair;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Nonnull;
 import java.util.*;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -47,44 +41,31 @@ import static github.clone_code_detection.repo.RepoElasticsearchQuery.SOURCE_COD
 @Slf4j
 @Transactional
 public class ServiceHighlight {
-    private final ServiceIndex serviceIndex;
     private final RepoElasticsearchQuery repoElasticsearchQuery;
     private final RepoSimilarityReport repoSimilarityReport;
     private final RepoReportSourceDocument repoReportSourceDocument;
     private final RepoReportTargetDocument repoReportTargetDocument;
-    private final RepoFileDocument repoFileDocument;
-    private final ThreadPoolExecutor threadPoolExecutor;
-    private final ServiceQuery serviceQuery;
-    @Value("${elasticsearch.query.batch-size}")
-    private int batchSize;
-    @Value("${elasticsearch.query.minimum-should-match}")
-    private String minimumShouldMatch;
 
     @Autowired
-    public ServiceHighlight(ServiceIndex serviceIndex,
-                            RepoElasticsearchQuery repoElasticsearchQuery,
+    public ServiceHighlight(RepoElasticsearchQuery repoElasticsearchQuery,
                             RepoSimilarityReport repoSimilarityReport,
                             RepoReportSourceDocument repoReportSourceDocument,
-                            RepoReportTargetDocument repoReportTargetDocument,
-                            RepoFileDocument repoFileDocument,
-                            ThreadPoolExecutor threadPoolExecutor,
-                            ServiceQuery serviceQuery) {
-        this.serviceIndex = serviceIndex;
+                            RepoReportTargetDocument repoReportTargetDocument) {
         this.repoElasticsearchQuery = repoElasticsearchQuery;
         this.repoSimilarityReport = repoSimilarityReport;
         this.repoReportSourceDocument = repoReportSourceDocument;
         this.repoReportTargetDocument = repoReportTargetDocument;
-        this.repoFileDocument = repoFileDocument;
-        this.threadPoolExecutor = threadPoolExecutor;
-        this.serviceQuery = serviceQuery;
     }
 
     private static List<SimilarityTextMatchDTO> extractTermVectorsResponse(MultiTermVectorsResponse response) {
         List<SimilarityTextMatchDTO> res = new ArrayList<>();
-        assert response.getTermVectorsResponses().size() == 2;
+        assert response.getTermVectorsResponses()
+                       .size() == 2;
 
-        TermVectorsResponse source = response.getTermVectorsResponses().get(0);
-        TermVectorsResponse target = response.getTermVectorsResponses().get(1);
+        TermVectorsResponse source = response.getTermVectorsResponses()
+                                             .get(0);
+        TermVectorsResponse target = response.getTermVectorsResponses()
+                                             .get(1);
         // traverse every document in query
         Map<String, List<Integer[]>> sourceMap = extractMatches(source);
         Map<String, List<Integer[]>> targetMap = extractMatches(target);
@@ -103,7 +84,7 @@ public class ServiceHighlight {
     private static Map<String, List<Integer[]>> extractMatches(TermVectorsResponse termVectorsResponse) {
         Map<String, List<Integer[]>> res = new HashMap<>();
         TermVectorsResponse.TermVector termVector = getTermVectorByFieldName(termVectorsResponse.getTermVectorsList(),
-                                                                             SOURCE_CODE_FIELD);
+                SOURCE_CODE_FIELD);
         if (termVector == null) return res;
         for (TermVectorsResponse.TermVector.Term term : termVector.getTerms()) {
             String termValue = term.getTerm();
@@ -122,7 +103,8 @@ public class ServiceHighlight {
     private static TermVectorsResponse.TermVector getTermVectorByFieldName(List<TermVectorsResponse.TermVector> termVectors,
                                                                            String fieldName) {
         for (TermVectorsResponse.TermVector termVector : termVectors) {
-            if (termVector.getFieldName().equals(fieldName)) return termVector;
+            if (termVector.getFieldName()
+                          .equals(fieldName)) return termVector;
         }
         return null;
     }
@@ -139,75 +121,20 @@ public class ServiceHighlight {
                                                            Map<String, List<Integer>> targetByValue,
                                                            int i) {
         PriorityQueue<TokenWrapper> synonyms = sourceMapByPosition.get(i);
-        return synonyms.stream().map(TokenWrapper::getToken).flatMap(tokenValue -> {
-            if (!targetByValue.containsKey(tokenValue)) return Stream.empty();
-            return targetByValue.get(tokenValue).stream();
-        }).collect(Collectors.toSet());
-    }
-
-    @Transactional
-    public SimilarityReport createSimilarityReport(SimilarityDetectRequest request, IndexInstruction instruction) {
-        SimilarityReport similarityReport = createEmptyReport(request);
-        // Assign session id of empty highlight session into each source document
-        Collection<FileDocument> sourceDocuments = request.getSources();
-        // Save file linking id of session
-        sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
-        instruction.setFiles(sourceDocuments);
-        threadPoolExecutor.submit(new DetectSimilarityJob(similarityReport.getId(),
-                                                          instruction,
-                                                          serviceIndex,
-                                                          repoSimilarityReport,
-                                                          repoElasticsearchQuery,
-                                                          serviceQuery,
-                                                          batchSize,
-                                                          minimumShouldMatch));
-        return similarityReport;
-    }
-
-    @Transactional
-    public SimilarityReport createSimilarityReport(SimilarityDetectRequest request,
-                                                   IndexInstruction instruction,
-                                                   UserImpl user) {
-        SimilarityReport similarityReport = createEmptyReport(request, user);
-        // Assign session id of empty highlight session into each source document
-        Collection<FileDocument> sourceDocuments = request.getSources();
-        // Save file linking id of session
-        sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
-        instruction.setFiles(sourceDocuments);
-        threadPoolExecutor.submit(new DetectSimilarityJob(similarityReport.getId(),
-                                                          instruction,
-                                                          serviceIndex,
-                                                          repoSimilarityReport,
-                                                          repoElasticsearchQuery,
-                                                          serviceQuery,
-                                                          batchSize,
-                                                          minimumShouldMatch));
-        return similarityReport;
-    }
-
-    @NotNull
-    private SimilarityReport createEmptyReport(SimilarityDetectRequest request) {
-        // Create new empty highlight session
-        SimilarityReport.SimilarityReportBuilder sessionBuilder = SimilarityReport.builder();
-        SimilarityReport similarityReport = sessionBuilder.build();
-        similarityReport.setUser(ServiceAuthentication.getUserFromContext());
-        similarityReport.setName(request.getReportName());
-        return repoSimilarityReport.save(similarityReport);
-    }
-
-    @NotNull
-    private SimilarityReport createEmptyReport(SimilarityDetectRequest request, UserImpl user) {
-        // Create new empty highlight session
-        SimilarityReport.SimilarityReportBuilder sessionBuilder = SimilarityReport.builder();
-        SimilarityReport similarityReport = sessionBuilder.build();
-        similarityReport.setUser(user);
-        similarityReport.setName(request.getReportName());
-        return repoSimilarityReport.save(similarityReport);
+        return synonyms.stream()
+                       .map(TokenWrapper::getToken)
+                       .flatMap(tokenValue -> {
+                           if (!targetByValue.containsKey(tokenValue)) return Stream.empty();
+                           return targetByValue.get(tokenValue)
+                                               .stream();
+                       })
+                       .collect(Collectors.toSet());
     }
 
     public Collection<HighlightReturn> handleAdvancedHighlightById(String id) {
         if (id.equals("undefined")) return new ArrayList<>();
-        ReportTargetDocument singleDocument = repoReportTargetDocument.findById(UUID.fromString(id)).orElseThrow();
+        ReportTargetDocument singleDocument = repoReportTargetDocument.findById(UUID.fromString(id))
+                                                                      .orElseThrow();
         return handleAdvancedHighlight(singleDocument);
     }
 
@@ -216,7 +143,7 @@ public class ServiceHighlight {
      */
     public Map<String, List<Integer>> mapTokensByValue(@NonNull TermVectorsResponse termVectorsResponse) {
         TermVectorsResponse.TermVector termVector = getTermVectorByFieldName(termVectorsResponse.getTermVectorsList(),
-                                                                             SOURCE_CODE_FIELD);
+                SOURCE_CODE_FIELD);
         if (termVector == null) throw new RuntimeException();
         Map<String, List<Integer>> res = new HashMap<>();
         for (TermVectorsResponse.TermVector.Term term : termVector.getTerms()) {
@@ -232,24 +159,27 @@ public class ServiceHighlight {
     // PriorityQueue is ordered by term length
     public List<PriorityQueue<TokenWrapper>> mapTokensByPosition(@NonNull TermVectorsResponse termVectorsResponse) {
         TermVectorsResponse.TermVector termVector = getTermVectorByFieldName(termVectorsResponse.getTermVectorsList(),
-                                                                             SOURCE_CODE_FIELD);
+                SOURCE_CODE_FIELD);
         if (termVector == null) throw new RuntimeException();
         int size = termVector.getTerms()
                              .stream()
-                             .flatMap(term -> term.getTokens().stream())
+                             .flatMap(term -> term.getTokens()
+                                                  .stream())
                              .map(TermVectorsResponse.TermVector.Token::getPosition)
                              .max(Comparator.naturalOrder())
                              .orElseThrow();
         ArrayList<PriorityQueue<TokenWrapper>> res = new ArrayList<>();
         for (int i = 0; i <= size; i++)
-            res.add(new PriorityQueue<>(Comparator.comparing(TokenWrapper::getLength).reversed()));
+            res.add(new PriorityQueue<>(Comparator.comparing(TokenWrapper::getLength)
+                                                  .reversed()));
 
         for (TermVectorsResponse.TermVector.Term term : termVector.getTerms()) {
             var tokenValue = term.getTerm();
             for (TermVectorsResponse.TermVector.Token token : term.getTokens()) {
                 TokenWrapper tokenWrapper = TokenWrapper.fromToken(tokenValue, token);
                 Integer position = tokenWrapper.getPosition();
-                res.get(position).add(tokenWrapper);
+                res.get(position)
+                   .add(tokenWrapper);
             }
         }
         return res;
@@ -257,11 +187,11 @@ public class ServiceHighlight {
 
     /**
      * @return list of extract return
-     *
      * @implNote: requires field mapping to have term vector position offset
      */
     public Collection<HighlightReturn> handleAdvancedHighlight(ReportTargetDocument targetMatchDocument) {
-        var source = targetMatchDocument.getSource().getSource();
+        var source = targetMatchDocument.getSource()
+                                        .getSource();
         var target = targetMatchDocument.getTarget();
         MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(source, target);
         List<TermVectorsResponse> termVectorsResponses = multiTermVectors.getTermVectorsResponses();
@@ -294,8 +224,14 @@ public class ServiceHighlight {
     }
 
     private boolean condition(Collection<TokenWrapper> target, Collection<TokenWrapper> source) {
-        return containsAny(target.stream().map(TokenWrapper::getToken).sorted().collect(Collectors.toList()),
-                           source.stream().map(TokenWrapper::getToken).sorted().collect(Collectors.toList()));
+        return containsAny(target.stream()
+                                 .map(TokenWrapper::getToken)
+                                 .sorted()
+                                 .collect(Collectors.toList()),
+                source.stream()
+                      .map(TokenWrapper::getToken)
+                      .sorted()
+                      .collect(Collectors.toList()));
     }
 
     private HighlightReturn extracted(List<PriorityQueue<TokenWrapper>> sourceMapByPosition,
@@ -341,8 +277,8 @@ public class ServiceHighlight {
             int length = tagetMatchPair.getSecond() - tagetMatchPair.getFirst();
             if (maxCommonLength == length) {
                 var matchBlock = extractBlockFromPosition(tagetMatchPair.getFirst(),
-                                                          tagetMatchPair.getSecond(),
-                                                          targetMapByPosition);
+                        tagetMatchPair.getSecond(),
+                        targetMapByPosition);
                 res.targetBlock(matchBlock);
             }
         }
@@ -361,16 +297,21 @@ public class ServiceHighlight {
                                                             Integer end,
                                                             List<PriorityQueue<TokenWrapper>> mapByPosition) {
         assert end - 1 >= start;
-        TokenWrapper startToken = mapByPosition.get(start).iterator().next();
+        TokenWrapper startToken = mapByPosition.get(start)
+                                               .iterator()
+                                               .next();
         var startOffset = startToken.startOffset;
-        TokenWrapper endToken = mapByPosition.get(end - 1).iterator().next();
+        TokenWrapper endToken = mapByPosition.get(end - 1)
+                                             .iterator()
+                                             .next();
         var endOffset = endToken.endOffset;
         return Pair.of(startOffset, endOffset);
     }
 
     @Transactional
     public ReportSourceDocumentDTO getReportSourceDocumentById(String uuid) {
-        ReportSourceDocument singleDocument = repoReportSourceDocument.findById(UUID.fromString(uuid)).orElseThrow();
+        ReportSourceDocument singleDocument = repoReportSourceDocument.findById(UUID.fromString(uuid))
+                                                                      .orElseThrow();
         return ReportSourceDocumentDTO.from(singleDocument, this::getReportTextMatch);
     }
 
@@ -384,39 +325,11 @@ public class ServiceHighlight {
 
     @Nonnull
     private List<SimilarityTextMatchDTO> getReportTextMatch(ReportTargetDocument singleDocument) {
-        FileDocument source = singleDocument.getSource().getSource();
+        FileDocument source = singleDocument.getSource()
+                                            .getSource();
         FileDocument target = singleDocument.getTarget();
         MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(source, target);
         return extractTermVectorsResponse(multiTermVectors);
-    }
-
-    @Transactional
-    public SimilarityReportDetailDTO detectSync(@NotNull MultipartFile source, @Nonnull IndexInstruction instruction) {
-        // Validate and extract file from source
-        FileSystemUtil.validate(source);
-        Collection<FileDocument> sourceDocuments = FileSystemUtil.extractDocuments(source);
-        // Highlight source documents
-        SimilarityReport.SimilarityReportBuilder sessionBuilder = SimilarityReport.builder();
-        List<ReportSourceDocument> hits = new ArrayList<>();
-        for (FileDocument sourceDocument : sourceDocuments) {
-            // for each document, get highlight request
-            ReportSourceDocument reportSourceDocument = serviceQuery.extractSingleDocument(sourceDocument);
-            hits.add(reportSourceDocument);
-        }
-        // Build highlight session
-        sessionBuilder.sources(hits);
-        SimilarityReport similarityReport = sessionBuilder.build();
-        similarityReport.setUser(ServiceAuthentication.getUserFromContext());
-        similarityReport.setName(FileSystemUtil.getFileName(source));
-        similarityReport = repoSimilarityReport.save(similarityReport);
-
-        // Save source files before indexing
-        sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
-        // Index the file into es
-        instruction.setFiles(sourceDocuments);
-        serviceIndex.indexAllDocuments(instruction);
-
-        return SimilarityReportDetailDTO.from(similarityReport);
     }
 
     @Transactional

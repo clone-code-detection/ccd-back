@@ -5,8 +5,8 @@ import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
 import github.clone_code_detection.entity.highlight.document.SimilarityReport;
 import github.clone_code_detection.entity.highlight.request.SimilarityDetectRequest;
-import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.entity.moodle.*;
+import github.clone_code_detection.entity.query.QueryInstruction;
 import github.clone_code_detection.exceptions.UnsupportedLanguage;
 import github.clone_code_detection.exceptions.moodle.MoodleSubmissionException;
 import github.clone_code_detection.repo.RepoElasticsearchDelete;
@@ -16,8 +16,10 @@ import github.clone_code_detection.service.query.ServiceQuery;
 import github.clone_code_detection.util.FileSystemUtil;
 import github.clone_code_detection.util.LanguageUtil;
 import github.clone_code_detection.util.ZipUtil;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import org.modelmapper.internal.Pair;
@@ -33,6 +35,9 @@ import java.util.Map;
 
 @Slf4j
 @Builder
+
+@NoArgsConstructor(force = true)
+@AllArgsConstructor
 public class DetectSelectedSubmissionJob implements Runnable {
     private static final LanguageUtil languageUtil = LanguageUtil.getInstance();
     final UserImpl user;
@@ -42,6 +47,8 @@ public class DetectSelectedSubmissionJob implements Runnable {
     private final ServiceQuery serviceQuery;
     private final RepoElasticsearchDelete repoElasticsearchDelete;
     private final RestTemplate moodleClient;
+
+    private QueryInstruction queryInstruction;
 
     public DetectSelectedSubmissionJob(RepoSimilarityReport repoSimilarityReport,
                                        RepoElasticsearchDelete repoElasticsearchDelete,
@@ -139,9 +146,7 @@ public class DetectSelectedSubmissionJob implements Runnable {
                                                                                       .getFile(),
                 reference,
                 relationWithOwner.getOwner());
-        SimilarityReport session = serviceQuery.createSimilarityReport(request,
-                IndexInstruction.getDefaultInstruction(),
-                user);
+        SimilarityReport session = serviceQuery.createSimilarityReport(request, queryInstruction, user);
 
         relationWithOwner.getRelation()
                          .setReport(session);

@@ -33,10 +33,11 @@ public class DetectSimilarityJob implements Runnable {
     private ServiceIndex serviceIndex;
 
     private UUID reportId;
+
     private IndexInstruction instruction;
-    private int batchSize;
-    private String minimumShouldMatch;
+    private QueryInstruction queryInstruction;
     private SimilarityReport report;
+    private Integer batchSize;
 
     @Override
     @Transactional
@@ -78,13 +79,14 @@ public class DetectSimilarityJob implements Runnable {
     }
 
     public Collection<ReportSourceDocument> multiHighlight(Collection<FileDocument> files) {
+        String minimumShouldMatch = queryInstruction.getMinimumShouldMatch();
         Collection<ReportSourceDocument> reportSourceDocuments = new ArrayList<>();
         int startIndex = 0;
         while (startIndex < files.size()) {
             int endIndex = Math.min(batchSize + startIndex, files.size());
             // Create multisearch query
             Collection<QueryInstruction> instructions = new ArrayList<>();
-            for (int i = startIndex; i < endIndex; ++i)
+            for (int i = startIndex; i < endIndex; ++i) {
                 instructions.add(QueryInstruction.builder()
                                                  .queryDocument(files.stream()
                                                                      .toList()
@@ -92,6 +94,7 @@ public class DetectSimilarityJob implements Runnable {
                                                  .includeHighlight(true)
                                                  .minimumShouldMatch(minimumShouldMatch)
                                                  .build());
+            }
             try {
                 MultiSearchResponse multiSearchResponse = repoElasticsearchQuery.multiquery(instructions);
                 for (int index = 0; index < multiSearchResponse.getResponses().length; ++index) {

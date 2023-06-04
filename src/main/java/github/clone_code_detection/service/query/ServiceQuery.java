@@ -5,46 +5,76 @@ import github.clone_code_detection.entity.authenication.UserImpl;
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
 import github.clone_code_detection.entity.highlight.document.ReportTargetDocument;
+import github.clone_code_detection.entity.highlight.document.SimilarityReport;
+import github.clone_code_detection.entity.highlight.dto.SimilarityReportDetailDTO;
+import github.clone_code_detection.entity.highlight.request.SimilarityDetectRequest;
+import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.entity.query.QueryInstruction;
 import github.clone_code_detection.exceptions.highlight.ElasticsearchQueryException;
 import github.clone_code_detection.repo.RepoElasticsearchQuery;
 import github.clone_code_detection.repo.RepoFileDocument;
 import github.clone_code_detection.repo.RepoReportSourceDocument;
+import github.clone_code_detection.repo.RepoSimilarityReport;
+import github.clone_code_detection.service.index.ServiceIndex;
+import github.clone_code_detection.service.user.ServiceAuthentication;
+import github.clone_code_detection.util.FileSystemUtil;
+import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.search.SearchHit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @Service
 @Slf4j
 public class ServiceQuery {
     private final RepoElasticsearchQuery repoElasticsearchQuery;
     private final RepoReportSourceDocument repoReportSourceDocument;
+    private final RepoSimilarityReport repoSimilarityReport;
     private final RepoFileDocument repoFileDocument;
+    private final ServiceIndex serviceIndex;
+    private final ThreadPoolExecutor threadPoolExecutor;
+    private final ServiceQuery serviceQuery;
+    private final DetectSimilarityJobFactory detectSimilarityJobFactory;
 
     @Autowired
     public ServiceQuery(RepoElasticsearchQuery repoElasticsearchQuery,
                         RepoReportSourceDocument repoHighlightSessionDocument,
-                        RepoFileDocument repoFileDocument) {
+                        RepoSimilarityReport repoSimilarityReport,
+                        RepoFileDocument repoFileDocument,
+
+                        ServiceIndex serviceIndex,
+                        ThreadPoolExecutor threadPoolExecutor,
+                        ServiceQuery serviceQuery, DetectSimilarityJobFactory detectSimilarityJobFactory) {
         this.repoElasticsearchQuery = repoElasticsearchQuery;
         this.repoReportSourceDocument = repoHighlightSessionDocument;
+        this.repoSimilarityReport = repoSimilarityReport;
         this.repoFileDocument = repoFileDocument;
+        this.serviceIndex = serviceIndex;
+        this.threadPoolExecutor = threadPoolExecutor;
+        this.serviceQuery = serviceQuery;
+        this.detectSimilarityJobFactory = detectSimilarityJobFactory;
     }
 
     private static TargetMatchOverview extract(ReportTargetDocument document) {
-        UserImpl user = document.getTarget().getUser();
+        UserImpl user = document.getTarget()
+                                .getUser();
         String userName = user != null ? user.getUsername() : "anonymous";
-        String targetId = document.getId().toString();
+        String targetId = document.getId()
+                                  .toString();
         Float score = document.getScore();
-        return TargetMatchOverview.builder().author(userName).id(targetId).score(score).build();
+        return TargetMatchOverview.builder()
+                                  .author(userName)
+                                  .id(targetId)
+                                  .score(score)
+                                  .build();
     }
 
     public Collection<TargetMatchOverview> handle(String id) {
@@ -54,19 +84,18 @@ public class ServiceQuery {
         } catch (Exception ig) {
             throw new RuntimeException("Invalid id", ig);
         }
-        ReportSourceDocument singleDocument = repoReportSourceDocument.findById(fromString).orElseThrow();
-        return singleDocument.getMatches().stream().map(ServiceQuery::extract).toList();
+        ReportSourceDocument singleDocument = repoReportSourceDocument.findById(fromString)
+                                                                      .orElseThrow();
+        return singleDocument.getMatches()
+                             .stream()
+                             .map(ServiceQuery::extract)
+                             .toList();
     }
 
     /**
      * For each file, query with highlight enabled
      */
-    public ReportSourceDocument extractSingleDocument(FileDocument source) {
-        QueryInstruction queryInstruction = QueryInstruction.builder()
-                                                            .queryDocument(source)
-                                                            .includeHighlight(true)
-                                                            .minimumShouldMatch("40%")
-                                                            .build();
+    public ReportSourceDocument extractSingleDocument(FileDocument source, QueryInstruction queryInstruction) {
         SearchResponse searchResponse;
         try {
             searchResponse = repoElasticsearchQuery.query(queryInstruction);
@@ -85,7 +114,9 @@ public class ServiceQuery {
         ReportSourceDocument.ReportSourceDocumentBuilder builder = ReportSourceDocument.builder();
         // get hits
         Collection<ReportTargetDocument> matches = new ArrayList<>();
-        ReportSourceDocument reportSourceDocument = builder.source(source).matches(matches).build();
+        ReportSourceDocument reportSourceDocument = builder.source(source)
+                                                           .matches(matches)
+                                                           .build();
         for (SearchHit hit : search.getHits()) {
             String id = hit.getId();
             UUID fromString;
@@ -116,5 +147,100 @@ public class ServiceQuery {
 
         @JsonProperty("target_match_id")
         private String id;
+    }
+
+    // query
+    @Transactional
+    public SimilarityReport createSimilarityReport(SimilarityDetectRequest request, QueryInstruction queryInstruction) {
+        SimilarityReport similarityReport = createEmptyReport(request);
+        // Assign session id of empty highlight session into each source document
+        Collection<FileDocument> sourceDocuments = request.getSources();
+        // Save file linking id of session
+        sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
+        IndexInstruction indexInstruction = IndexInstruction.builder()
+                                                            .files(sourceDocuments)
+                                                            .build();
+        DetectSimilarityJob.DetectSimilarityJobBuilder builder = DetectSimilarityJob.builder()
+                                                                                    .reportId(similarityReport.getId())
+                                                                                    .instruction(indexInstruction)
+                                                                                    .queryInstruction(queryInstruction);
+        DetectSimilarityJob detectSimilarityJob = detectSimilarityJobFactory.newInstance(builder);
+
+        threadPoolExecutor.submit(detectSimilarityJob);
+        return similarityReport;
+    }
+
+    @NotNull
+    private SimilarityReport createEmptyReport(SimilarityDetectRequest request) {
+        // Create new empty highlight session
+        SimilarityReport.SimilarityReportBuilder sessionBuilder = SimilarityReport.builder();
+        SimilarityReport similarityReport = sessionBuilder.build();
+        similarityReport.setUser(ServiceAuthentication.getUserFromContext());
+        similarityReport.setName(request.getReportName());
+        return repoSimilarityReport.save(similarityReport);
+    }
+
+    @Transactional
+    public SimilarityReport createSimilarityReport(SimilarityDetectRequest request,
+                                                   QueryInstruction queryInstruction,
+                                                   UserImpl user) {
+        SimilarityReport similarityReport = createEmptyReport(request, user);
+        // Assign session id of empty highlight session into each source document
+        Collection<FileDocument> sourceDocuments = request.getSources();
+        // Save file linking id of session
+        sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
+        IndexInstruction indexInstruction = IndexInstruction.builder()
+                                                            .files(sourceDocuments)
+                                                            .build();
+
+        DetectSimilarityJob.DetectSimilarityJobBuilder builder = DetectSimilarityJob.builder()
+                                                                                    .reportId(similarityReport.getId())
+                                                                                    .instruction(indexInstruction)
+                                                                                    .queryInstruction(queryInstruction);
+
+        DetectSimilarityJob detectSimilarityJob = detectSimilarityJobFactory.newInstance(builder);
+        threadPoolExecutor.submit(detectSimilarityJob);
+        return similarityReport;
+    }
+
+    @NotNull
+    private SimilarityReport createEmptyReport(SimilarityDetectRequest request, UserImpl user) {
+        // Create new empty highlight session
+        SimilarityReport.SimilarityReportBuilder sessionBuilder = SimilarityReport.builder();
+        SimilarityReport similarityReport = sessionBuilder.build();
+        similarityReport.setUser(user);
+        similarityReport.setName(request.getReportName());
+        return repoSimilarityReport.save(similarityReport);
+    }
+
+    @Transactional
+    public SimilarityReportDetailDTO detectSync(@NotNull MultipartFile source, QueryInstruction queryInstruction) {
+        // Validate and extract file from source
+        FileSystemUtil.validate(source);
+        Collection<FileDocument> sourceDocuments = FileSystemUtil.extractDocuments(source);
+        // Highlight source documents
+        SimilarityReport.SimilarityReportBuilder sessionBuilder = SimilarityReport.builder();
+        List<ReportSourceDocument> hits = new ArrayList<>();
+        for (FileDocument sourceDocument : sourceDocuments) {
+            // for each document, get highlight request
+            ReportSourceDocument reportSourceDocument = serviceQuery.extractSingleDocument(sourceDocument,
+                    queryInstruction);
+            hits.add(reportSourceDocument);
+        }
+        // Build highlight session
+        sessionBuilder.sources(hits);
+        SimilarityReport similarityReport = sessionBuilder.build();
+        similarityReport.setUser(ServiceAuthentication.getUserFromContext());
+        similarityReport.setName(FileSystemUtil.getFileName(source));
+        similarityReport = repoSimilarityReport.save(similarityReport);
+
+        // Save source files before indexing
+        sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
+        // Index the file into es
+        IndexInstruction indexInstruction = IndexInstruction.builder()
+                                                            .files(sourceDocuments)
+                                                            .build();
+        serviceIndex.indexAllDocuments(indexInstruction);
+        return SimilarityReportDetailDTO.from(similarityReport);
     }
 }

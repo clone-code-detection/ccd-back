@@ -4,7 +4,7 @@ import github.clone_code_detection.entity.highlight.document.SimilarityReport;
 import github.clone_code_detection.entity.highlight.dto.SimilarityReportDetailDTO;
 import github.clone_code_detection.entity.highlight.dto.SimilarityReportInfoDTO;
 import github.clone_code_detection.entity.highlight.request.SimilarityDetectRequest;
-import github.clone_code_detection.entity.index.IndexInstruction;
+import github.clone_code_detection.entity.query.QueryInstruction;
 import github.clone_code_detection.service.highlight.ServiceHighlight;
 import github.clone_code_detection.service.query.ServiceQuery;
 import github.clone_code_detection.util.FileSystemUtil;
@@ -35,13 +35,14 @@ public class QueryController {
 
     @PostMapping(path = "/query", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
-    public SimilarityReportDetailDTO queryDocument(@RequestParam("source") MultipartFile source) {
-        return serviceQuery.detectSync(source, IndexInstruction.getDefaultInstruction());
+    public SimilarityReportDetailDTO queryDocument(@RequestParam("source") MultipartFile source, QueryInstruction queryInstruction) {
+        return serviceQuery.detectSync(source, queryInstruction);
     }
 
     @PostMapping(path = "/detect", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
-    public SimilarityReportInfoDTO createSimilarityReport(@RequestParam("source") MultipartFile source) {
+    public SimilarityReportInfoDTO createSimilarityReport(@RequestParam("source") MultipartFile source,
+                                                          QueryInstruction queryInstruction) {
         // Validate and extract file from source
         FileSystemUtil.validate(source);
         // Create highlight session request
@@ -49,8 +50,7 @@ public class QueryController {
                                                                  .reportName(FileSystemUtil.getFileName(source))
                                                                  .sources(FileSystemUtil.extractDocuments(source))
                                                                  .build();
-        SimilarityReport similarityReport = serviceQuery.createSimilarityReport(request,
-                IndexInstruction.getDefaultInstruction());
+        SimilarityReport similarityReport = serviceQuery.createSimilarityReport(request, queryInstruction);
         return SimilarityReportInfoDTO.from(similarityReport);
     }
 }

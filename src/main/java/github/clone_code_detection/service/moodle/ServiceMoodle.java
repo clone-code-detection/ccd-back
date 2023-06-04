@@ -10,13 +10,16 @@ import github.clone_code_detection.entity.moodle.dto.AssignDTO;
 import github.clone_code_detection.entity.moodle.dto.CourseDTO;
 import github.clone_code_detection.entity.moodle.dto.CourseOverviewDTO;
 import github.clone_code_detection.entity.moodle.dto.MoodleLinkRequest;
+import github.clone_code_detection.entity.query.QueryInstruction;
 import github.clone_code_detection.exceptions.UnsupportedLanguage;
 import github.clone_code_detection.exceptions.moodle.MoodleAssignmentException;
 import github.clone_code_detection.exceptions.moodle.MoodleAuthenticationException;
 import github.clone_code_detection.exceptions.moodle.MoodleCourseException;
 import github.clone_code_detection.exceptions.moodle.MoodleSubmissionException;
-import github.clone_code_detection.repo.*;
-import github.clone_code_detection.service.highlight.ServiceHighlight;
+import github.clone_code_detection.repo.RepoMoodleUser;
+import github.clone_code_detection.repo.RepoRelationSubmissionReport;
+import github.clone_code_detection.repo.RepoSubmission;
+import github.clone_code_detection.repo.RepoUser;
 import github.clone_code_detection.service.user.ServiceAuthentication;
 import github.clone_code_detection.util.FileSystemUtil;
 import github.clone_code_detection.util.LanguageUtil;
@@ -63,9 +66,8 @@ public class ServiceMoodle {
     private final RepoRelationSubmissionReport repoRelationSubmissionReport;
     private final RepoSubmission repoSubmission;
     private final RestTemplate moodleClient;
-    private final RepoSimilarityReport repoSimilarityReport;
-    private final ServiceHighlight serviceHighlight;
-    private final RepoElasticsearchDelete repoElasticsearchDelete;
+
+    private final DetectSelectedSubmissionJobFactory detectSelectedSubmissionJobFactory;
     @Value("${moodle.web-service}")
     String webServiceName;
     @Value("${moodle.signin-uri}")
@@ -74,16 +76,14 @@ public class ServiceMoodle {
     String moodleWebServiceUri;
 
     @Autowired
-    public ServiceMoodle(ThreadPoolExecutor threadPoolExecutor, RepoSubmission repoSubmission, RestTemplate moodleClient, RepoRelationSubmissionReport repoRelationSubmissionReport, RepoMoodleUser repoMoodleUser, ServiceHighlight serviceHighlight, RepoElasticsearchDelete repoElasticsearchDelete, RepoSimilarityReport repoSimilarityReport, RepoUser repoUser) {
+    public ServiceMoodle(ThreadPoolExecutor threadPoolExecutor, RestTemplate moodleClient, RepoSubmission repoSubmission, RepoRelationSubmissionReport repoRelationSubmissionReport, RepoMoodleUser repoMoodleUser, RepoUser repoUser, DetectSelectedSubmissionJobFactory detectSelectedSubmissionJobFactory) {
         this.threadPoolExecutor = threadPoolExecutor;
         this.repoSubmission = repoSubmission;
         this.moodleClient = moodleClient;
         this.repoRelationSubmissionReport = repoRelationSubmissionReport;
         this.repoMoodleUser = repoMoodleUser;
-        this.serviceHighlight = serviceHighlight;
-        this.repoElasticsearchDelete = repoElasticsearchDelete;
-        this.repoSimilarityReport = repoSimilarityReport;
         this.repoUser = repoUser;
+        this.detectSelectedSubmissionJobFactory = detectSelectedSubmissionJobFactory;
     }
 
     public static Collection<SimilarityDetectRequest> unzipMoodleFileAndGetRequests(@NotNull MultipartFile source) throws IOException {
@@ -249,11 +249,17 @@ public class ServiceMoodle {
                         .build();
     }
 
-    public MoodleResponse detectSelectedSubmissions(List<Long> submissionIds) {
+    public MoodleResponse detectSelectedSubmissions(List<Long> submissionIds, QueryInstruction queryInstruction) {
         UserImpl user = getUser();
-        threadPoolExecutor.submit(
-                new DetectSelectedSubmissionJob(repoSimilarityReport, serviceHighlight, repoElasticsearchDelete, user,
-                        submissionIds, repoSubmission, moodleClient));
+        DetectSelectedSubmissionJob.DetectSelectedSubmissionJobBuilder builder = DetectSelectedSubmissionJob.builder()
+                                                                                                            .queryInstruction(
+                                                                                                                    queryInstruction)
+                                                                                                            .submissionIds(
+                                                                                                                    submissionIds)
+                                                                                                            .user(user);
+        DetectSelectedSubmissionJob detectSelectedSubmissionJob = detectSelectedSubmissionJobFactory.newInstance(
+                builder);
+        threadPoolExecutor.submit(detectSelectedSubmissionJob);
         return MoodleResponse.builder()
                              .message("Receive detect signal successfully")
                              .build();
