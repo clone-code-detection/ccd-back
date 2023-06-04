@@ -23,12 +23,6 @@ public class BeanProvider {
     @Value("${elasticsearch.port}")
     Integer port;
 
-    @Value("${moodle.host}")
-    String moodleHost;
-    @Value("${moodle.port}")
-    Integer moodlePort;
-    @Value("${moodle.protocol}")
-    String moodleProtocol;
     @Value("${thread_pool_executor.max-pool}")
     Integer executorMaxThread;
     @Value("${thread_pool_executor.capacity}")
@@ -41,20 +35,16 @@ public class BeanProvider {
 
     @Bean
     public RestTemplate getMoodleClient() {
-        String uri = String.format("%s://%s:%d/moodle", moodleProtocol, moodleHost, moodlePort);
         DefaultUriBuilderFactory defaultUriBuilderFactory = new DefaultUriBuilderFactory();
         defaultUriBuilderFactory.setEncodingMode(DefaultUriBuilderFactory.EncodingMode.VALUES_ONLY);
-        return new RestTemplateBuilder().rootUri(uri).uriTemplateHandler(defaultUriBuilderFactory).build();
+        return new RestTemplateBuilder().uriTemplateHandler(defaultUriBuilderFactory)
+                                        .build();
     }
 
     @Bean
     public ThreadPoolExecutor getThreadPoolExecutor() {
         ArrayBlockingQueue<Runnable> queue = new ArrayBlockingQueue<Runnable>(executorQueueCapacity);
-        return new ThreadPoolExecutor(0,
-                                      executorMaxThread,
-                                      60,
-                                      TimeUnit.SECONDS,
-                                      queue,
-                                      new ThreadPoolExecutor.AbortPolicy());
+        return new ThreadPoolExecutor(0, executorMaxThread, 60, TimeUnit.SECONDS, queue,
+                new ThreadPoolExecutor.AbortPolicy());
     }
 }
