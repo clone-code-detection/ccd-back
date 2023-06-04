@@ -19,6 +19,9 @@ public class QueryInstruction {
     private FileDocument queryDocument;
 
     @NotNull
+    private Integer type;
+
+    @NotNull
     private String minimumShouldMatch; // Current feature api
 
     @NotNull
