@@ -26,8 +26,13 @@ public class UserReference {
 
     @OneToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "reference_user_id", referencedColumnName = "reference_user_id")
+
     // The userid of moodle that reference to our server user
     private MoodleUser referenceUser;
 
+    @Column(name = "token")
     private String token;
+
+    @Column(name = "moodle_url")
+    private String moodleUrl;
 }

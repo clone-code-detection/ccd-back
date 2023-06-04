@@ -1,6 +1,5 @@
 package github.clone_code_detection.controller.moodle;
 
-import github.clone_code_detection.entity.authenication.SignInRequest;
 import github.clone_code_detection.entity.highlight.dto.SimilarityReportInfoDTO;
 import github.clone_code_detection.entity.highlight.request.SimilarityDetectRequest;
 import github.clone_code_detection.entity.index.IndexInstruction;
@@ -9,6 +8,7 @@ import github.clone_code_detection.entity.moodle.MoodleResponse;
 import github.clone_code_detection.entity.moodle.dto.AssignDTO;
 import github.clone_code_detection.entity.moodle.dto.CourseDTO;
 import github.clone_code_detection.entity.moodle.dto.CourseOverviewDTO;
+import github.clone_code_detection.entity.moodle.dto.MoodleLinkRequest;
 import github.clone_code_detection.service.highlight.ServiceHighlight;
 import github.clone_code_detection.service.moodle.ServiceMoodle;
 import org.apache.http.auth.AuthenticationException;
@@ -55,7 +55,7 @@ public class MoodleController {
 
     @PostMapping(path = "/signin", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     @ResponseStatus(HttpStatus.OK)
-    public MoodleResponse signinWithMoodleAccount(@Validated SignInRequest request) throws AuthenticationException {
+    public MoodleResponse signinWithMoodleAccount(@Validated MoodleLinkRequest request) throws AuthenticationException {
         assert request != null : new RuntimeException("Invalid request");
         return serviceMoodle.linkCurrentUserToMoodleAccount(request);
     }
