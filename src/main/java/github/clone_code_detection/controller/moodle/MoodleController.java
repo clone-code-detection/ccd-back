@@ -40,8 +40,14 @@ public class MoodleController {
 
     @PostMapping(path = "/detect", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
-    public MoodleResponse createHighlightSessionForMoodle(@RequestParam("source") MultipartFile source, QueryInstruction queryInstruction)
+    public MoodleResponse createHighlightSessionForMoodle(@RequestParam("source") MultipartFile source,
+                                                          @RequestParam(value = "type", required = false, defaultValue = "1") Integer type,
+                                                          @RequestParam(value = "minimum_should_match", required = false, defaultValue = "70%") String minimumShouldMatch)
             throws IOException {
+        QueryInstruction queryInstruction = QueryInstruction.builder()
+                                                            .type(type)
+                                                            .minimumShouldMatch(minimumShouldMatch)
+                                                            .build();
         // moodle source is a zip file that contains multiple folders.
         // Each folder is list of file submissions of one student.
         // For each file in student's folder, we consider it as one highlight session.
