@@ -19,17 +19,20 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 @Slf4j
 @Repository
 public class RepoElasticsearchQuery {
     public static final String SOURCE_CODE_FIELD = "source_code";
+    public static final String SOURCE_CODE_FIELD_NORMALIZED = "source_code_normalized";
     private final RestHighLevelClient elasticsearchClient;
 
     @Autowired
@@ -51,28 +54,16 @@ public class RepoElasticsearchQuery {
 
     protected static List<QueryBuilder> buildMustQuery(QueryInstruction queryInstruction) {
         String minimumShouldMatch = queryInstruction.getMinimumShouldMatch();
+        String field;
+        if (1 == queryInstruction.getType()) field = SOURCE_CODE_FIELD;
+        else field = SOURCE_CODE_FIELD_NORMALIZED;
         return Collections.singletonList(QueryBuilders
-                .matchQuery(SOURCE_CODE_FIELD, queryInstruction.getContent())
+                .matchQuery(field, queryInstruction.getContent())
                 .minimumShouldMatch(minimumShouldMatch));
     }
 
     protected static List<QueryBuilder> buildFilterQuery(QueryInstruction queryInstruction) {
         return new ArrayList<>();
-    }
-
-    private static HighlightBuilder buildHighlightQuery() {
-        HighlightBuilder highlightBuilder = new HighlightBuilder();
-        highlightBuilder.order("score");
-        //Build each type
-        HighlightBuilder.Field highlightContent = new HighlightBuilder.Field(SOURCE_CODE_FIELD);
-        highlightContent.fragmentSize(0);
-        highlightContent.numOfFragments(0);
-        highlightContent.highlighterType("experimental");
-        highlightBuilder.options(Map.of("return_offsets", true));
-        //Add to builder
-        highlightBuilder.field(highlightContent);
-
-        return highlightBuilder;
     }
 
     public SearchResponse query(QueryInstruction queryInstruction) throws IOException {
