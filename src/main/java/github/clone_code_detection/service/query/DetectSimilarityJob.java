@@ -91,7 +91,6 @@ public class DetectSimilarityJob implements Runnable {
                                                  .queryDocument(files.stream()
                                                                      .toList()
                                                                      .get(i))
-                                                 .includeHighlight(true)
                                                  .minimumShouldMatch(minimumShouldMatch)
                                                  .build());
             }

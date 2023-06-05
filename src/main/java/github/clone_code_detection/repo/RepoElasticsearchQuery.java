@@ -119,10 +119,10 @@ public class RepoElasticsearchQuery {
         // build source
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(boolQueryBuilder);
-        if (Boolean.TRUE.equals(queryInstruction.getIncludeHighlight())) {
-            HighlightBuilder highlightBuilder = buildHighlightQuery();
-            searchSourceBuilder.highlighter(highlightBuilder);
-        }
+//        if (Boolean.TRUE.equals(queryInstruction.getIncludeHighlight())) {
+//            HighlightBuilder highlightBuilder = buildHighlightQuery();
+//            searchSourceBuilder.highlighter(highlightBuilder);
+//        }
 
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.source(searchSourceBuilder).indices(indexes);

@@ -24,9 +24,6 @@ public class QueryInstruction {
     @NotNull
     private String minimumShouldMatch; // Current feature api
 
-    @NotNull
-    private Boolean includeHighlight = false;
-
     public String getLanguage() {
         return LanguageUtil.getInstance()
                            .getIndexFromFileName(queryDocument.getFileName());
