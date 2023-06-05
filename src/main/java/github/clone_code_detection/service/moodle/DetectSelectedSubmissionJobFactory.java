@@ -5,6 +5,7 @@ import github.clone_code_detection.repo.RepoSimilarityReport;
 import github.clone_code_detection.repo.RepoSubmission;
 import github.clone_code_detection.service.query.ServiceQuery;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -19,7 +20,7 @@ public class DetectSelectedSubmissionJobFactory {
     @Autowired
     public DetectSelectedSubmissionJobFactory(RepoSimilarityReport repoSimilarityReport,
                                               RepoSubmission repoSubmission,
-                                              ServiceQuery serviceQuery,
+                                              @Lazy  ServiceQuery serviceQuery,
                                               RepoElasticsearchDelete repoElasticsearchDelete, RestTemplate moodleClient) {
         this.repoSimilarityReport = repoSimilarityReport;
         this.repoSubmission = repoSubmission;

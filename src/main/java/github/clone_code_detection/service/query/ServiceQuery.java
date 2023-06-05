@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.search.SearchHit;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -41,7 +42,6 @@ public class ServiceQuery {
     private final RepoFileDocument repoFileDocument;
     private final ServiceIndex serviceIndex;
     private final ThreadPoolExecutor threadPoolExecutor;
-    private final ServiceQuery serviceQuery;
     private final DetectSimilarityJobFactory detectSimilarityJobFactory;
 
     @Autowired
@@ -52,14 +52,13 @@ public class ServiceQuery {
 
                         ServiceIndex serviceIndex,
                         ThreadPoolExecutor threadPoolExecutor,
-                        ServiceQuery serviceQuery, DetectSimilarityJobFactory detectSimilarityJobFactory) {
+                        @Lazy DetectSimilarityJobFactory detectSimilarityJobFactory) {
         this.repoElasticsearchQuery = repoElasticsearchQuery;
         this.repoReportSourceDocument = repoHighlightSessionDocument;
         this.repoSimilarityReport = repoSimilarityReport;
         this.repoFileDocument = repoFileDocument;
         this.serviceIndex = serviceIndex;
         this.threadPoolExecutor = threadPoolExecutor;
-        this.serviceQuery = serviceQuery;
         this.detectSimilarityJobFactory = detectSimilarityJobFactory;
     }
 
@@ -223,7 +222,7 @@ public class ServiceQuery {
         List<ReportSourceDocument> hits = new ArrayList<>();
         for (FileDocument sourceDocument : sourceDocuments) {
             // for each document, get highlight request
-            ReportSourceDocument reportSourceDocument = serviceQuery.extractSingleDocument(sourceDocument,
+            ReportSourceDocument reportSourceDocument = extractSingleDocument(sourceDocument,
                     queryInstruction);
             hits.add(reportSourceDocument);
         }

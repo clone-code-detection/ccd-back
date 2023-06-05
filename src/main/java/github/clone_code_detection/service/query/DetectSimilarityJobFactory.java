@@ -14,11 +14,14 @@ public class DetectSimilarityJobFactory {
     private final RepoSimilarityReport repoSimilarityReport;
     private final RepoElasticsearchQuery repoElasticsearchQuery;
     private final ServiceQuery serviceQuery;
-    @Value("${elasticsearch.query.batch-size}")
     private final Integer batchSize;
 
     @Autowired
-    public DetectSimilarityJobFactory(ServiceIndex serviceIndex, RepoSimilarityReport repoSimilarityReport, RepoElasticsearchQuery repoElasticsearchQuery, ServiceQuery serviceQuery, Integer batchSize) {
+    public DetectSimilarityJobFactory(ServiceIndex serviceIndex,
+                                      RepoSimilarityReport repoSimilarityReport,
+                                      RepoElasticsearchQuery repoElasticsearchQuery,
+                                      ServiceQuery serviceQuery,
+                                      @Value("${elasticsearch.query.batch-size}") Integer batchSize) {
         this.serviceIndex = serviceIndex;
         this.repoSimilarityReport = repoSimilarityReport;
         this.repoElasticsearchQuery = repoElasticsearchQuery;
