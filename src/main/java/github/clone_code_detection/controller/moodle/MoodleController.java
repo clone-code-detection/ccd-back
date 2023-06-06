@@ -90,7 +90,13 @@ public class MoodleController {
 
     @PostMapping(path = "/detect-submissions")
     @ResponseStatus(HttpStatus.OK)
-    public MoodleResponse detectSelectedSubmissions(@RequestBody DetectRequest request, QueryInstruction queryInstruction) {
+    public MoodleResponse detectSelectedSubmissions(@RequestBody DetectRequest request,
+                                                    @RequestParam(value = "type", required = false, defaultValue = "1") Integer type,
+                                                    @RequestParam(value = "minimum_should_match", required = false, defaultValue = "70%") String minimumShouldMatch) {
+        QueryInstruction queryInstruction = QueryInstruction.builder()
+                                                            .minimumShouldMatch(minimumShouldMatch)
+                                                            .type(type)
+                                                            .build();
         return serviceMoodle.detectSelectedSubmissions(request.getSubmissionIds(), queryInstruction);
     }
 }
