@@ -57,10 +57,7 @@ public class MoodleController {
                 .map(request -> serviceQuery.createSimilarityReport(request, queryInstruction))
                 .map(SimilarityReportInfoDTO::from)
                 .forEach(reports::add);
-        return MoodleResponse.builder()
-                             .message("OK")
-                             .data(reports)
-                             .build();
+        return MoodleResponse.builder().message("OK").data(reports).build();
     }
 
     @PostMapping(path = "/signin", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
@@ -84,7 +81,9 @@ public class MoodleController {
 
     @GetMapping(path = "/assign")
     @ResponseStatus(HttpStatus.OK)
-    public AssignDTO getAssignDetail(@RequestParam("course_id") long courseId, @RequestParam("assign_id") long assignId, @PageableDefault Pageable pageable) {
+    public AssignDTO getAssignDetail(@RequestParam("course_id") long courseId,
+                                     @RequestParam("assign_id") long assignId,
+                                     @PageableDefault Pageable pageable) {
         return serviceMoodle.getAssignDetail(courseId, assignId, pageable);
     }
 

@@ -50,21 +50,6 @@ public class DetectSelectedSubmissionJob implements Runnable {
 
     private QueryInstruction queryInstruction;
 
-    public DetectSelectedSubmissionJob(RepoSimilarityReport repoSimilarityReport,
-                                       RepoElasticsearchDelete repoElasticsearchDelete,
-                                       UserImpl user,
-                                       List<Long> submissionIds,
-                                       RepoSubmission repoSubmission,
-                                       ServiceQuery serviceQuery, RestTemplate moodleClient) {
-        this.repoSimilarityReport = repoSimilarityReport;
-        this.repoElasticsearchDelete = repoElasticsearchDelete;
-        this.user = user;
-        this.submissionIds = submissionIds;
-        this.repoSubmission = repoSubmission;
-        this.serviceQuery = serviceQuery;
-        this.moodleClient = moodleClient;
-    }
-
     private Map<String, List<RelationWithOwner>> classifySubmissions(List<Submission> submissions) {
         Map<String, List<RelationWithOwner>> mapRelationsByNeed = new HashMap<>();
         submissions.forEach(submission -> submission.getRelations()

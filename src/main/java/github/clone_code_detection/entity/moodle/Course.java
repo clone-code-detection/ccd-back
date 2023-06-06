@@ -2,13 +2,11 @@ package github.clone_code_detection.entity.moodle;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
-import github.clone_code_detection.util.TimeUtil;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,9 +21,9 @@ public class Course {
     @JsonProperty("enrolled_user_count")
     private long enrolledUserCount;
     @JsonProperty("start_date")
-    private ZonedDateTime startDate;
+    private long startDate;
     @JsonProperty("end_date")
-    private ZonedDateTime endDate;
+    private long endDate;
     private boolean completed;
 
     public static List<Course> asList(JsonNode moodleCourses) {
@@ -35,10 +33,8 @@ public class Course {
                                                           .shortname(course.get("shortname").asText())
                                                           .fullname(course.get("fullname").asText())
                                                           .enrolledUserCount(course.get("enrolledusercount").asInt())
-                                                          .startDate(TimeUtil.parseZoneDateTime(course.get(
-                                                                     "startdate").asLong()))
-                                                          .endDate(TimeUtil.parseZoneDateTime(course.get("enddate")
-                                                                                                       .asLong()))
+                                                          .startDate(course.get("startdate").asLong())
+                                                          .endDate(course.get("enddate").asLong())
                                                           .completed(course.get("completed").asBoolean())
                                                           .build()));
         return courses;
@@ -49,8 +45,8 @@ public class Course {
                      .id(courseDetail.get("id").asLong())
                      .shortname(courseDetail.get("shortname").asText())
                      .fullname(courseDetail.get("fullname").asText())
-                     .startDate(TimeUtil.parseZoneDateTime(courseDetail.get("startdate").asLong()))
-                     .endDate(TimeUtil.parseZoneDateTime(courseDetail.get("enddate").asLong()))
+                     .startDate(courseDetail.get("startdate").asLong())
+                     .endDate(courseDetail.get("enddate").asLong())
                      .build();
     }
 }

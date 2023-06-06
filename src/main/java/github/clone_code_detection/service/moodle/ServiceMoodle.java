@@ -76,7 +76,13 @@ public class ServiceMoodle {
     String moodleWebServiceUri;
 
     @Autowired
-    public ServiceMoodle(ThreadPoolExecutor threadPoolExecutor, RestTemplate moodleClient, RepoSubmission repoSubmission, RepoRelationSubmissionReport repoRelationSubmissionReport, RepoMoodleUser repoMoodleUser, RepoUser repoUser, DetectSelectedSubmissionJobFactory detectSelectedSubmissionJobFactory) {
+    public ServiceMoodle(ThreadPoolExecutor threadPoolExecutor,
+                         RestTemplate moodleClient,
+                         RepoSubmission repoSubmission,
+                         RepoRelationSubmissionReport repoRelationSubmissionReport,
+                         RepoMoodleUser repoMoodleUser,
+                         RepoUser repoUser,
+                         DetectSelectedSubmissionJobFactory detectSelectedSubmissionJobFactory) {
         this.threadPoolExecutor = threadPoolExecutor;
         this.repoSubmission = repoSubmission;
         this.moodleClient = moodleClient;
@@ -86,7 +92,8 @@ public class ServiceMoodle {
         this.detectSelectedSubmissionJobFactory = detectSelectedSubmissionJobFactory;
     }
 
-    public static Collection<SimilarityDetectRequest> unzipMoodleFileAndGetRequests(@NotNull MultipartFile source) throws IOException {
+    public static Collection<SimilarityDetectRequest> unzipMoodleFileAndGetRequests(@NotNull MultipartFile source)
+            throws IOException {
         // Moodle zip file has structure as list of folder, each folder is student's list file submissions
         ArrayList<SimilarityDetectRequest> requests = new ArrayList<>(); // Each request will be the highlight session
         // Create zip handler for root zip file which got grom moodle
@@ -96,10 +103,10 @@ public class ServiceMoodle {
             // Loop over each student submission file, which can be source code file or zip file
             while ((zipEntry = zipInputStream.getNextEntry()) != null) {
                 // If entry is the source code file then create new session
-                String author = zipEntry.getName()
-                                        .split("/")[0];
-                String sessionName = String.format("%s/%s", FileSystemUtil.getFileName(source.getOriginalFilename()),
-                        FileSystemUtil.getFileName(zipEntry.getName()));
+                String author = zipEntry.getName().split("/")[0];
+                String sessionName = String.format("%s/%s",
+                                                   FileSystemUtil.getFileName(source.getOriginalFilename()),
+                                                   FileSystemUtil.getFileName(zipEntry.getName()));
                 if (zipEntry.isDirectory()) {
                     continue;
                 }
@@ -113,8 +120,9 @@ public class ServiceMoodle {
                     case "" -> {
                         continue;
                     }
-                    case "zip" -> fileDocuments.addAll(
-                            ZipUtil.getFileDocumentFromZipFile(byteArrayOutputStream.toByteArray(), author));
+                    case "zip" ->
+                            fileDocuments.addAll(ZipUtil.getFileDocumentFromZipFile(byteArrayOutputStream.toByteArray(),
+                                                                                    author));
                     default -> {
                         try {
                             languageUtil.getIndexFromFileName(zipEntry.getName());
@@ -136,26 +144,12 @@ public class ServiceMoodle {
         return requests;
     }
 
-    private UriComponentsBuilder buildDefaultUriBuilder(UserReference reference, String function) {
-        return buildDefaultUriBuilder(reference.getToken(), reference.getMoodleUrl(), function);
-    }
-
-    private UriComponentsBuilder buildDefaultUriBuilder(String token, String moodleUrl, String function) {
-        return UriComponentsBuilder.fromUriString(moodleUrl)
-                                   .path(moodleWebServiceUri)
-                                   .queryParam("wstoken", token)
-                                   .queryParam("wsfunction", function)
-                                   .queryParam("moodlewsrestformat", "json");
-    }
-
-    private static SimilarityDetectRequest getExistRequestOrCreateNew(ArrayList<SimilarityDetectRequest> requests, String sessionName) {
+    private static SimilarityDetectRequest getExistRequestOrCreateNew(ArrayList<SimilarityDetectRequest> requests,
+                                                                      String sessionName) {
         for (SimilarityDetectRequest request : requests) {
-            if (request.getReportName()
-                       .equals(sessionName)) return request;
+            if (request.getReportName().equals(sessionName)) return request;
         }
-        SimilarityDetectRequest request = SimilarityDetectRequest.builder()
-                                                                 .reportName(sessionName)
-                                                                 .build();
+        SimilarityDetectRequest request = SimilarityDetectRequest.builder().reportName(sessionName).build();
         requests.add(request);
         return request;
     }
@@ -165,7 +159,9 @@ public class ServiceMoodle {
         if (pageable.getPageNumber() * pageable.getPageSize() > list.size())
             return new PageImpl<>(new ArrayList<>(), pageable, list.size());
         return new PageImpl<>(list.subList((int) pageable.getOffset(),
-                (int) Math.min(pageable.getPageSize() + pageable.getOffset(), list.size())), pageable, list.size());
+                                           (int) Math.min(pageable.getPageSize() + pageable.getOffset(), list.size())),
+                              pageable,
+                              list.size());
     }
 
     @NotNull
@@ -178,6 +174,18 @@ public class ServiceMoodle {
         return user;
     }
 
+    private UriComponentsBuilder buildDefaultUriBuilder(UserReference reference, String function) {
+        return buildDefaultUriBuilder(reference.getToken(), reference.getMoodleUrl(), function);
+    }
+
+    private UriComponentsBuilder buildDefaultUriBuilder(String token, String moodleUrl, String function) {
+        return UriComponentsBuilder.fromUriString(moodleUrl)
+                                   .path(moodleWebServiceUri)
+                                   .queryParam("wstoken", token)
+                                   .queryParam("wsfunction", function)
+                                   .queryParam("moodlewsrestformat", "json");
+    }
+
     public MoodleResponse linkCurrentUserToMoodleAccount(MoodleLinkRequest request) throws AuthenticationException {
         // Get token and userid from moodle
         UserImpl user = ServiceAuthentication.getUserFromContext();
@@ -187,33 +195,25 @@ public class ServiceMoodle {
             reference.setInternalUser(user);
             user.setReference(reference);
             repoUser.save(user);
-            return MoodleResponse.builder()
-                                 .message("Link to moodle account successfully")
-                                 .build();
+            return MoodleResponse.builder().message("Link to moodle account successfully").build();
         }
-        return MoodleResponse.builder()
-                             .message("Moodle account already been linked")
-                             .build();
+        return MoodleResponse.builder().message("Moodle account already been linked").build();
     }
 
     public CourseOverviewDTO getCourseOverview(Pageable pageable) {
         UserImpl user = getUser();
         ResponseEntity<JsonNode> entity = getCoursesOfUser(user.getReference());
         List<Course> courses = Course.asList(Objects.requireNonNull(entity.getBody()));
-        courses.sort(Comparator.comparing(Course::getId)
-                               .reversed());
+        courses.sort(Comparator.comparing(Course::getId).reversed());
         return CourseOverviewDTO.builder()
                                 .courses(getListWithPageable(pageable, courses))
-                                .user(user.getReference()
-                                          .getReferenceUser()
-                                          .toDTO())
+                                .user(user.getReference().getReferenceUser().toDTO())
                                 .build();
     }
 
     public CourseDTO getCourseDetail(long courseId, Pageable pageable) {
         UserImpl user = getUser();
-        CourseDTO overviewDTO = CourseDTO.builder()
-                                         .build();
+        CourseDTO overviewDTO = CourseDTO.builder().build();
         List<Assign> assigns = enrichAssignments(user.getReference(), courseId);
         assigns.sort(Comparator.comparing(Assign::getId));
         overviewDTO.setCourse(enrichCourseDetail(courseId, user.getReference()));
@@ -223,8 +223,9 @@ public class ServiceMoodle {
 
     public AssignDTO getAssignDetail(long courseId, long assignId, Pageable pageable) {
         UserImpl user = getUser();
-        List<Submission> submissions = getSubmissionsInCourse(courseId, new ArrayList<>(List.of(assignId)),
-                user.getReference());
+        List<Submission> submissions = getSubmissionsInCourse(courseId,
+                                                              new ArrayList<>(List.of(assignId)),
+                                                              user.getReference());
         submissions = repoSubmission.saveAll(submissions);
         submissions.sort(Comparator.comparing(Submission::getId));
         Assign assign = enrichAssignments(user.getReference(), courseId).stream()
@@ -232,16 +233,16 @@ public class ServiceMoodle {
                                                                         .findFirst()
                                                                         .orElse(null);
         if (pageable.getPageNumber() * pageable.getPageSize() > submissions.size()) return AssignDTO.builder()
-                                                                                                    .submissions(
-                                                                                                            new PageImpl<>(
-                                                                                                                    new ArrayList<>(),
-                                                                                                                    pageable,
-                                                                                                                    submissions.size()))
+                                                                                                    .submissions(new PageImpl<>(
+                                                                                                            new ArrayList<>(),
+                                                                                                            pageable,
+                                                                                                            submissions.size()))
                                                                                                     .assign(assign)
                                                                                                     .build();
         return AssignDTO.builder()
                         .submissions(new PageImpl<>(submissions.subList((int) pageable.getOffset(),
-                                                                       (int) Math.min(pageable.getPageSize() + pageable.getOffset(), submissions.size()))
+                                                                        (int) Math.min(pageable.getPageSize() + pageable.getOffset(),
+                                                                                       submissions.size()))
                                                                .stream()
                                                                .map(Submission::toDTO)
                                                                .toList(), pageable, submissions.size()))
@@ -257,12 +258,9 @@ public class ServiceMoodle {
                                                                                                             .submissionIds(
                                                                                                                     submissionIds)
                                                                                                             .user(user);
-        DetectSelectedSubmissionJob detectSelectedSubmissionJob = detectSelectedSubmissionJobFactory.newInstance(
-                builder);
+        DetectSelectedSubmissionJob detectSelectedSubmissionJob = detectSelectedSubmissionJobFactory.newInstance(builder);
         threadPoolExecutor.submit(detectSelectedSubmissionJob);
-        return MoodleResponse.builder()
-                             .message("Receive detect signal successfully")
-                             .build();
+        return MoodleResponse.builder().message("Receive detect signal successfully").build();
     }
 
     private List<Assign> enrichAssignments(UserReference reference, long courseId) {
@@ -271,8 +269,7 @@ public class ServiceMoodle {
         ResponseEntity<JsonNode> entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
                                                                                 .expand(builder.toUriString())
                                                                                 .toString(), JsonNode.class);
-        if (!entity.getStatusCode()
-                   .is2xxSuccessful()) {
+        if (!entity.getStatusCode().is2xxSuccessful()) {
             log.error("[Service moodle] Fail to get assigns by course id");
             throw new MoodleAssignmentException("Fail to enrich assignments from course id");
         }
@@ -293,13 +290,11 @@ public class ServiceMoodle {
         ResponseEntity<JsonNode> entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
                                                                                 .expand(builder.toUriString())
                                                                                 .toString(), JsonNode.class);
-        if (!entity.getStatusCode()
-                   .is2xxSuccessful()) {
+        if (!entity.getStatusCode().is2xxSuccessful()) {
             log.error("[Service moodle] Fail to get submissions by assignments");
             throw new MoodleSubmissionException("Fail to enrich submissions");
         }
-        return parseSubmissions(Objects.requireNonNull(entity.getBody())
-                                       .get("assignments"), courseId, reference);
+        return parseSubmissions(Objects.requireNonNull(entity.getBody()).get("assignments"), courseId, reference);
     }
 
     private List<Submission> parseSubmissions(@NotNull JsonNode assignments, long courseId, UserReference reference) {
@@ -307,56 +302,46 @@ public class ServiceMoodle {
         Set<Long> ownerIds = new HashSet<>();
         Map<Long, List<Long>> mapListSubmissionIdByOwnerId = new HashMap<>();
         assignments.forEach(assignment -> {
-            long assignId = assignment.get("assignmentid")
-                                      .asLong();
-            assignment.get("submissions")
-                      .forEach(inputSubmission -> {
-                          long ownerId = inputSubmission.get("userid")
-                                                        .asLong();
-                          long submissionId = inputSubmission.get("id")
-                                                             .asLong();
-                          if (ownerId == reference.getReferenceUser()
-                                                  .getReferenceUserId()) return;
+            long assignId = assignment.get("assignmentid").asLong();
+            assignment.get("submissions").forEach(inputSubmission -> {
+                long ownerId = inputSubmission.get("userid").asLong();
+                long submissionId = inputSubmission.get("id").asLong();
+                if (ownerId == reference.getReferenceUser().getReferenceUserId()) return;
 
-                          MoodleUser owner = repoMoodleUser.findFirstByReferenceUserId(ownerId);
-                          if (owner == null) {
-                              ownerIds.add(ownerId);
-                              mapListSubmissionIdByOwnerId.computeIfAbsent(ownerId, key -> new ArrayList<>())
-                                                          .add(submissionId);
-                          }
-                          Submission submission = repoSubmission.findFirstByReferenceSubmissionId(
-                                  inputSubmission.get("id")
-                                                 .asLong());
-                          List<RelationSubmissionReport> relations = getSubmissionRelations(
-                                  inputSubmission.get("plugins"));
-                          if (submission == null) {
-                              // Case new submission
-                              submission = Submission.builder()
-                                                     .referenceSubmissionId(submissionId)
-                                                     .createdAt(TimeUtil.parseZoneDateTime(
-                                                             inputSubmission.get("timecreated")
-                                                                            .asLong()))
-                                                     .updatedAt(TimeUtil.parseZoneDateTime(
-                                                             inputSubmission.get("timemodified")
-                                                                            .asLong()))
-                                                     .courseId(courseId)
-                                                     .assignId(assignId)
-                                                     .relations(relations)
-                                                     .owner(owner)
-                                                     .build();
-                          } else {
-                              // Update submission if any new change
-                              submission.setUpdatedAt(TimeUtil.parseZoneDateTime(inputSubmission.get("timemodified")
-                                                                                                .asLong()));
-                              updateSubmissionRelations(submission, relations);
-                          }
-                          submissions.add(submission);
-                      });
+                MoodleUser owner = repoMoodleUser.findFirstByReferenceUserId(ownerId);
+                if (owner == null) {
+                    ownerIds.add(ownerId);
+                    mapListSubmissionIdByOwnerId.computeIfAbsent(ownerId, key -> new ArrayList<>()).add(submissionId);
+                }
+                Submission submission = repoSubmission.findFirstByReferenceSubmissionId(inputSubmission.get("id")
+                                                                                                       .asLong());
+                List<RelationSubmissionReport> relations = getSubmissionRelations(inputSubmission.get("plugins"));
+                if (submission == null) {
+                    // Case new submission
+                    submission = Submission.builder()
+                                           .referenceSubmissionId(submissionId)
+                                           .createdAt(TimeUtil.parseZoneDateTime(inputSubmission.get("timecreated")
+                                                                                                .asLong()))
+                                           .updatedAt(TimeUtil.parseZoneDateTime(inputSubmission.get("timemodified")
+                                                                                                .asLong()))
+                                           .courseId(courseId)
+                                           .assignId(assignId)
+                                           .relations(relations)
+                                           .owner(owner)
+                                           .build();
+                } else {
+                    // Update submission if any new change
+                    submission.setUpdatedAt(TimeUtil.parseZoneDateTime(inputSubmission.get("timemodified").asLong()));
+                    updateSubmissionRelations(submission, relations);
+                }
+                submissions.add(submission);
+            });
         });
         if (ownerIds.isEmpty()) return submissions;
         // Enrich owner information
         Map<Long, MoodleUser> mapOwnerBySubmissionReferenceId = getCourseSubmissionOwners(ownerIds,
-                mapListSubmissionIdByOwnerId, reference);
+                                                                                          mapListSubmissionIdByOwnerId,
+                                                                                          reference);
         submissions.forEach(submission -> {
             if (submission.getOwner() == null)
                 submission.setOwner(mapOwnerBySubmissionReferenceId.get(submission.getReferenceSubmissionId()));
@@ -380,23 +365,17 @@ public class ServiceMoodle {
                 // Insert
                 finalRelations.add(newRelation);
             }
-            mapNewRelationByIndex.put(newRelation.getFile()
-                                                 .getFilename(), newRelation);
+            mapNewRelationByIndex.put(newRelation.getFile().getFilename(), newRelation);
         });
         currentRelations.forEach(currentRelation -> {
-            RelationSubmissionReport newRelation = mapNewRelationByIndex.get(currentRelation.getFile()
-                                                                                            .getFilename());
+            RelationSubmissionReport newRelation = mapNewRelationByIndex.get(currentRelation.getFile().getFilename());
             if (newRelation == null) {
                 // Case current not found in new then delete
                 needDeleteRelations.add(currentRelation);
             } else {
                 // If current found in new then modify the submission file -> update
-                currentRelation.getFile()
-                               .setUpdatedAt(newRelation.getFile()
-                                                        .getUpdatedAt());
-                currentRelation.getFile()
-                               .setFileUri(newRelation.getFile()
-                                                      .getFileUri());
+                currentRelation.getFile().setUpdatedAt(newRelation.getFile().getUpdatedAt());
+                currentRelation.getFile().setFileUri(newRelation.getFile().getFileUri());
                 finalRelations.add(currentRelation);
             }
         });
@@ -404,25 +383,26 @@ public class ServiceMoodle {
         submission.setRelations(finalRelations);
     }
 
-    private Map<Long, MoodleUser> getCourseSubmissionOwners(Set<Long> ownerIds, Map<Long, List<Long>> mapListSubmissionIdByOwnerId, UserReference reference) {
+    private Map<Long, MoodleUser> getCourseSubmissionOwners(Set<Long> ownerIds,
+                                                            Map<Long, List<Long>> mapListSubmissionIdByOwnerId,
+                                                            UserReference reference) {
         Map<Long, MoodleUser> mapOwnerBySubmissionReferenceId = new HashMap<>();
         List<MoodleUser> owners = getOwnersFromIds(ownerIds, reference);
         owners.forEach(owner -> mapListSubmissionIdByOwnerId.get(owner.getReferenceUserId())
-                                                            .forEach(
-                                                                    submissionId -> mapOwnerBySubmissionReferenceId.put(
-                                                                            submissionId, owner)));
+                                                            .forEach(submissionId -> mapOwnerBySubmissionReferenceId.put(
+                                                                    submissionId,
+                                                                    owner)));
         return mapOwnerBySubmissionReferenceId;
     }
 
     private List<MoodleUser> getOwnersFromIds(Set<Long> ownerIds, UserReference reference) {
         UriComponentsBuilder builder = buildDefaultUriBuilder(reference, MOODLE_GET_OWNERS_FUNCTION).queryParam("field",
-                "id");
+                                                                                                                "id");
         ownerIds.forEach(id -> builder.queryParam("values[]", id));
         ResponseEntity<JsonNode> entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
                                                                                 .expand(builder.toUriString()),
-                JsonNode.class);
-        if (!entity.getStatusCode()
-                   .is2xxSuccessful()) {
+                                                                    JsonNode.class);
+        if (!entity.getStatusCode().is2xxSuccessful()) {
             log.error("[Service moodle] Fail to enrich submission owners");
             throw new MoodleSubmissionException("Fail to enrich submission owners");
         }
@@ -439,35 +419,23 @@ public class ServiceMoodle {
     private List<RelationSubmissionReport> getSubmissionRelations(JsonNode plugins) {
         List<RelationSubmissionReport> relationSubmissionReports = new ArrayList<>();
         plugins.forEach(plugin -> {
-            if (plugin.get("type")
-                      .asText()
-                      .equals("file")) {
-                plugin.get("fileareas")
-                      .forEach(fileareas -> {
-                          if (fileareas.get("area")
-                                       .asText()
-                                       .equals("submission_files")) {
-                              fileareas.get("files")
-                                       .forEach(file -> {
-                                           SubmissionFile submissionFile = SubmissionFile.builder()
-                                                                                         .filename(file.get("filename")
-                                                                                                       .asText())
-                                                                                         .fileUri(file.get("fileurl")
-                                                                                                      .asText())
-                                                                                         .mimetype(file.get("mimetype")
-                                                                                                       .asText())
-                                                                                         .updatedAt(
-                                                                                                 TimeUtil.parseZoneDateTime(
-                                                                                                         file.get(
-                                                                                                                     "timemodified")
-                                                                                                             .asLong()))
-                                                                                         .build();
-                                           relationSubmissionReports.add(RelationSubmissionReport.builder()
-                                                                                                 .file(submissionFile)
-                                                                                                 .build());
-                                       });
-                          }
-                      });
+            if (plugin.get("type").asText().equals("file")) {
+                plugin.get("fileareas").forEach(fileareas -> {
+                    if (fileareas.get("area").asText().equals("submission_files")) {
+                        fileareas.get("files").forEach(file -> {
+                            SubmissionFile submissionFile = SubmissionFile.builder()
+                                                                          .filename(file.get("filename").asText())
+                                                                          .fileUri(file.get("fileurl").asText())
+                                                                          .mimetype(file.get("mimetype").asText())
+                                                                          .updatedAt(TimeUtil.parseZoneDateTime(file.get(
+                                                                                  "timemodified").asLong()))
+                                                                          .build();
+                            relationSubmissionReports.add(RelationSubmissionReport.builder()
+                                                                                  .file(submissionFile)
+                                                                                  .build());
+                        });
+                    }
+                });
             }
         });
         return relationSubmissionReports;
@@ -476,13 +444,12 @@ public class ServiceMoodle {
     @NotNull
     private ResponseEntity<JsonNode> getCoursesOfUser(UserReference reference) {
         UriComponentsBuilder builder = buildDefaultUriBuilder(reference, MOODLE_GET_COURSES_FUNCTION).queryParam(
-                "userid", reference.getReferenceUser()
-                                   .getReferenceUserId());
+                "userid",
+                reference.getReferenceUser().getReferenceUserId());
         ResponseEntity<JsonNode> entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
                                                                                 .expand(builder.toUriString())
                                                                                 .toString(), JsonNode.class);
-        if (!entity.getStatusCode()
-                   .is2xxSuccessful()) {
+        if (!entity.getStatusCode().is2xxSuccessful()) {
             log.error("[Service moodle] Fail to get courses from Moodle");
             throw new MoodleCourseException("Fail to get courses from Moodle");
         }
@@ -500,42 +467,36 @@ public class ServiceMoodle {
         ResponseEntity<JsonNode> entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
                                                                                 .expand(getTokenParams.toUriString())
                                                                                 .toString(), JsonNode.class);
-        if (!entity.getStatusCode()
-                   .is2xxSuccessful() || entity.getBody() == null) {
+        if (!entity.getStatusCode().is2xxSuccessful() || entity.getBody() == null) {
             log.error("[Service moodle] Can sign in by moodle account");
             throw new MoodleAuthenticationException("Fail to signin by moodle account " + request.getUsername());
         }
-        String token = entity.getBody()
-                             .get("token")
-                             .asText();
+        String token = entity.getBody().get("token").asText();
         // Enrich user id by token
-        UriComponentsBuilder getSiteInfoParams = buildDefaultUriBuilder(token, request.getMoodleUrl(),
-                MOODLE_GET_SITE_INFO_FUNCTION);
+        UriComponentsBuilder getSiteInfoParams = buildDefaultUriBuilder(token,
+                                                                        request.getMoodleUrl(),
+                                                                        MOODLE_GET_SITE_INFO_FUNCTION);
         entity = moodleClient.getForEntity(getSiteInfoParams.toUriString(), JsonNode.class);
-        if (!entity.getStatusCode()
-                   .is2xxSuccessful() || entity.getBody() == null) {
+        if (!entity.getStatusCode().is2xxSuccessful() || entity.getBody() == null) {
             log.error("[Service moodle] Can enrich user info by moodle account");
-            throw new MoodleAuthenticationException(
-                    "Fail to enrich user info by moodle account " + request.getUsername());
+            throw new MoodleAuthenticationException("Fail to enrich user info by moodle account " + request.getUsername());
         }
-        long referenceUserId = entity.getBody()
-                                     .get("userid")
-                                     .asLong();
+        long referenceUserId = entity.getBody().get("userid").asLong();
         // Enrich user info from user id
-        UriComponentsBuilder enrichUserInfoParams = buildDefaultUriBuilder(token, request.getMoodleUrl(),
-                MOODLE_GET_OWNERS_FUNCTION).queryParam("field", "id")
-                                           .queryParam("values[]", referenceUserId);
+        UriComponentsBuilder enrichUserInfoParams = buildDefaultUriBuilder(token,
+                                                                           request.getMoodleUrl(),
+                                                                           MOODLE_GET_OWNERS_FUNCTION).queryParam(
+                "field",
+                "id").queryParam("values[]", referenceUserId);
         entity = moodleClient.getForEntity(enrichUserInfoParams.toUriString(), JsonNode.class);
-        if (!entity.getStatusCode()
-                   .is2xxSuccessful()) {
+        if (!entity.getStatusCode().is2xxSuccessful()) {
             log.error("[Service moodle] Fail to enrich submission owners");
             throw new MoodleSubmissionException("Fail to enrich submission owners");
         }
         return UserReference.builder()
                             .token(token)
                             .moodleUrl(request.getMoodleUrl())
-                            .referenceUser(MoodleUser.from(Objects.requireNonNull(entity.getBody())
-                                                                  .get(0)))
+                            .referenceUser(MoodleUser.from(Objects.requireNonNull(entity.getBody()).get(0)))
                             .build();
     }
 
@@ -545,15 +506,12 @@ public class ServiceMoodle {
         builder.queryParam("value", courseId);
         ResponseEntity<JsonNode> entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
                                                                                 .expand(builder.toUriString()),
-                JsonNode.class);
-        if (!entity.getStatusCode()
-                   .is2xxSuccessful()) {
+                                                                    JsonNode.class);
+        if (!entity.getStatusCode().is2xxSuccessful()) {
             log.error("[Service moodle] Fail to enrich course detail content");
             throw new MoodleCourseException("Fail to enrich course detail");
         }
-        return Course.asDetail(Objects.requireNonNull(entity.getBody())
-                                      .get("courses")
-                                      .get(0));
+        return Course.asDetail(Objects.requireNonNull(entity.getBody()).get("courses").get(0));
     }
 
 }

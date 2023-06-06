@@ -20,8 +20,9 @@ public class DetectSelectedSubmissionJobFactory {
     @Autowired
     public DetectSelectedSubmissionJobFactory(RepoSimilarityReport repoSimilarityReport,
                                               RepoSubmission repoSubmission,
-                                              @Lazy  ServiceQuery serviceQuery,
-                                              RepoElasticsearchDelete repoElasticsearchDelete, RestTemplate moodleClient) {
+                                              @Lazy ServiceQuery serviceQuery,
+                                              RepoElasticsearchDelete repoElasticsearchDelete,
+                                              RestTemplate moodleClient) {
         this.repoSimilarityReport = repoSimilarityReport;
         this.repoSubmission = repoSubmission;
         this.serviceQuery = serviceQuery;
@@ -30,14 +31,12 @@ public class DetectSelectedSubmissionJobFactory {
     }
 
     public DetectSelectedSubmissionJob newInstance(DetectSelectedSubmissionJob.DetectSelectedSubmissionJobBuilder builder) {
-        return builder
-                .repoSimilarityReport(repoSimilarityReport)
-                .repoSubmission(repoSubmission)
-                .repoElasticsearchDelete(repoElasticsearchDelete)
-
-                .serviceQuery(serviceQuery)
-                .moodleClient(moodleClient)
-                .build();
+        return builder.repoSimilarityReport(repoSimilarityReport)
+                      .repoSubmission(repoSubmission)
+                      .repoElasticsearchDelete(repoElasticsearchDelete)
+                      .serviceQuery(serviceQuery)
+                      .moodleClient(moodleClient)
+                      .build();
 
     }
 }

@@ -57,13 +57,13 @@ public class Submission {
             }
 
             @Override
-            public java.time.ZonedDateTime getCreatedAt() {
-                return createdAt;
+            public long getCreatedAt() {
+                return createdAt.getSecond();
             }
 
             @Override
-            public java.time.ZonedDateTime getUpdatedAt() {
-                return updatedAt;
+            public long getUpdatedAt() {
+                return updatedAt.getSecond();
             }
 
             @Override
@@ -81,9 +81,9 @@ public class Submission {
     public interface SubmissionDTO {
         long getId();
 
-        java.time.ZonedDateTime getCreatedAt();
+        long getCreatedAt();
 
-        java.time.ZonedDateTime getUpdatedAt();
+        long getUpdatedAt();
 
         MoodleUser.MoodleUserDTO getOwner();
 
