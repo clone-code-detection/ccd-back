@@ -24,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/moodle")
@@ -87,11 +88,14 @@ public class MoodleController {
         return serviceMoodle.getAssignDetail(courseId, assignId, pageable);
     }
 
-    @PostMapping(path = "/detect-submissions")
+    @PostMapping(path = "/detect-submissions", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     @ResponseStatus(HttpStatus.OK)
-    public MoodleResponse detectSelectedSubmissions(@RequestBody DetectRequest request,
+    public MoodleResponse detectSelectedSubmissions(@RequestParam(value = "submission_ids") List<Long> ids,
                                                     @RequestParam(value = "type", required = false, defaultValue = "1") Integer type,
                                                     @RequestParam(value = "minimum_should_match", required = false, defaultValue = "70%") String minimumShouldMatch) {
+        DetectRequest request = DetectRequest.builder()
+                                             .submissionIds(ids)
+                                             .build();
         QueryInstruction queryInstruction = QueryInstruction.builder()
                                                             .minimumShouldMatch(minimumShouldMatch)
                                                             .type(type)
