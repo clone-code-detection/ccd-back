@@ -10,11 +10,9 @@ import java.util.Map;
 @Builder
 @Data
 @AllArgsConstructor
-public class QueryInstruction {
+public class QueryInstruction implements Cloneable {
     private Map<String, Object> queryMeta; // Other meta data for future api
 
-    @Getter(AccessLevel.NONE)
-    @Setter(AccessLevel.NONE)
     @NotNull
     private FileDocument queryDocument;
 
@@ -31,5 +29,18 @@ public class QueryInstruction {
 
     public String getContent() {
        return queryDocument.getContentAsString();
+    }
+
+    @Override
+    public QueryInstruction clone() {
+        try {
+            QueryInstruction clone = (QueryInstruction) super.clone();
+            clone.type = this.type;
+            clone.minimumShouldMatch = this.minimumShouldMatch;
+            clone.queryDocument = null;
+            return clone;
+        } catch (CloneNotSupportedException e) {
+            throw new AssertionError();
+        }
     }
 }

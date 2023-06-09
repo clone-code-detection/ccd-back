@@ -82,17 +82,16 @@ public class DetectSimilarityJob implements Runnable {
         String minimumShouldMatch = queryInstruction.getMinimumShouldMatch();
         Collection<ReportSourceDocument> reportSourceDocuments = new ArrayList<>();
         int startIndex = 0;
+        List<FileDocument> asList = files.stream()
+                                         .toList();
         while (startIndex < files.size()) {
             int endIndex = Math.min(batchSize + startIndex, files.size());
             // Create multisearch query
             Collection<QueryInstruction> instructions = new ArrayList<>();
             for (int i = startIndex; i < endIndex; ++i) {
-                instructions.add(QueryInstruction.builder()
-                                                 .queryDocument(files.stream()
-                                                                     .toList()
-                                                                     .get(i))
-                                                 .minimumShouldMatch(minimumShouldMatch)
-                                                 .build());
+                QueryInstruction instruction = queryInstruction.clone();
+                instruction.setQueryDocument(asList.get(i));
+                instructions.add(instruction);
             }
             try {
                 MultiSearchResponse multiSearchResponse = repoElasticsearchQuery.multiquery(instructions);
@@ -102,8 +101,7 @@ public class DetectSimilarityJob implements Runnable {
                         log.error("[Service highlight] Search response in multi highlight is fail. Error: {}",
                                 searchResponse.getFailureMessage());
                     } else if (searchResponse.getResponse() != null) {
-                        reportSourceDocuments.add(serviceQuery.parseResponse(files.stream()
-                                                                                  .toList()
+                        reportSourceDocuments.add(serviceQuery.parseResponse(asList
                                                                                   .get(index + startIndex),
                                 searchResponse.getResponse()));
                     }

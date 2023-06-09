@@ -21,6 +21,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
+import org.springframework.validation.annotation.Validated;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,8 +43,10 @@ public class RepoElasticsearchQuery {
 
     @NonNull
     private static TermVectorsRequest buildTermVectorsRequest(FileDocument fileDocument) {
-        String index = LanguageUtil.getInstance().getIndexFromFileName(fileDocument.getFileName());
-        String uuid = fileDocument.getId().toString();
+        String index = LanguageUtil.getInstance()
+                                   .getIndexFromFileName(fileDocument.getFileName());
+        String uuid = fileDocument.getId()
+                                  .toString();
         TermVectorsRequest template = new TermVectorsRequest(index, uuid);
         template.setOffsets(true);
         template.setPositions(true);
@@ -52,9 +55,13 @@ public class RepoElasticsearchQuery {
         return template;
     }
 
-    protected static List<QueryBuilder> buildMustQuery(QueryInstruction queryInstruction) {
+    protected static List<QueryBuilder> buildMustQuery(@Validated QueryInstruction queryInstruction) {
         String minimumShouldMatch = queryInstruction.getMinimumShouldMatch();
         String field;
+        log.info("Querying with config: min match {} and field {} and language {}",
+                minimumShouldMatch,
+                queryInstruction.getType(),
+                queryInstruction.getLanguage());
         if (1 == queryInstruction.getType()) field = SOURCE_CODE_FIELD;
         else field = SOURCE_CODE_FIELD_NORMALIZED;
         return Collections.singletonList(QueryBuilders
@@ -73,7 +80,8 @@ public class RepoElasticsearchQuery {
 
     public MultiSearchResponse multiquery(Collection<QueryInstruction> instructions) throws IOException {
         MultiSearchRequest multiSearchRequest = buildMultisearchRequest(instructions);
-        log.info("[Repo es query] Start multi search for {} documents", multiSearchRequest.requests().size());
+        log.info("[Repo es query] Start multi search for {} documents", multiSearchRequest.requests()
+                                                                                          .size());
         return elasticsearchClient.msearch(multiSearchRequest, RequestOptions.DEFAULT);
     }
 
@@ -116,7 +124,9 @@ public class RepoElasticsearchQuery {
 //        }
 
         SearchRequest searchRequest = new SearchRequest();
-        searchRequest.source(searchSourceBuilder).indices(indexes);
+        log.info("[Repo es] Search request: {}", searchRequest);
+        searchRequest.source(searchSourceBuilder)
+                     .indices(indexes);
         return searchRequest;
     }
 }
