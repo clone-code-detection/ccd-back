@@ -18,10 +18,7 @@ import org.elasticsearch.action.search.MultiSearchResponse;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Builder
@@ -52,46 +49,44 @@ public class DetectSimilarityJob implements Runnable {
             repoSimilarityReport.save(report);
             serviceIndex.bulkIndexAllDocuments(instruction);
         } catch (Exception e) {
-            log.error("[Service highlight] detect highlight session {} failed with error: {}",
-                    report.getName(),
-                    e.getMessage());
+            log.error("[Service highlight] detect report {} failed with error: {}. Method: {}",
+                      report.getName(),
+                      e.getMessage(),
+                      Arrays.stream(e.getStackTrace()).findFirst().orElse(null));
             // Update status to failed for future retry
             report.setStatus(SimilarityReportStatus.FAILED);
             report.setException(new HighlightSessionException("[Service highlight] Error while processing highlight",
-                    e).toString());
+                                                              e).toString());
             repoSimilarityReport.save(report);
         }
     }
 
     @Transactional
     public void markSessionAsProcessing() {
-        report = repoSimilarityReport.findById(reportId)
-                                     .orElseThrow();
+        report = repoSimilarityReport.findById(reportId).orElseThrow();
         try {
             repoSimilarityReport.updateStatusByIdEquals(SimilarityReportStatus.PROCESSING, report.getId());
         } catch (Exception e) {
             log.error("[Service highlight] Can't update session to PROCESSING");
             report.setStatus(SimilarityReportStatus.FAILED);
             report.setException(new HighlightSessionException("[Service highlight] Can't update session to PROCESSING",
-                    e).toString());
+                                                              e).toString());
             repoSimilarityReport.save(report);
         }
     }
 
     public Collection<ReportSourceDocument> multiHighlight(Collection<FileDocument> files) {
-        String minimumShouldMatch = queryInstruction.getMinimumShouldMatch();
         Collection<ReportSourceDocument> reportSourceDocuments = new ArrayList<>();
         int startIndex = 0;
-        List<FileDocument> asList = files.stream()
-                                         .toList();
+        List<FileDocument> asList = files.stream().toList();
         while (startIndex < files.size()) {
             int endIndex = Math.min(batchSize + startIndex, files.size());
             // Create multisearch query
             Collection<QueryInstruction> instructions = new ArrayList<>();
             for (int i = startIndex; i < endIndex; ++i) {
-                QueryInstruction instruction = queryInstruction.clone();
-                instruction.setQueryDocument(asList.get(i));
-                instructions.add(instruction);
+                QueryInstruction cloneQueryInstruction = queryInstruction.clone();
+                cloneQueryInstruction.setQueryDocument(asList.get(i));
+                instructions.add(cloneQueryInstruction);
             }
             try {
                 MultiSearchResponse multiSearchResponse = repoElasticsearchQuery.multiquery(instructions);
@@ -99,11 +94,10 @@ public class DetectSimilarityJob implements Runnable {
                     MultiSearchResponse.Item searchResponse = multiSearchResponse.getResponses()[index];
                     if (searchResponse.isFailure()) {
                         log.error("[Service highlight] Search response in multi highlight is fail. Error: {}",
-                                searchResponse.getFailureMessage());
+                                  searchResponse.getFailureMessage());
                     } else if (searchResponse.getResponse() != null) {
-                        reportSourceDocuments.add(serviceQuery.parseResponse(asList
-                                                                                  .get(index + startIndex),
-                                searchResponse.getResponse()));
+                        reportSourceDocuments.add(serviceQuery.parseResponse(asList.get(index + startIndex),
+                                                                             searchResponse.getResponse()));
                     }
                 }
             } catch (IOException e) {
