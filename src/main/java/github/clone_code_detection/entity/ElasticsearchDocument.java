@@ -25,6 +25,9 @@ public class ElasticsearchDocument {
     @JsonProperty("source_code")
     String sourceCode;
 
+    @JsonProperty("source_code_normalized")
+    String sourceCodeNormalized;
+
     @JsonIgnore
     String id;
 
@@ -37,6 +40,7 @@ public class ElasticsearchDocument {
         String esId = String.valueOf(fileDocument.getId());
         return ElasticsearchDocument.builder()
                                     .sourceCode(contentAsString)
+                                    .sourceCodeNormalized(contentAsString)
                                     .id(esId)
                                     .build();
     }

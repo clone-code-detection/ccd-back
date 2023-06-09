@@ -222,8 +222,9 @@ public class ServiceQuery {
         List<ReportSourceDocument> hits = new ArrayList<>();
         for (FileDocument sourceDocument : sourceDocuments) {
             // for each document, get highlight request
-            ReportSourceDocument reportSourceDocument = extractSingleDocument(sourceDocument,
-                    queryInstruction);
+            QueryInstruction instruction = queryInstruction.clone();
+            instruction.setQueryDocument(sourceDocument);
+            ReportSourceDocument reportSourceDocument = extractSingleDocument(sourceDocument, instruction);
             hits.add(reportSourceDocument);
         }
         // Build highlight session
