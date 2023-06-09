@@ -1,6 +1,7 @@
 package github.clone_code_detection.entity.highlight.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
 import github.clone_code_detection.entity.highlight.document.SimilarityReport;
 import github.clone_code_detection.entity.highlight.document.SimilarityReportStatus;
 import lombok.AllArgsConstructor;
@@ -48,13 +49,14 @@ public class SimilarityReportOverviewDTO {
         private int matchedFiles;
 
         private static ReportDetail from(SimilarityReport.SimilarityReportDTO report) {
+            Collection<ReportSourceDocument> sources = report.getSources();
             return ReportDetail.builder()
                                .id(report.getId())
                                .name(report.getName())
                                .created(report.getCreated())
                                .status(report.getStatus())
-                               .totalFiles(report.getSources().size())
-                               .matchedFiles((int) report.getSources()
+                               .totalFiles(sources.size())
+                               .matchedFiles((int) sources
                                                          .stream()
                                                          .filter(match -> !match.getMatches().isEmpty())
                                                          .count())
