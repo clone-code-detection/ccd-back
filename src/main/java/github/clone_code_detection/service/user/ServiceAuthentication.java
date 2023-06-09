@@ -17,6 +17,7 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.Nullable;
 import java.text.MessageFormat;
 
 @Service
@@ -29,11 +30,22 @@ public class ServiceAuthentication {
 
 
     @Autowired
-    public ServiceAuthentication(PasswordEncoder passwordEncoder, RepoUser repo,
+    public ServiceAuthentication(PasswordEncoder passwordEncoder,
+                                 RepoUser repo,
                                  AuthenticationManager authenticationManager) {
         this.passwordEncoder = passwordEncoder;
         this.repo = repo;
         this.authenticationManager = authenticationManager;
+    }
+
+    /**
+     * Get user from SecurityContextHolder
+     */
+    @Nullable
+    public static UserImpl getUserFromContext() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication.getPrincipal() instanceof UserImpl userImpl) return userImpl;
+        return null;
     }
 
     public boolean usernameExists(String username) {
@@ -47,35 +59,28 @@ public class ServiceAuthentication {
     // https://stackoverflow.com/questions/5428654/spring-security-auto-login-not-persisted-in-httpsession
     public UserImpl signIn(SignInRequest request, HttpServletRequest httpServletRequest) {
         Authentication authentication = authenticationManager.authenticate(request.toUsernamePasswordToken());
-        SecurityContextHolder.getContext()
-                             .setAuthentication(authentication);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
         httpServletRequest.getSession()
                           .setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
-                                  SecurityContextHolder.getContext());
+                                        SecurityContextHolder.getContext());
         return (UserImpl) authentication.getPrincipal();
     }
 
     public UserImpl create(SignUpRequest request) {
-        assert request.getPassword()
-                      .equals(request.getRepeat()) : "Repeat password field does not match";
+        assert request.getPassword().equals(request.getRepeat()) : "Repeat password field does not match";
 
         if (this.usernameExists(request.getUsername()))
             throw new UserExistedException(MessageFormat.format("User {0} already existed", request.getUsername()));
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         // Create new user's account
-        UserImpl user = UserImpl.builder()
-                                .username(request.getUsername())
-                                .password(encodedPassword)
-                                .build();
-        if (request.getIsStandalone()) user = repo.createStandaloneUser(user);
+        UserImpl user = UserImpl.builder().username(request.getUsername()).password(encodedPassword).build();
+        if (Boolean.TRUE.equals(request.getIsStandalone())) user = repo.createStandaloneUser(user);
         else user = repo.createOrgUser(user);
 
         return user;
     }
 
     public UserImpl info(HttpServletRequest request) {
-        return (UserImpl) SecurityContextHolder.getContext()
-                                               .getAuthentication()
-                                               .getPrincipal();
+        return (UserImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
 }

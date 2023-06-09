@@ -1,5 +1,6 @@
 package github.clone_code_detection.entity.authenication;
 
+import github.clone_code_detection.entity.moodle.UserReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,7 +14,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Builder
 @Data
@@ -38,6 +38,9 @@ public class UserImpl implements UserDetails {
     @JoinTable(name = "relation_user_role", schema = "authen", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Collection<Role> roles;
 
+    @OneToOne(mappedBy = "internalUser", cascade = {CascadeType.ALL})
+    private UserReference reference;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         List<String> authorities = new ArrayList<>();
@@ -49,9 +52,7 @@ public class UserImpl implements UserDetails {
                 authorities.add(authorityName);
             }
         }
-        return authorities.stream()
-                          .map(SimpleGrantedAuthority::new)
-                          .collect(Collectors.toList());
+        return authorities.stream().map(SimpleGrantedAuthority::new).toList();
     }
 
     @Override

@@ -1,4 +1,4 @@
-package github.clone_code_detection.entity.highlight.report;
+package github.clone_code_detection.entity.highlight.dto;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -10,9 +10,9 @@ import java.util.List;
 
 @Builder
 @Data
-public class HighlightWordMatchDTO {
+public class SimilarityTextMatchDTO {
     @JsonProperty("word")
-    private String word;
+    private String text;
     @JsonProperty("target")
     @Builder.Default
     private List<Integer[]> targetMatches = new ArrayList<>();

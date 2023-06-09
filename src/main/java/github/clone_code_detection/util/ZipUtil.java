@@ -1,10 +1,13 @@
 package github.clone_code_detection.util;
 
 import github.clone_code_detection.entity.fs.FileDocument;
+import github.clone_code_detection.exceptions.UnsupportedLanguage;
 import github.clone_code_detection.exceptions.highlight.FileHandleException;
+import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -14,6 +17,8 @@ import java.util.zip.ZipInputStream;
 
 @Slf4j
 public class ZipUtil {
+    private static final LanguageUtil languageUtil = LanguageUtil.getInstance();
+
     private ZipUtil() {
         throw new IllegalStateException("ZipUtil is utility class");
     }
@@ -32,9 +37,9 @@ public class ZipUtil {
                 byteArrayOutputStream.reset();
                 zipInputStream.transferTo(byteArrayOutputStream);
                 FileDocument fileDocument = FileDocument.builder()
-                        .content(byteArrayOutputStream.toByteArray())
-                        .fileName(zipEntry.getName())
-                        .build();
+                                                        .content(byteArrayOutputStream.toByteArray())
+                                                        .fileName(zipEntry.getName())
+                                                        .build();
                 contents.add(fileDocument);
                 zipEntry = zipInputStream.getNextEntry();
             }
@@ -44,5 +49,40 @@ public class ZipUtil {
             throw new FileHandleException("Error parsing zip file");
         }
         return contents;
+    }
+
+    public static Collection<FileDocument> getFileDocumentFromZipFile(byte @NotNull [] bytes, @NotNull String author) {
+        Collection<FileDocument> fileDocuments = new ArrayList<>();
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes);
+        try (ZipInputStream zipInputStream = new ZipInputStream(byteArrayInputStream)) {
+            ZipEntry zipEntry;
+            while ((zipEntry = zipInputStream.getNextEntry()) != null) {
+                if (zipEntry.isDirectory()) continue;
+                byteArrayOutputStream.reset();
+                extracted(author, fileDocuments, byteArrayOutputStream, zipInputStream, zipEntry);
+            }
+            zipInputStream.closeEntry();
+        } catch (IOException e) {
+            log.error("[Service moodle] Got error while unzip project file: {}", e.getMessage());
+            return new ArrayList<>();
+        }
+        return fileDocuments;
+    }
+
+    private static void extracted(String author,
+                                  Collection<FileDocument> fileDocuments,
+                                  ByteArrayOutputStream byteArrayOutputStream,
+                                  ZipInputStream zipInputStream,
+                                  ZipEntry zipEntry) throws IOException {
+        try {
+            languageUtil.getIndexFromFileName(zipEntry.getName());
+            zipInputStream.transferTo(byteArrayOutputStream);
+            fileDocuments.add(FileDocument.builder()
+                                          .author(author)
+                                          .fileName(zipEntry.getName())
+                                          .content(byteArrayOutputStream.toByteArray())
+                                          .build());
+        } catch (UnsupportedLanguage ignored) {}
     }
 }

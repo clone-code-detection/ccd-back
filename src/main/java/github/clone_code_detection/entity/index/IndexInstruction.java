@@ -19,10 +19,6 @@ public class IndexInstruction {
     @NotEmpty Collection<FileDocument> files;
 
     @NotEmpty
-    @JsonProperty("target_languages")
-    private Collection<String> targetLanguages;
-
-    @NotEmpty
     @JsonProperty("meta")
     private Map<String, Object> meta;
 

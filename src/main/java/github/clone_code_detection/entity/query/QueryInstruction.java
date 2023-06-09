@@ -19,10 +19,10 @@ public class QueryInstruction {
     private FileDocument queryDocument;
 
     @NotNull
-    private String minimumShouldMatch; // Current feature api
+    private Integer type;
 
     @NotNull
-    private Boolean includeHighlight = false;
+    private String minimumShouldMatch; // Current feature api
 
     public String getLanguage() {
         return LanguageUtil.getInstance()

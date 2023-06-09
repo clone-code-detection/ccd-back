@@ -12,7 +12,7 @@ import java.util.Collection;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class HighlightSessionRequest {
-    private String sessionName;
+public class SimilarityDetectRequest {
+    private String reportName;
     private Collection<FileDocument> sources;
 }

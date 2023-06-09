@@ -33,7 +33,6 @@ public class RepoElasticsearchIndex {
         try {
             IndexRequest source = new IndexRequest(lang).source(doc.asJson(), XContentType.JSON);
             if (doc.getId() != null) source.id(doc.getId());
-            log.info("[Repo es index] Index document id: {}", source.id());
             return source;
         } catch (JsonProcessingException e) {
             throw new ElasticsearchRequestBuildException("Failed to build index request");

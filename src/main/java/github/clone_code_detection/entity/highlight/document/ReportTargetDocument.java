@@ -16,8 +16,8 @@ import java.util.UUID;
 @Data
 
 @Entity
-@Table(name = "highlight_single_target_match", schema = "highlight")
-public class HighlightSingleTargetMatchDocument {
+@Table(name = "report_target_document", schema = "highlight")
+public class ReportTargetDocument {
     @Id
     @Column(name = "id", columnDefinition = "uuid")
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -31,6 +31,6 @@ public class HighlightSingleTargetMatchDocument {
     private Float score;
 
     @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
-    @JoinColumn(name = "single_document_id")
-    private HighlightSingleDocument source;
+    @JoinColumn(name = "source_document_id")
+    private ReportSourceDocument source;
 }

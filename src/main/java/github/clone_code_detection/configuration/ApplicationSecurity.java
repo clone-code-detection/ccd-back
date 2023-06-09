@@ -41,13 +41,35 @@ import java.util.List;
 @Profile("security")
 @Slf4j
 public class ApplicationSecurity {
+    private static final ObjectMapper om = new ObjectMapper();
+    private static final AuthenticationEntryPoint getAuthenticationEntryPoint = (request, response, authException) -> {
+        int statusCode = HttpStatus.INTERNAL_SERVER_ERROR.value();
+        ProblemDetail problemDetail = null;
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        log.info("Authen: {}", authentication);
+        if (authException instanceof InsufficientAuthenticationException) {
+            statusCode = HttpStatus.UNAUTHORIZED.value();
+            problemDetail = ProblemDetailUtil.forTypeAndStatusAndDetail("undocumented",
+                                                                        HttpStatus.UNAUTHORIZED,
+                                                                        authException.getMessage());
+        } else {
+            problemDetail = ProblemDetailUtil.forTypeAndStatusAndDetail("undocumented",
+                                                                        HttpStatus.INTERNAL_SERVER_ERROR,
+                                                                        authException.getMessage());
+        }
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setStatus(statusCode);
+        response.getOutputStream().print(om.writeValueAsString(problemDetail));
+    };
+
     @Bean
     public PasswordEncoder getPasswordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(PasswordEncoder passwordEncoder, UserDetailsService userDetailsService) {
+    public AuthenticationManager authenticationManager(PasswordEncoder passwordEncoder,
+                                                       UserDetailsService userDetailsService) {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder);
@@ -58,12 +80,13 @@ public class ApplicationSecurity {
      * @param http
      * @param authenticationManager
      * @return
+     *
      * @throws Exception
      * @implNote https://stackoverflow.com/questions/25230861/spring-security-get-user-info-in-rest-service-for-authenticated-and-not-authent/25280897#25280897
      */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http,
-                                           @Autowired AuthenticationManager authenticationManager) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, @Autowired AuthenticationManager authenticationManager)
+            throws Exception {
         CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
         // set the name of the attribute the CsrfToken will be populated on
         requestHandler.setCsrfRequestAttributeName("_csrf");
@@ -73,42 +96,14 @@ public class ApplicationSecurity {
             .csrfTokenRepository(new HttpSessionCsrfTokenRepository())
             .and()
             .cors()
-            .configurationSource(corsConfigurationSource())
-        ;
-        http.authorizeHttpRequests()
-            .requestMatchers("/authentication/**", "/csrf/**",  "/api/highlight/**")
-            .permitAll()
+            .configurationSource(corsConfigurationSource());
+        http.authorizeHttpRequests().requestMatchers("/authentication/**", "/csrf/**", "/api/highlight/**").permitAll()
 
-            .anyRequest()
-            .authenticated();
-        http.exceptionHandling()
-            .authenticationEntryPoint(getAuthenticationEntryPoint);
+            .anyRequest().authenticated();
+        http.exceptionHandling().authenticationEntryPoint(getAuthenticationEntryPoint);
         http.authenticationManager(authenticationManager);
         return http.build();
     }
-
-    private static final ObjectMapper om = new ObjectMapper();
-
-    private static final AuthenticationEntryPoint getAuthenticationEntryPoint = (request, response, authException) -> {
-        int statusCode = HttpStatus.INTERNAL_SERVER_ERROR.value();
-        ProblemDetail problemDetail = null;
-        Authentication authentication = SecurityContextHolder.getContext()
-                                                             .getAuthentication();
-        log.info("Authen: {}", authentication);
-        if (authException instanceof InsufficientAuthenticationException) {
-            statusCode = HttpStatus.UNAUTHORIZED.value();
-            problemDetail = ProblemDetailUtil.forTypeAndStatusAndDetail("undocumented", HttpStatus.UNAUTHORIZED,
-                    authException.getMessage());
-        } else {
-            problemDetail = ProblemDetailUtil.forTypeAndStatusAndDetail("undocumented",
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    authException.getMessage());
-        }
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setStatus(statusCode);
-        response.getOutputStream()
-                .print(om.writeValueAsString(problemDetail));
-    };
 
     // https://stackoverflow.com/questions/51719889/spring-boot-cors-issue
     @Bean
