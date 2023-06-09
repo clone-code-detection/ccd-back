@@ -39,6 +39,7 @@ public class UserImpl implements UserDetails {
     private Collection<Role> roles;
 
     @OneToOne(mappedBy = "internalUser", cascade = {CascadeType.ALL})
+    @Transient
     private UserReference reference;
 
     @Override
