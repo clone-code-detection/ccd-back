@@ -15,4 +15,6 @@ import java.util.Collection;
 public class SimilarityDetectRequest {
     private String reportName;
     private Collection<FileDocument> sources;
+    private String author;
+    private String origin;
 }
