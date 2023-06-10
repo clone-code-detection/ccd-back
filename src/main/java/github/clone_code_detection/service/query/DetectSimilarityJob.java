@@ -46,8 +46,11 @@ public class DetectSimilarityJob implements Runnable {
             List<ReportSourceDocument> hits = new ArrayList<>(multiHighlight(files));
             report.setSources(hits);
             report.setStatus(SimilarityReportStatus.DONE);
-            repoSimilarityReport.save(report);
+            SimilarityReport savedSimilarityReport = repoSimilarityReport.save(report);
+
             serviceIndex.bulkIndexAllDocuments(instruction);
+            serviceQuery.calculatePercentageMatches(savedSimilarityReport);
+
         } catch (Exception e) {
             log.error("[Service highlight] detect report {} failed with error: {}. Method: {}",
                       report.getName(),

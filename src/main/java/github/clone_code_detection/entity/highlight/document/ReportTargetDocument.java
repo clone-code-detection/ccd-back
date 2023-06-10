@@ -30,6 +30,9 @@ public class ReportTargetDocument {
     @Column(name = "score")
     private Float score;
 
+    @Column(name = "percentage_match")
+    private Double percentageMatch;
+
     @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
     @JoinColumn(name = "source_document_id")
     private ReportSourceDocument source;
