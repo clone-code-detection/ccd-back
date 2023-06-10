@@ -3,28 +3,21 @@ package github.clone_code_detection.service.moodle;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import github.clone_code_detection.entity.authenication.UserImpl;
-import github.clone_code_detection.entity.fs.FileDocument;
-import github.clone_code_detection.entity.highlight.request.SimilarityDetectRequest;
 import github.clone_code_detection.entity.moodle.*;
 import github.clone_code_detection.entity.moodle.dto.AssignDTO;
 import github.clone_code_detection.entity.moodle.dto.CourseDTO;
 import github.clone_code_detection.entity.moodle.dto.CourseOverviewDTO;
 import github.clone_code_detection.entity.moodle.dto.MoodleLinkRequest;
 import github.clone_code_detection.entity.query.QueryInstruction;
-import github.clone_code_detection.exceptions.UnsupportedLanguage;
 import github.clone_code_detection.exceptions.moodle.MoodleAssignmentException;
 import github.clone_code_detection.exceptions.moodle.MoodleAuthenticationException;
 import github.clone_code_detection.exceptions.moodle.MoodleCourseException;
 import github.clone_code_detection.exceptions.moodle.MoodleSubmissionException;
 import github.clone_code_detection.repo.*;
 import github.clone_code_detection.service.user.ServiceAuthentication;
-import github.clone_code_detection.util.FileSystemUtil;
-import github.clone_code_detection.util.LanguageUtil;
 import github.clone_code_detection.util.TimeUtil;
-import github.clone_code_detection.util.ZipUtil;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.http.auth.AuthenticationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,15 +28,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 @Service
 @Validated
@@ -56,7 +44,6 @@ public class ServiceMoodle {
     private static final String MOODLE_GET_OWNERS_FUNCTION = "core_user_get_users_by_field";
     private static final String MOODLE_GET_COURSE_DETAIL_FUNCTION = "core_course_get_courses_by_field";
     private static final String MOODLE_GET_SITE_INFO_FUNCTION = "core_webservice_get_site_info";
-    private static final LanguageUtil languageUtil = LanguageUtil.getInstance();
     private final ThreadPoolExecutor threadPoolExecutor;
     private final RepoUser repoUser;
     private final RepoMoodleUser repoMoodleUser;
@@ -89,70 +76,6 @@ public class ServiceMoodle {
         this.repoUser = repoUser;
         this.detectSelectedSubmissionJobFactory = detectSelectedSubmissionJobFactory;
         this.repoUserReference = userReference;
-    }
-
-    public static Collection<SimilarityDetectRequest> unzipMoodleFileAndGetRequests(@NotNull MultipartFile source)
-            throws IOException {
-        // Moodle zip file has structure as list of folder, each folder is student's list file submissions
-        ArrayList<SimilarityDetectRequest> requests = new ArrayList<>(); // Each request will be the highlight session
-        // Create zip handler for root zip file which got grom moodle
-        try (ZipInputStream zipInputStream = new ZipInputStream(source.getInputStream())) {
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            ZipEntry zipEntry;
-            // Loop over each student submission file, which can be source code file or zip file
-            while ((zipEntry = zipInputStream.getNextEntry()) != null) {
-                // If entry is the source code file then create new session
-                String author = zipEntry.getName().split("/")[0];
-                String sessionName = String.format("%s/%s",
-                                                   FileSystemUtil.getFileName(source.getOriginalFilename()),
-                                                   FileSystemUtil.getFileName(zipEntry.getName()));
-                if (zipEntry.isDirectory()) {
-                    continue;
-                }
-                byteArrayOutputStream.reset();
-                // get the exists highlight session request or new request which has been added into Collection
-                SimilarityDetectRequest request = getExistRequestOrCreateNew(requests, sessionName);
-
-                Collection<FileDocument> fileDocuments = new ArrayList<>();
-                zipInputStream.transferTo(byteArrayOutputStream);
-                switch (FilenameUtils.getExtension(zipEntry.getName())) {
-                    case "" -> {
-                        continue;
-                    }
-                    case "zip" ->
-                            fileDocuments.addAll(ZipUtil.getFileDocumentFromZipFile(byteArrayOutputStream.toByteArray(),
-                                                                                    author));
-                    default -> {
-                        try {
-                            languageUtil.getIndexFromFileName(zipEntry.getName());
-                            // For source code file, only 1 file document is created
-                            fileDocuments.add(FileDocument.builder()
-                                                          .content(byteArrayOutputStream.toByteArray())
-                                                          .fileName(zipEntry.getName())
-                                                          .author(author)
-                                                          .build());
-                        } catch (UnsupportedLanguage ignored) {
-                        }
-
-                    }
-                }
-                if (!fileDocuments.isEmpty())
-                    request.setSources(fileDocuments);
-            }
-        }
-
-        return requests;
-    }
-
-    private static SimilarityDetectRequest getExistRequestOrCreateNew(ArrayList<SimilarityDetectRequest> requests,
-                                                                      String sessionName) {
-        for (SimilarityDetectRequest request : requests) {
-            if (request.getReportName().equals(sessionName))
-                return request;
-        }
-        SimilarityDetectRequest request = SimilarityDetectRequest.builder().reportName(sessionName).build();
-        requests.add(request);
-        return request;
     }
 
     @NotNull
@@ -231,7 +154,11 @@ public class ServiceMoodle {
                                                                         .orElse(null);
         if (assign == null)
             throw new MoodleAssignmentException("Assignment not found");
-        List<Submission> submissions = getSubmissionsInCourse(courseId, List.of(assignId), user.getReference());
+        List<Submission> submissions = getSubmissionsInCourse(courseId,
+                                                              assign.getCourseName(),
+                                                              assign.getName(),
+                                                              List.of(assignId),
+                                                              user.getReference());
         submissions = repoSubmission.saveAll(submissions);
         submissions.sort(Comparator.comparing(Submission::getId));
         assignDTO.setAssign(assign);
@@ -275,11 +202,15 @@ public class ServiceMoodle {
     private List<Assign> fulfillAssignments(JsonNode data) {
         JsonNode moodleCourses = data.get("courses");
         List<Assign> assigns = new ArrayList<>();
-        moodleCourses.forEach(moodleCourse -> assigns.addAll(Assign.from(moodleCourse.get("assignments"))));
+        moodleCourses.forEach(moodleCourse -> assigns.addAll(Assign.from(moodleCourse)));
         return assigns;
     }
 
-    private List<Submission> getSubmissionsInCourse(long courseId, List<Long> assignIds, UserReference reference) {
+    private List<Submission> getSubmissionsInCourse(long courseId,
+                                                    String courseName,
+                                                    String assignName,
+                                                    List<Long> assignIds,
+                                                    UserReference reference) {
         UriComponentsBuilder builder = buildDefaultUriBuilder(reference, MOODLE_GET_SUBMISSIONS_FUNCTION);
         assignIds.forEach(assignId -> builder.queryParam("assignmentids[]", assignId));
         ResponseEntity<JsonNode> entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
@@ -289,10 +220,18 @@ public class ServiceMoodle {
             log.error("[Service moodle] Fail to get submissions by assignments");
             throw new MoodleSubmissionException("Fail to enrich submissions");
         }
-        return parseSubmissions(Objects.requireNonNull(entity.getBody()).get("assignments"), courseId, reference);
+        return parseSubmissions(Objects.requireNonNull(entity.getBody()).get("assignments"),
+                                courseId,
+                                courseName,
+                                assignName,
+                                reference);
     }
 
-    private List<Submission> parseSubmissions(@NotNull JsonNode assignments, long courseId, UserReference reference) {
+    private List<Submission> parseSubmissions(@NotNull JsonNode assignments,
+                                              long courseId,
+                                              String courseName,
+                                              String assignName,
+                                              UserReference reference) {
         List<Submission> submissions = new ArrayList<>();
         Set<Long> ownerIds = new HashSet<>();
         Map<Long, List<Long>> mapListSubmissionIdByOwnerId = new HashMap<>();
@@ -321,6 +260,8 @@ public class ServiceMoodle {
                                                                                                 .asLong()))
                                            .courseId(courseId)
                                            .assignId(assignId)
+                                           .courseName(courseName)
+                                           .assignName(assignName)
                                            .relations(relations)
                                            .owner(owner)
                                            .build();
@@ -475,7 +416,8 @@ public class ServiceMoodle {
         entity = moodleClient.getForEntity(getSiteInfoParams.toUriString(), JsonNode.class);
         if (!entity.getStatusCode().is2xxSuccessful() || entity.getBody() == null) {
             log.error("[Service moodle] Can enrich user info by moodle account");
-            throw new MoodleAuthenticationException("Fail to enrich user info by moodle account " + request.getUsername());
+            throw new MoodleAuthenticationException(
+                    "Fail to enrich user info by moodle account " + request.getUsername());
         }
         long referenceUserId = entity.getBody().get("userid").asLong();
         // Enrich user info from user id

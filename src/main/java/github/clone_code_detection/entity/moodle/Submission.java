@@ -26,8 +26,14 @@ public class Submission {
     @Column(name = "course_id")
     private long courseId;
 
+    @Column(name = "course_name")
+    private String courseName;
+
     @Column(name = "assign_id")
     private long assignId;
+
+    @Column(name = "assign_name")
+    private String assignName;
 
     @Column(name = "reference_submission_id")
     private long referenceSubmissionId; // The submission id of moodle

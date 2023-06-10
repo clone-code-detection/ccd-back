@@ -16,22 +16,28 @@ import java.util.List;
 @AllArgsConstructor
 public class Assign {
     private long id;
-    @JsonProperty("cm_id")
-    private long cmId;
     private String name;
     @JsonProperty("due_date")
     private long dueDate;
     private String intro; // WARNING: this intro is the html element as string. Ex: "<p dir=\"ltr\" style=\"text-align: left;\">Add zip file for highlighting&nbsp;</p>"
+    private long courseId;
+    private String courseName;
 
-    public static List<Assign> from(JsonNode moodleAssigns) {
+    public static List<Assign> from(JsonNode moodleCourse) {
         List<Assign> assigns = new ArrayList<>();
-        moodleAssigns.forEach(moodleAssign -> assigns.add(Assign.builder()
-                                                                .id(moodleAssign.get("id").asLong())
-                                                                .cmId(moodleAssign.get("cmid").asLong())
-                                                                .dueDate(moodleAssign.get("duedate").asLong())
-                                                                .name(moodleAssign.get("name").asText())
-                                                                .intro(moodleAssign.get("intro").asText())
-                                                                .build()));
+        long courseId = moodleCourse.get("id").asLong();
+        String courseName = moodleCourse.get("fullname").asText();
+        moodleCourse.get("assignments").forEach(moodleAssign -> assigns.add(Assign.builder()
+                                                                                  .id(moodleAssign.get("id").asLong())
+                                                                                  .dueDate(moodleAssign.get("duedate")
+                                                                                                       .asLong())
+                                                                                  .name(moodleAssign.get("name")
+                                                                                                    .asText())
+                                                                                  .intro(moodleAssign.get("intro")
+                                                                                                     .asText())
+                                                                                  .courseId(courseId)
+                                                                                  .courseName(courseName)
+                                                                                  .build()));
         return assigns;
     }
 }

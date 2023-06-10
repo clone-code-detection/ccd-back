@@ -58,7 +58,7 @@ public class RepoElasticsearchQuery {
     protected static List<QueryBuilder> buildMustQuery(@Validated QueryInstruction queryInstruction) {
         String minimumShouldMatch = queryInstruction.getMinimumShouldMatch();
         String field;
-        log.info("Querying with config: min match {} and field {} and language {}",
+        log.debug("Querying with config: min match {} and field {} and language {}",
                 minimumShouldMatch,
                 queryInstruction.getType(),
                 queryInstruction.getLanguage());
@@ -69,7 +69,7 @@ public class RepoElasticsearchQuery {
                 .minimumShouldMatch(minimumShouldMatch));
     }
 
-    protected static List<QueryBuilder> buildFilterQuery(QueryInstruction queryInstruction) {
+    protected static List<QueryBuilder> buildFilterQuery() {
         return new ArrayList<>();
     }
 
@@ -108,7 +108,7 @@ public class RepoElasticsearchQuery {
     private SearchRequest buildSearchRequest(QueryInstruction queryInstruction) {
         var indexes = queryInstruction.getLanguage();
         List<QueryBuilder> mustQuery = buildMustQuery(queryInstruction);
-        List<QueryBuilder> filterQuery = buildFilterQuery(queryInstruction);
+        List<QueryBuilder> filterQuery = buildFilterQuery();
 
 
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
@@ -118,13 +118,9 @@ public class RepoElasticsearchQuery {
         // build source
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(boolQueryBuilder);
-//        if (Boolean.TRUE.equals(queryInstruction.getIncludeHighlight())) {
-//            HighlightBuilder highlightBuilder = buildHighlightQuery();
-//            searchSourceBuilder.highlighter(highlightBuilder);
-//        }
 
         SearchRequest searchRequest = new SearchRequest();
-        log.info("[Repo es] Search request: {}", searchRequest);
+        log.debug("[Repo es] Search request: {}", searchRequest);
         searchRequest.source(searchSourceBuilder)
                      .indices(indexes);
         return searchRequest;
