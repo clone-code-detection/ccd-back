@@ -24,4 +24,9 @@ public class SimilarityReportMeta {
     private String origin;
     // The link to the origin project (optional)
     private String link;
+    @Column(name = "minimum_should_match")
+    @Builder.Default
+    private String minimumShouldMatch = "70%";
+    @Builder.Default
+    private Integer type = 1;
 }

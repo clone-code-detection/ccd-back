@@ -59,13 +59,10 @@ public class ServiceHighlight {
 
     private static List<SimilarityTextMatchDTO> extractTermVectorsResponse(MultiTermVectorsResponse response) {
         List<SimilarityTextMatchDTO> res = new ArrayList<>();
-        assert response.getTermVectorsResponses()
-                       .size() == 2;
+        assert response.getTermVectorsResponses().size() == 2;
 
-        TermVectorsResponse source = response.getTermVectorsResponses()
-                                             .get(0);
-        TermVectorsResponse target = response.getTermVectorsResponses()
-                                             .get(1);
+        TermVectorsResponse source = response.getTermVectorsResponses().get(0);
+        TermVectorsResponse target = response.getTermVectorsResponses().get(1);
         // traverse every document in query
         Map<String, List<Integer[]>> sourceMap = extractMatches(source);
         Map<String, List<Integer[]>> targetMap = extractMatches(target);
@@ -84,8 +81,9 @@ public class ServiceHighlight {
     private static Map<String, List<Integer[]>> extractMatches(TermVectorsResponse termVectorsResponse) {
         Map<String, List<Integer[]>> res = new HashMap<>();
         TermVectorsResponse.TermVector termVector = getTermVectorByFieldName(termVectorsResponse.getTermVectorsList(),
-                SOURCE_CODE_FIELD);
-        if (termVector == null) return res;
+                                                                             SOURCE_CODE_FIELD);
+        if (termVector == null)
+            return res;
         for (TermVectorsResponse.TermVector.Term term : termVector.getTerms()) {
             String termValue = term.getTerm();
             var tokens = term.getTokens();
@@ -103,8 +101,8 @@ public class ServiceHighlight {
     private static TermVectorsResponse.TermVector getTermVectorByFieldName(List<TermVectorsResponse.TermVector> termVectors,
                                                                            String fieldName) {
         for (TermVectorsResponse.TermVector termVector : termVectors) {
-            if (termVector.getFieldName()
-                          .equals(fieldName)) return termVector;
+            if (termVector.getFieldName().equals(fieldName))
+                return termVector;
         }
         return null;
     }
@@ -112,7 +110,8 @@ public class ServiceHighlight {
     // Sorted lists
     private static <T extends Comparable<T>> boolean containsAny(List<T> a, List<T> b) {
         for (T t : b) {
-            if (Collections.binarySearch(a, t) >= 0) return true;
+            if (Collections.binarySearch(a, t) >= 0)
+                return true;
         }
         return false;
     }
@@ -121,20 +120,17 @@ public class ServiceHighlight {
                                                            Map<String, List<Integer>> targetByValue,
                                                            int i) {
         PriorityQueue<TokenWrapper> synonyms = sourceMapByPosition.get(i);
-        return synonyms.stream()
-                       .map(TokenWrapper::getToken)
-                       .flatMap(tokenValue -> {
-                           if (!targetByValue.containsKey(tokenValue)) return Stream.empty();
-                           return targetByValue.get(tokenValue)
-                                               .stream();
-                       })
-                       .collect(Collectors.toSet());
+        return synonyms.stream().map(TokenWrapper::getToken).flatMap(tokenValue -> {
+            if (!targetByValue.containsKey(tokenValue))
+                return Stream.empty();
+            return targetByValue.get(tokenValue).stream();
+        }).collect(Collectors.toSet());
     }
 
     public Collection<HighlightReturn> handleAdvancedHighlightById(String id) {
-        if (id.equals("undefined")) return new ArrayList<>();
-        ReportTargetDocument singleDocument = repoReportTargetDocument.findById(UUID.fromString(id))
-                                                                      .orElseThrow();
+        if (id.equals("undefined"))
+            return new ArrayList<>();
+        ReportTargetDocument singleDocument = repoReportTargetDocument.findById(UUID.fromString(id)).orElseThrow();
         return handleAdvancedHighlight(singleDocument);
     }
 
@@ -143,14 +139,16 @@ public class ServiceHighlight {
      */
     public Map<String, List<Integer>> mapTokensByValue(@NonNull TermVectorsResponse termVectorsResponse) {
         TermVectorsResponse.TermVector termVector = getTermVectorByFieldName(termVectorsResponse.getTermVectorsList(),
-                SOURCE_CODE_FIELD);
-        if (termVector == null) throw new RuntimeException();
+                                                                             SOURCE_CODE_FIELD);
+        if (termVector == null)
+            throw new RuntimeException();
         Map<String, List<Integer>> res = new HashMap<>();
         for (TermVectorsResponse.TermVector.Term term : termVector.getTerms()) {
             String termValue = term.getTerm();
             res.computeIfAbsent(termValue, value -> new ArrayList<>());
             var list = res.get(termValue);
-            for (TermVectorsResponse.TermVector.Token token : term.getTokens()) list.add(token.getPosition());
+            for (TermVectorsResponse.TermVector.Token token : term.getTokens())
+                list.add(token.getPosition());
             list.sort(Integer::compareTo);
         }
         return res;
@@ -159,27 +157,25 @@ public class ServiceHighlight {
     // PriorityQueue is ordered by term length
     public List<PriorityQueue<TokenWrapper>> mapTokensByPosition(@NonNull TermVectorsResponse termVectorsResponse) {
         TermVectorsResponse.TermVector termVector = getTermVectorByFieldName(termVectorsResponse.getTermVectorsList(),
-                SOURCE_CODE_FIELD);
-        if (termVector == null) throw new RuntimeException();
+                                                                             SOURCE_CODE_FIELD);
+        if (termVector == null)
+            throw new RuntimeException();
         int size = termVector.getTerms()
                              .stream()
-                             .flatMap(term -> term.getTokens()
-                                                  .stream())
+                             .flatMap(term -> term.getTokens().stream())
                              .map(TermVectorsResponse.TermVector.Token::getPosition)
                              .max(Comparator.naturalOrder())
                              .orElseThrow();
         ArrayList<PriorityQueue<TokenWrapper>> res = new ArrayList<>();
         for (int i = 0; i <= size; i++)
-            res.add(new PriorityQueue<>(Comparator.comparing(TokenWrapper::getLength)
-                                                  .reversed()));
+            res.add(new PriorityQueue<>(Comparator.comparing(TokenWrapper::getLength).reversed()));
 
         for (TermVectorsResponse.TermVector.Term term : termVector.getTerms()) {
             var tokenValue = term.getTerm();
             for (TermVectorsResponse.TermVector.Token token : term.getTokens()) {
                 TokenWrapper tokenWrapper = TokenWrapper.fromToken(tokenValue, token);
                 Integer position = tokenWrapper.getPosition();
-                res.get(position)
-                   .add(tokenWrapper);
+                res.get(position).add(tokenWrapper);
             }
         }
         return res;
@@ -187,11 +183,11 @@ public class ServiceHighlight {
 
     /**
      * @return list of extract return
+     *
      * @implNote: requires field mapping to have term vector position offset
      */
     public Collection<HighlightReturn> handleAdvancedHighlight(ReportTargetDocument targetMatchDocument) {
-        var source = targetMatchDocument.getSource()
-                                        .getSource();
+        var source = targetMatchDocument.getSource().getSource();
         var target = targetMatchDocument.getTarget();
         MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(source, target);
         List<TermVectorsResponse> termVectorsResponses = multiTermVectors.getTermVectorsResponses();
@@ -224,14 +220,8 @@ public class ServiceHighlight {
     }
 
     private boolean condition(Collection<TokenWrapper> target, Collection<TokenWrapper> source) {
-        return containsAny(target.stream()
-                                 .map(TokenWrapper::getToken)
-                                 .sorted()
-                                 .collect(Collectors.toList()),
-                source.stream()
-                      .map(TokenWrapper::getToken)
-                      .sorted()
-                      .collect(Collectors.toList()));
+        return containsAny(target.stream().map(TokenWrapper::getToken).sorted().collect(Collectors.toList()),
+                           source.stream().map(TokenWrapper::getToken).sorted().collect(Collectors.toList()));
     }
 
     private HighlightReturn extracted(List<PriorityQueue<TokenWrapper>> sourceMapByPosition,
@@ -262,13 +252,16 @@ public class ServiceHighlight {
                 targetEndingPosition++;
                 commonLength++;
 
-                if (sourceStartingPosition >= sourceSize) break;
-                if (targetEndingPosition >= targetSize) break;
+                if (sourceStartingPosition >= sourceSize)
+                    break;
+                if (targetEndingPosition >= targetSize)
+                    break;
 
                 sourceSynonyms = sourceMapByPosition.get(sourceStartingPosition);
                 targetSynonyms = targetMapByPosition.get(targetEndingPosition);
             }
-            if (commonLength > maxCommonLength) maxCommonLength = commonLength;
+            if (commonLength > maxCommonLength)
+                maxCommonLength = commonLength;
 
             pairs.add(Pair.of(targetStartingPosition, targetEndingPosition));
         }
@@ -277,8 +270,8 @@ public class ServiceHighlight {
             int length = tagetMatchPair.getSecond() - tagetMatchPair.getFirst();
             if (maxCommonLength == length) {
                 var matchBlock = extractBlockFromPosition(tagetMatchPair.getFirst(),
-                        tagetMatchPair.getSecond(),
-                        targetMapByPosition);
+                                                          tagetMatchPair.getSecond(),
+                                                          targetMapByPosition);
                 res.targetBlock(matchBlock);
             }
         }
@@ -297,21 +290,16 @@ public class ServiceHighlight {
                                                             Integer end,
                                                             List<PriorityQueue<TokenWrapper>> mapByPosition) {
         assert end - 1 >= start;
-        TokenWrapper startToken = mapByPosition.get(start)
-                                               .iterator()
-                                               .next();
+        TokenWrapper startToken = mapByPosition.get(start).iterator().next();
         var startOffset = startToken.startOffset;
-        TokenWrapper endToken = mapByPosition.get(end - 1)
-                                             .iterator()
-                                             .next();
+        TokenWrapper endToken = mapByPosition.get(end - 1).iterator().next();
         var endOffset = endToken.endOffset;
         return Pair.of(startOffset, endOffset);
     }
 
     @Transactional
     public ReportSourceDocumentDTO getReportSourceDocumentById(String uuid) {
-        ReportSourceDocument singleDocument = repoReportSourceDocument.findById(UUID.fromString(uuid))
-                                                                      .orElseThrow();
+        ReportSourceDocument singleDocument = repoReportSourceDocument.findById(UUID.fromString(uuid)).orElseThrow();
         return ReportSourceDocumentDTO.from(singleDocument, this::getReportTextMatch);
     }
 
@@ -325,8 +313,7 @@ public class ServiceHighlight {
 
     @Nonnull
     private List<SimilarityTextMatchDTO> getReportTextMatch(ReportTargetDocument singleDocument) {
-        FileDocument source = singleDocument.getSource()
-                                            .getSource();
+        FileDocument source = singleDocument.getSource().getSource();
         FileDocument target = singleDocument.getTarget();
         MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(source, target);
         return extractTermVectorsResponse(multiTermVectors);

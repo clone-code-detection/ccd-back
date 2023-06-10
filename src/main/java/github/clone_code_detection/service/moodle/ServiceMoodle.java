@@ -136,7 +136,8 @@ public class ServiceMoodle {
 
                     }
                 }
-                if (!fileDocuments.isEmpty()) request.setSources(fileDocuments);
+                if (!fileDocuments.isEmpty())
+                    request.setSources(fileDocuments);
             }
         }
 
@@ -146,7 +147,8 @@ public class ServiceMoodle {
     private static SimilarityDetectRequest getExistRequestOrCreateNew(ArrayList<SimilarityDetectRequest> requests,
                                                                       String sessionName) {
         for (SimilarityDetectRequest request : requests) {
-            if (request.getReportName().equals(sessionName)) return request;
+            if (request.getReportName().equals(sessionName))
+                return request;
         }
         SimilarityDetectRequest request = SimilarityDetectRequest.builder().reportName(sessionName).build();
         requests.add(request);
@@ -155,8 +157,8 @@ public class ServiceMoodle {
 
     @NotNull
     private static <T> PageImpl<T> getListWithPageable(Pageable pageable, List<T> list) {
-        if (pageable.getPageNumber() * pageable.getPageSize() > list.size())
-            return new PageImpl<>(new ArrayList<>(), pageable, list.size());
+        if (pageable.getPageNumber() * pageable.getPageSize() >= list.size())
+            return new PageImpl<>(Collections.emptyList(), pageable, list.size());
         return new PageImpl<>(list.subList((int) pageable.getOffset(),
                                            (int) Math.min(pageable.getPageSize() + pageable.getOffset(), list.size())),
                               pageable,
@@ -164,7 +166,7 @@ public class ServiceMoodle {
     }
 
     @NotNull
-    private static UserImpl getUser() {
+    private static UserImpl getUser() throws MoodleCourseException {
         UserImpl user = ServiceAuthentication.getUserFromContext();
         if (user == null || user.getId() == null || user.getReference() == null) {
             log.error("[Service moodle] Fail to get user information");
@@ -188,7 +190,8 @@ public class ServiceMoodle {
     public MoodleResponse linkCurrentUserToMoodleAccount(MoodleLinkRequest request) throws AuthenticationException {
         // Get token and userid from moodle
         UserImpl user = ServiceAuthentication.getUserFromContext();
-        if (user == null) throw new AuthenticationException("User not found");
+        if (user == null)
+            throw new AuthenticationException("User not found");
         if (user.getReference() == null) {
             UserReference reference = getMoodleAccount(request);
             reference.setInternalUser(user);
@@ -221,35 +224,29 @@ public class ServiceMoodle {
 
     public AssignDTO getAssignDetail(long courseId, long assignId, Pageable pageable) {
         UserImpl user = getUser();
-        List<Submission> submissions = getSubmissionsInCourse(courseId,
-                                                              new ArrayList<>(List.of(assignId)),
-                                                              user.getReference());
-        submissions = repoSubmission.saveAll(submissions);
-        submissions.sort(Comparator.comparing(Submission::getId));
+        AssignDTO assignDTO = AssignDTO.builder().build();
         Assign assign = enrichAssignments(user.getReference(), courseId).stream()
                                                                         .filter(e -> e.getId() == assignId)
                                                                         .findFirst()
                                                                         .orElse(null);
-        if (pageable.getPageNumber() * pageable.getPageSize() > submissions.size()) return AssignDTO.builder()
-                                                                                                    .submissions(new PageImpl<>(
-                                                                                                            new ArrayList<>(),
-                                                                                                            pageable,
-                                                                                                            submissions.size()))
-                                                                                                    .assign(assign)
-                                                                                                    .build();
-        return AssignDTO.builder()
-                        .submissions(new PageImpl<>(submissions.subList((int) pageable.getOffset(),
-                                                                        (int) Math.min(pageable.getPageSize() + pageable.getOffset(),
-                                                                                       submissions.size()))
-                                                               .stream()
-                                                               .map(Submission::toDTO)
-                                                               .toList(), pageable, submissions.size()))
-                        .assign(assign)
-                        .build();
+        if (assign == null)
+            throw new MoodleAssignmentException("Assignment not found");
+        List<Submission> submissions = getSubmissionsInCourse(courseId, List.of(assignId), user.getReference());
+        submissions = repoSubmission.saveAll(submissions);
+        submissions.sort(Comparator.comparing(Submission::getId));
+        assignDTO.setAssign(assign);
+        assignDTO.setSubmissions(getListWithPageable(pageable, submissions.stream().map(Submission::toDTO).toList()));
+        return assignDTO;
     }
 
-    public MoodleResponse detectSelectedSubmissions(List<Long> submissionIds, QueryInstruction queryInstruction) {
+    public MoodleResponse detectSelectedSubmissions(@NotNull List<Long> submissionIds,
+                                                    @NotNull QueryInstruction queryInstruction)
+            throws AuthenticationException {
         UserImpl user = getUser();
+        if (user.getReference() == null) {
+            log.error("[Service moodle] User info not found");
+            throw new AuthenticationException("User not found");
+        }
         DetectSelectedSubmissionJob.DetectSelectedSubmissionJobBuilder builder = DetectSelectedSubmissionJob.builder()
                                                                                                             .queryInstruction(
                                                                                                                     queryInstruction)
@@ -304,15 +301,15 @@ public class ServiceMoodle {
             assignment.get("submissions").forEach(inputSubmission -> {
                 long ownerId = inputSubmission.get("userid").asLong();
                 long submissionId = inputSubmission.get("id").asLong();
-                if (ownerId == reference.getReferenceUser().getReferenceUserId()) return;
+                if (ownerId == reference.getReferenceUser().getReferenceUserId())
+                    return;
 
                 MoodleUser owner = repoMoodleUser.findFirstByReferenceUserId(ownerId);
                 if (owner == null) {
                     ownerIds.add(ownerId);
                     mapListSubmissionIdByOwnerId.computeIfAbsent(ownerId, key -> new ArrayList<>()).add(submissionId);
                 }
-                Submission submission = repoSubmission.findFirstByReferenceSubmissionId(inputSubmission.get("id")
-                                                                                                       .asLong());
+                Submission submission = repoSubmission.findFirstByReferenceSubmissionId(submissionId);
                 List<RelationSubmissionReport> relations = getSubmissionRelations(inputSubmission.get("plugins"));
                 if (submission == null) {
                     // Case new submission
@@ -335,7 +332,8 @@ public class ServiceMoodle {
                 submissions.add(submission);
             });
         });
-        if (ownerIds.isEmpty()) return submissions;
+        if (ownerIds.isEmpty())
+            return submissions;
         // Enrich owner information
         Map<Long, MoodleUser> mapOwnerBySubmissionReferenceId = getCourseSubmissionOwners(ownerIds,
                                                                                           mapListSubmissionIdByOwnerId,

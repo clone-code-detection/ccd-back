@@ -15,6 +15,7 @@ import github.clone_code_detection.repo.RepoElasticsearchQuery;
 import github.clone_code_detection.repo.RepoFileDocument;
 import github.clone_code_detection.repo.RepoReportSourceDocument;
 import github.clone_code_detection.repo.RepoSimilarityReport;
+import github.clone_code_detection.service.highlight.ServiceHighlight;
 import github.clone_code_detection.service.index.ServiceIndex;
 import github.clone_code_detection.service.user.ServiceAuthentication;
 import github.clone_code_detection.util.FileSystemUtil;
@@ -22,6 +23,9 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.core.MultiTermVectorsResponse;
+import org.elasticsearch.client.core.TermVectorsResponse;
+import org.elasticsearch.common.util.set.Sets;
 import org.elasticsearch.search.SearchHit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -32,6 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -43,16 +48,12 @@ public class ServiceQuery {
     private final ServiceIndex serviceIndex;
     private final ThreadPoolExecutor threadPoolExecutor;
     private final DetectSimilarityJobFactory detectSimilarityJobFactory;
+    private final ServiceHighlight serviceHighlight;
 
     @Autowired
-    public ServiceQuery(RepoElasticsearchQuery repoElasticsearchQuery,
-                        RepoReportSourceDocument repoHighlightSessionDocument,
-                        RepoSimilarityReport repoSimilarityReport,
-                        RepoFileDocument repoFileDocument,
+    public ServiceQuery(RepoElasticsearchQuery repoElasticsearchQuery, RepoReportSourceDocument repoHighlightSessionDocument, RepoSimilarityReport repoSimilarityReport, RepoFileDocument repoFileDocument,
 
-                        ServiceIndex serviceIndex,
-                        ThreadPoolExecutor threadPoolExecutor,
-                        @Lazy DetectSimilarityJobFactory detectSimilarityJobFactory) {
+                        ServiceIndex serviceIndex, ThreadPoolExecutor threadPoolExecutor, @Lazy DetectSimilarityJobFactory detectSimilarityJobFactory, ServiceHighlight serviceHighlight) {
         this.repoElasticsearchQuery = repoElasticsearchQuery;
         this.repoReportSourceDocument = repoHighlightSessionDocument;
         this.repoSimilarityReport = repoSimilarityReport;
@@ -60,6 +61,7 @@ public class ServiceQuery {
         this.serviceIndex = serviceIndex;
         this.threadPoolExecutor = threadPoolExecutor;
         this.detectSimilarityJobFactory = detectSimilarityJobFactory;
+        this.serviceHighlight = serviceHighlight;
     }
 
     private static TargetMatchOverview extract(ReportTargetDocument document) {
@@ -136,6 +138,62 @@ public class ServiceQuery {
         return reportSourceDocument;
     }
 
+    private Double[] calculatePercentageMatch(FileDocument source, List<FileDocument> queryMatches) {
+        FileDocument[] array = new FileDocument[queryMatches.size() + 1];
+        array[0] = source;
+        for (int i = 0; i < queryMatches.size(); i++) {
+            array[i + 1] = queryMatches.get(i);
+        }
+
+        MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(array);
+        List<TermVectorsResponse> termVectorsResponses = multiTermVectors.getTermVectorsResponses();
+        var sourceTermVectorResponse = termVectorsResponses.get(0);
+        int sourceCount = sourceTermVectorResponse.getTermVectorsList()
+                                                  .stream()
+                                                  .filter(Objects::nonNull)
+                                                  .flatMap(termVector -> termVector.getTerms()
+                                                                                   .stream())
+                                                  .filter(Objects::nonNull)
+                                                  .flatMap(term -> term.getTokens()
+                                                                       .stream())
+                                                  .map(TermVectorsResponse.TermVector.Token::getPosition)
+                                                  .collect(Collectors.toSet())
+                                                  .size();
+        Map<String, List<Integer>> sourceMap = serviceHighlight.mapTokensByValue(sourceTermVectorResponse);
+        Double[] matchPercentage = new Double[queryMatches.size()];
+        for (int i = 1; i < termVectorsResponses.size(); i++) {
+            var queryTermVectorResponse = termVectorsResponses.get(i);
+            Map<String, List<Integer>> queryMap = serviceHighlight.mapTokensByValue(queryTermVectorResponse);
+            int matchCount = Sets.intersection(sourceMap.keySet(), queryMap.keySet())
+                                 .stream()
+                                 .flatMap(s -> sourceMap.get(s)
+                                                        .stream())
+                                 .collect(Collectors.toSet())
+                                 .size();
+            matchPercentage[i - 1] = (matchCount * 1.0 / sourceCount);
+        }
+        return matchPercentage;
+    }
+
+    /**
+     * @param similarityReport: Requires persisted object and requires index documents
+     */
+    public void calculatePercentageMatches(SimilarityReport similarityReport) {
+        for (ReportSourceDocument source : similarityReport.getSources()) {
+            FileDocument sourceSource = source.getSource();
+            List<FileDocument> queryMatches = source.getMatches()
+                                                    .stream()
+                                                    .map(ReportTargetDocument::getTarget)
+                                                    .toList();
+            assert sourceSource != null;
+            Double[] calculatePercentageMatch = calculatePercentageMatch(sourceSource, queryMatches);
+            int i = 0;
+            for (ReportTargetDocument targetDocument : source.getMatches()) {
+                targetDocument.setPercentageMatch(calculatePercentageMatch[i++]);
+            }
+        }
+    }
+
     @Builder
     public static class TargetMatchOverview {
         @JsonProperty("author")
@@ -180,9 +238,7 @@ public class ServiceQuery {
     }
 
     @Transactional
-    public SimilarityReport createSimilarityReport(SimilarityDetectRequest request,
-                                                   QueryInstruction queryInstruction,
-                                                   UserImpl user) {
+    public SimilarityReport createSimilarityReport(SimilarityDetectRequest request, QueryInstruction queryInstruction, UserImpl user) {
         SimilarityReport similarityReport = createEmptyReport(request, user);
         // Assign session id of empty highlight session into each source document
         Collection<FileDocument> sourceDocuments = request.getSources();
@@ -241,6 +297,7 @@ public class ServiceQuery {
                                                             .files(sourceDocuments)
                                                             .build();
         serviceIndex.indexAllDocuments(indexInstruction);
+        calculatePercentageMatches(similarityReport);
         return SimilarityReportDetailDTO.from(similarityReport);
     }
 }
