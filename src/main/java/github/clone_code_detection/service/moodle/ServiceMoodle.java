@@ -16,10 +16,7 @@ import github.clone_code_detection.exceptions.moodle.MoodleAssignmentException;
 import github.clone_code_detection.exceptions.moodle.MoodleAuthenticationException;
 import github.clone_code_detection.exceptions.moodle.MoodleCourseException;
 import github.clone_code_detection.exceptions.moodle.MoodleSubmissionException;
-import github.clone_code_detection.repo.RepoMoodleUser;
-import github.clone_code_detection.repo.RepoRelationSubmissionReport;
-import github.clone_code_detection.repo.RepoSubmission;
-import github.clone_code_detection.repo.RepoUser;
+import github.clone_code_detection.repo.*;
 import github.clone_code_detection.service.user.ServiceAuthentication;
 import github.clone_code_detection.util.FileSystemUtil;
 import github.clone_code_detection.util.LanguageUtil;
@@ -74,6 +71,7 @@ public class ServiceMoodle {
     String moodleSigninUri;
     @Value("${moodle.web-service-uri}")
     String moodleWebServiceUri;
+    private final RepoUserReference repoUserReference;
 
     @Autowired
     public ServiceMoodle(ThreadPoolExecutor threadPoolExecutor,
@@ -82,7 +80,7 @@ public class ServiceMoodle {
                          RepoRelationSubmissionReport repoRelationSubmissionReport,
                          RepoMoodleUser repoMoodleUser,
                          RepoUser repoUser,
-                         DetectSelectedSubmissionJobFactory detectSelectedSubmissionJobFactory) {
+                         DetectSelectedSubmissionJobFactory detectSelectedSubmissionJobFactory, RepoUserReference userReference) {
         this.threadPoolExecutor = threadPoolExecutor;
         this.repoSubmission = repoSubmission;
         this.moodleClient = moodleClient;
@@ -90,6 +88,7 @@ public class ServiceMoodle {
         this.repoMoodleUser = repoMoodleUser;
         this.repoUser = repoUser;
         this.detectSelectedSubmissionJobFactory = detectSelectedSubmissionJobFactory;
+        this.repoUserReference = userReference;
     }
 
     public static Collection<SimilarityDetectRequest> unzipMoodleFileAndGetRequests(@NotNull MultipartFile source)
@@ -196,8 +195,7 @@ public class ServiceMoodle {
         if (user.getReference() == null) {
             UserReference reference = getMoodleAccount(request);
             reference.setInternalUser(user);
-            user.setReference(reference);
-            repoUser.save(user);
+            repoUserReference.save(reference);
             return MoodleResponse.builder().message("Link to moodle account successfully").build();
         }
         return MoodleResponse.builder().message("Moodle account already been linked").build();
