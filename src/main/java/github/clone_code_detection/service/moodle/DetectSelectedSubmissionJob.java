@@ -29,10 +29,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Builder
@@ -219,15 +216,10 @@ public class DetectSelectedSubmissionJob implements Runnable {
             handleNeedModifySubmissions(mapRelationWithOwnerByNeed.get("modify"), user.getReference());
             repoSubmission.saveAll(submissions);
         } catch (Exception e) {
-            log.error("[Detect selected submissions job] Error: {}. Submissions: {}",
+            log.error("[DetectSelectedSubmissionJob] Error: {}. Submissions: {}. Trace:\n{}",
                       e.getMessage(),
-                      submissions.stream().map(Submission::getId).toList());
-            for (StackTraceElement stackTraceElement : e.getStackTrace()) {
-                System.out.printf("Line %d: %s - %s\n",
-                                  stackTraceElement.getLineNumber(),
-                                  stackTraceElement.getClassName(),
-                                  stackTraceElement.getMethodName());
-            }
+                      submissions.stream().map(Submission::getId).toList(),
+                      Arrays.stream(e.getStackTrace()).findFirst().orElse(null));
             throw new RuntimeException(e);
         }
         log.info("[Detect selected submissions job] Detect successfully for submissions: {}",

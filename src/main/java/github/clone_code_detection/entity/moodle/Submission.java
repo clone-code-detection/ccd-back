@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoField;
 import java.util.List;
 
 @Builder
@@ -64,12 +65,12 @@ public class Submission {
 
             @Override
             public long getCreatedAt() {
-                return createdAt.getSecond();
+                return createdAt.getLong(ChronoField.INSTANT_SECONDS);
             }
 
             @Override
             public long getUpdatedAt() {
-                return updatedAt.getSecond();
+                return updatedAt.getLong(ChronoField.INSTANT_SECONDS);
             }
 
             @Override

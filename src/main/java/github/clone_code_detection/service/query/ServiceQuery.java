@@ -6,6 +6,7 @@ import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
 import github.clone_code_detection.entity.highlight.document.ReportTargetDocument;
 import github.clone_code_detection.entity.highlight.document.SimilarityReport;
+import github.clone_code_detection.entity.highlight.document.SimilarityReportMeta;
 import github.clone_code_detection.entity.highlight.dto.SimilarityReportDetailDTO;
 import github.clone_code_detection.entity.highlight.request.SimilarityDetectRequest;
 import github.clone_code_detection.entity.index.IndexInstruction;
@@ -15,6 +16,7 @@ import github.clone_code_detection.repo.RepoElasticsearchQuery;
 import github.clone_code_detection.repo.RepoFileDocument;
 import github.clone_code_detection.repo.RepoReportSourceDocument;
 import github.clone_code_detection.repo.RepoSimilarityReport;
+import github.clone_code_detection.service.highlight.ServiceHighlight;
 import github.clone_code_detection.service.index.ServiceIndex;
 import github.clone_code_detection.service.user.ServiceAuthentication;
 import github.clone_code_detection.util.FileSystemUtil;
@@ -22,6 +24,9 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.core.MultiTermVectorsResponse;
+import org.elasticsearch.client.core.TermVectorsResponse;
+import org.elasticsearch.common.util.set.Sets;
 import org.elasticsearch.search.SearchHit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -30,12 +35,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.*;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class ServiceQuery {
+    private static final DecimalFormat decimalFormat = new DecimalFormat("#.##");
     private final RepoElasticsearchQuery repoElasticsearchQuery;
     private final RepoReportSourceDocument repoReportSourceDocument;
     private final RepoSimilarityReport repoSimilarityReport;
@@ -67,13 +75,26 @@ public class ServiceQuery {
 
     private static TargetMatchOverview extract(ReportTargetDocument document) {
         String userName = document.getTarget().getAuthor();
-        String targetId = document.getId()
-                                  .toString();
-        Float score = document.getScore();
+        String targetId = document.getId().toString();
+        double score = Double.parseDouble(decimalFormat.format(document.getScore()));
+        String meta = String.join(", ",
+                                  document.getTarget()
+                                          .getMeta()
+                                          .entrySet()
+                                          .stream()
+                                          .map(map -> String.format("%s: %s", map.getKey(), map.getValue()))
+                                          .toList());
+        String filename = document.getTarget()
+                                  .getFileName()
+                                  .substring(document.getTarget().getFileName().lastIndexOf("/") + 1);
         return TargetMatchOverview.builder()
                                   .author(userName)
                                   .id(targetId)
                                   .score(score)
+                                  .origin(document.getTarget().getOrigin())
+                                  .originLink(document.getTarget().getOriginLink())
+                                  .fileName(filename)
+                                  .meta(meta)
                                   .build();
     }
 
@@ -303,17 +324,17 @@ public class ServiceQuery {
         @JsonProperty("score")
         private double score;
 
-        @JsonProperty("target_match_id")
-        private String id;
-    }
+        @JsonProperty("origin")
+        private String origin;
 
-    @Builder
-    public static class TargetMatchOverview {
-        @JsonProperty("author")
-        private String author;
+        @JsonProperty("origin_link")
+        private String originLink;
 
-        @JsonProperty("score")
-        private double score;
+        @JsonProperty("file_name")
+        private String fileName;
+
+        @JsonProperty("meta")
+        private String meta;
 
         @JsonProperty("target_match_id")
         private String id;

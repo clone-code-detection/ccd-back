@@ -13,7 +13,10 @@ import github.clone_code_detection.exceptions.moodle.MoodleAssignmentException;
 import github.clone_code_detection.exceptions.moodle.MoodleAuthenticationException;
 import github.clone_code_detection.exceptions.moodle.MoodleCourseException;
 import github.clone_code_detection.exceptions.moodle.MoodleSubmissionException;
-import github.clone_code_detection.repo.*;
+import github.clone_code_detection.repo.RepoMoodleUser;
+import github.clone_code_detection.repo.RepoRelationSubmissionReport;
+import github.clone_code_detection.repo.RepoSubmission;
+import github.clone_code_detection.repo.RepoUserReference;
 import github.clone_code_detection.service.user.ServiceAuthentication;
 import github.clone_code_detection.util.TimeUtil;
 import jakarta.validation.constraints.NotNull;
@@ -45,20 +48,19 @@ public class ServiceMoodle {
     private static final String MOODLE_GET_COURSE_DETAIL_FUNCTION = "core_course_get_courses_by_field";
     private static final String MOODLE_GET_SITE_INFO_FUNCTION = "core_webservice_get_site_info";
     private final ThreadPoolExecutor threadPoolExecutor;
-    private final RepoUser repoUser;
     private final RepoMoodleUser repoMoodleUser;
     private final RepoRelationSubmissionReport repoRelationSubmissionReport;
     private final RepoSubmission repoSubmission;
     private final RestTemplate moodleClient;
 
     private final DetectSelectedSubmissionJobFactory detectSelectedSubmissionJobFactory;
+    private final RepoUserReference repoUserReference;
     @Value("${moodle.web-service}")
     String webServiceName;
     @Value("${moodle.signin-uri}")
     String moodleSigninUri;
     @Value("${moodle.web-service-uri}")
     String moodleWebServiceUri;
-    private final RepoUserReference repoUserReference;
 
     @Autowired
     public ServiceMoodle(ThreadPoolExecutor threadPoolExecutor,
@@ -66,14 +68,13 @@ public class ServiceMoodle {
                          RepoSubmission repoSubmission,
                          RepoRelationSubmissionReport repoRelationSubmissionReport,
                          RepoMoodleUser repoMoodleUser,
-                         RepoUser repoUser,
-                         DetectSelectedSubmissionJobFactory detectSelectedSubmissionJobFactory, RepoUserReference userReference) {
+                         DetectSelectedSubmissionJobFactory detectSelectedSubmissionJobFactory,
+                         RepoUserReference userReference) {
         this.threadPoolExecutor = threadPoolExecutor;
         this.repoSubmission = repoSubmission;
         this.moodleClient = moodleClient;
         this.repoRelationSubmissionReport = repoRelationSubmissionReport;
         this.repoMoodleUser = repoMoodleUser;
-        this.repoUser = repoUser;
         this.detectSelectedSubmissionJobFactory = detectSelectedSubmissionJobFactory;
         this.repoUserReference = userReference;
     }
@@ -89,11 +90,19 @@ public class ServiceMoodle {
     }
 
     @NotNull
-    private static UserImpl getUser() throws MoodleCourseException {
+    private UserImpl getUser() throws MoodleCourseException {
         UserImpl user = ServiceAuthentication.getUserFromContext();
-        if (user == null || user.getId() == null || user.getReference() == null) {
+        if (user == null || user.getId() == null) {
             log.error("[Service moodle] Fail to get user information");
             throw new MoodleCourseException("Fail to get user information");
+        }
+        if (user.getReference() == null) {
+            UserReference reference = repoUserReference.findFirstByInternalUserId(user.getId());
+            if (reference == null) {
+                log.error("[Service moodle] No user reference");
+                throw new MoodleCourseException("Fail to get user information");
+            }
+            user.setReference(reference);
         }
         return user;
     }
@@ -110,18 +119,23 @@ public class ServiceMoodle {
                                    .queryParam("moodlewsrestformat", "json");
     }
 
-    public MoodleResponse linkCurrentUserToMoodleAccount(MoodleLinkRequest request) throws AuthenticationException {
+    public MoodleResponse linkCurrentUserToMoodleAccount(MoodleLinkRequest request) {
         // Get token and userid from moodle
         UserImpl user = ServiceAuthentication.getUserFromContext();
-        if (user == null)
-            throw new AuthenticationException("User not found");
-        if (user.getReference() == null) {
-            UserReference reference = getMoodleAccount(request);
-            reference.setInternalUser(user);
-            repoUserReference.save(reference);
-            return MoodleResponse.builder().message("Link to moodle account successfully").build();
+        if (user == null) {
+            log.error("[Service moodle] Fail to get user information");
+            throw new MoodleCourseException("Fail to get user information");
         }
-        return MoodleResponse.builder().message("Moodle account already been linked").build();
+        UserReference reference = repoUserReference.findFirstByInternalUserId(user.getId());
+        if (reference != null) {
+            user.setReference(reference);
+            return MoodleResponse.builder().message("Moodle account already been linked").build();
+        }
+        reference = getMoodleAccount(request);
+        reference.setInternalUser(user);
+        reference = repoUserReference.save(reference);
+        user.setReference(reference);
+        return MoodleResponse.builder().message("Link to moodle account successfully").build();
     }
 
     public CourseOverviewDTO getCourseOverview(Pageable pageable) {
@@ -420,21 +434,25 @@ public class ServiceMoodle {
                     "Fail to enrich user info by moodle account " + request.getUsername());
         }
         long referenceUserId = entity.getBody().get("userid").asLong();
-        // Enrich user info from user id
-        UriComponentsBuilder enrichUserInfoParams = buildDefaultUriBuilder(token,
-                                                                           request.getMoodleUrl(),
-                                                                           MOODLE_GET_OWNERS_FUNCTION).queryParam(
-                "field",
-                "id").queryParam("values[]", referenceUserId);
-        entity = moodleClient.getForEntity(enrichUserInfoParams.toUriString(), JsonNode.class);
-        if (!entity.getStatusCode().is2xxSuccessful()) {
-            log.error("[Service moodle] Fail to enrich submission owners");
-            throw new MoodleSubmissionException("Fail to enrich submission owners");
+        MoodleUser userInfo = repoMoodleUser.findFirstByReferenceUserId(referenceUserId);
+        if (userInfo == null) {
+            // Enrich user info from user id
+            UriComponentsBuilder enrichUserInfoParams = buildDefaultUriBuilder(token,
+                                                                               request.getMoodleUrl(),
+                                                                               MOODLE_GET_OWNERS_FUNCTION).queryParam(
+                    "field",
+                    "id").queryParam("values[]", referenceUserId);
+            entity = moodleClient.getForEntity(enrichUserInfoParams.toUriString(), JsonNode.class);
+            if (!entity.getStatusCode().is2xxSuccessful()) {
+                log.error("[Service moodle] Fail to enrich submission owners");
+                throw new MoodleSubmissionException("Fail to enrich submission owners");
+            }
+            userInfo = MoodleUser.from(Objects.requireNonNull(entity.getBody()).get(0));
         }
         return UserReference.builder()
                             .token(token)
                             .moodleUrl(request.getMoodleUrl())
-                            .referenceUser(MoodleUser.from(Objects.requireNonNull(entity.getBody()).get(0)))
+                            .referenceUser(userInfo)
                             .build();
     }
 

@@ -58,8 +58,7 @@ public class DetectSimilarityJob implements Runnable {
                       Arrays.stream(e.getStackTrace()).findFirst().orElse(null));
             // Update status to failed for future retry
             report.setStatus(SimilarityReportStatus.FAILED);
-            report.setException(new HighlightSessionException("[Service highlight] Error while processing highlight",
-                                                              e).toString());
+            report.setException(new HighlightSessionException(e).toString());
             repoSimilarityReport.save(report);
         }
     }
@@ -72,8 +71,7 @@ public class DetectSimilarityJob implements Runnable {
         } catch (Exception e) {
             log.error("[Service highlight] Can't update session to PROCESSING");
             report.setStatus(SimilarityReportStatus.FAILED);
-            report.setException(new HighlightSessionException("[Service highlight] Can't update session to PROCESSING",
-                                                              e).toString());
+            report.setException(new HighlightSessionException(e).toString());
             repoSimilarityReport.save(report);
         }
     }

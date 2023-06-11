@@ -7,5 +7,6 @@ import org.springframework.stereotype.Repository;
 import java.util.UUID;
 
 @Repository
-public interface RepoUserReference extends JpaRepository<UserReference, UUID> {
+public interface RepoUserReference extends JpaRepository<UserReference, Long> {
+    UserReference findFirstByInternalUserId(UUID internalUserId);
 }

@@ -20,13 +20,12 @@ public class UserReference {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "internal_user_id", referencedColumnName = "id")
     private UserImpl internalUser;
 
     @OneToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "reference_user_id", referencedColumnName = "reference_user_id")
-
     // The userid of moodle that reference to our server user
     private MoodleUser referenceUser;
 

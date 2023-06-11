@@ -31,7 +31,7 @@ public class MoodleController {
 
     @PostMapping(path = "/signin", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     @ResponseStatus(HttpStatus.OK)
-    public MoodleResponse signinWithMoodleAccount(@Validated MoodleLinkRequest request) throws AuthenticationException {
+    public MoodleResponse signinWithMoodleAccount(@Validated MoodleLinkRequest request) {
         assert request != null : new RuntimeException("Invalid request");
         return serviceMoodle.linkCurrentUserToMoodleAccount(request);
     }
