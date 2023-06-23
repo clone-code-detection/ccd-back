@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 
 @Data
 public class SignUpRequest {
@@ -25,4 +27,8 @@ public class SignUpRequest {
 
     @JsonProperty("is_standalone")
     private Boolean isStandalone = true;
+
+    public Authentication toUsernamePasswordToken() {
+        return new UsernamePasswordAuthenticationToken(this.username, this.password);
+    }
 }

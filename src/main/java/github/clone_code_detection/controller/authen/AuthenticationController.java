@@ -58,9 +58,9 @@ public class AuthenticationController {
 
     @PostMapping(path = "/signup", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     @ResponseStatus(HttpStatus.CREATED)
-    public UserAuthenticateResponse signUp(@Validated SignUpRequest request) {
+    public UserAuthenticateResponse signUp(@Validated SignUpRequest request, HttpServletRequest httpServletRequest) {
         assert request != null : new RuntimeException("Invalid request");
-        UserImpl user = serviceAuthentication.create(request);
+        UserImpl user = serviceAuthentication.create(request, httpServletRequest);
         return new UserAuthenticateResponse(user);
     }
 

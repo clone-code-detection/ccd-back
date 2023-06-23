@@ -66,7 +66,7 @@ public class ServiceAuthentication {
         return (UserImpl) authentication.getPrincipal();
     }
 
-    public UserImpl create(SignUpRequest request) {
+    public UserImpl create(SignUpRequest request, HttpServletRequest httpServletRequest) {
         assert request.getPassword().equals(request.getRepeat()) : "Repeat password field does not match";
 
         if (this.usernameExists(request.getUsername()))
@@ -74,10 +74,14 @@ public class ServiceAuthentication {
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         // Create new user's account
         UserImpl user = UserImpl.builder().username(request.getUsername()).password(encodedPassword).build();
-        if (Boolean.TRUE.equals(request.getIsStandalone())) user = repo.createStandaloneUser(user);
-        else user = repo.createOrgUser(user);
-
-        return user;
+        if (Boolean.TRUE.equals(request.getIsStandalone())) repo.createStandaloneUser(user);
+        else repo.createOrgUser(user);
+        Authentication authentication = authenticationManager.authenticate(request.toUsernamePasswordToken());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        httpServletRequest.getSession()
+                          .setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                                        SecurityContextHolder.getContext());
+        return (UserImpl) authentication.getPrincipal();
     }
 
     public UserImpl info(HttpServletRequest request) {
