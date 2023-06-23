@@ -9,7 +9,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.UUID;
 
@@ -41,7 +40,7 @@ public class SimilarityReportOverviewDTO {
     private static class ReportDetail {
         private UUID id;
         private String name;
-        private ZonedDateTime created;
+        private long created;
         private SimilarityReportStatus status;
         @JsonProperty("total_files")
         private int totalFiles;
@@ -53,7 +52,7 @@ public class SimilarityReportOverviewDTO {
             return ReportDetail.builder()
                                .id(report.getId())
                                .name(report.getName())
-                               .created(report.getCreated())
+                               .created(report.getCreated().toEpochSecond())
                                .status(report.getStatus())
                                .totalFiles(sources.size())
                                .matchedFiles((int) sources
