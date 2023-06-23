@@ -28,11 +28,18 @@ public class ZipUtil {
         ArrayList<FileDocument> contents = new ArrayList<>();
         try {
             ZipInputStream zipInputStream = new ZipInputStream(file.getInputStream());
-            ZipEntry zipEntry = zipInputStream.getNextEntry();
+            ZipEntry zipEntry;
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            while (zipEntry != null) {
+            while ((zipEntry = zipInputStream.getNextEntry()) != null) {
                 if (zipEntry.isDirectory()) {
-                    zipEntry = zipInputStream.getNextEntry();
+                    zipInputStream.closeEntry();
+                    continue;
+                }
+                // Ignore file if the language is not supported
+                try {
+                    languageUtil.getIndexFromFileName(zipEntry.getName());
+                } catch (UnsupportedLanguage e) {
+                    zipInputStream.closeEntry();
                     continue;
                 }
                 byteArrayOutputStream.reset();
@@ -42,7 +49,6 @@ public class ZipUtil {
                                                         .fileName(zipEntry.getName())
                                                         .build();
                 contents.add(fileDocument);
-                zipEntry = zipInputStream.getNextEntry();
             }
             zipInputStream.closeEntry();
             zipInputStream.close();

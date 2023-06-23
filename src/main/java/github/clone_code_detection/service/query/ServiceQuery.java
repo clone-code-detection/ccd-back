@@ -254,8 +254,8 @@ public class ServiceQuery {
                                                             .build();
 
         DetectSimilarityJob.DetectSimilarityJobBuilder builder = DetectSimilarityJob.builder()
-                                                                                    .reportId(similarityReport.getId())
                                                                                     .instruction(indexInstruction)
+                                                                                    .report(similarityReport)
                                                                                     .queryInstruction(queryInstruction);
 
         DetectSimilarityJob detectSimilarityJob = detectSimilarityJobFactory.newInstance(builder);
@@ -264,8 +264,9 @@ public class ServiceQuery {
     }
 
     @NotNull
-    private SimilarityReport createEmptyReport(SimilarityDetectRequest request, UserImpl user,
-                                               QueryInstruction queryInstruction) {
+    @Transactional
+    public SimilarityReport createEmptyReport(SimilarityDetectRequest request, UserImpl user,
+                                              QueryInstruction queryInstruction) {
         // init meta
         SimilarityReportMeta meta = SimilarityReportMeta.builder()
                                                         .author(request.getAuthor())

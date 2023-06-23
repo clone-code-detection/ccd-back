@@ -15,7 +15,8 @@ import java.util.UUID;
 @Table(name = "authority", schema = "authen")
 public class Authority {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", columnDefinition = "uuid")
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(name = "name")
