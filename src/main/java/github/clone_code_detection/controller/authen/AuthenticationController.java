@@ -27,7 +27,7 @@ import java.util.Collection;
 @Slf4j
 @RestController
 @Profile("security")
-@RequestMapping("/authentication")
+@RequestMapping("/api/authentication")
 public class AuthenticationController {
     private final ServiceAuthentication serviceAuthentication;
 

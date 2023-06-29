@@ -91,13 +91,13 @@ public class ApplicationSecurity {
         // set the name of the attribute the CsrfToken will be populated on
         requestHandler.setCsrfRequestAttributeName("_csrf");
         http.csrf()
-            .ignoringRequestMatchers("/authentication/**", "/api/highlight/**")
+            .ignoringRequestMatchers("/api/authentication/**")
             .csrfTokenRequestHandler(requestHandler)
             .csrfTokenRepository(new HttpSessionCsrfTokenRepository())
             .and()
             .cors()
             .configurationSource(corsConfigurationSource());
-        http.authorizeHttpRequests().requestMatchers("/authentication/**", "/csrf/**", "/api/highlight/**").permitAll()
+        http.authorizeHttpRequests().requestMatchers("/api/authentication/**", "/api/csrf/**").permitAll()
 
             .anyRequest().authenticated();
         http.exceptionHandling().authenticationEntryPoint(getAuthenticationEntryPoint);
