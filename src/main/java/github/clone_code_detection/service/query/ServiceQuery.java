@@ -6,6 +6,7 @@ import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
 import github.clone_code_detection.entity.highlight.document.ReportTargetDocument;
 import github.clone_code_detection.entity.highlight.document.SimilarityReport;
+import github.clone_code_detection.entity.highlight.document.SimilarityReportMeta;
 import github.clone_code_detection.entity.highlight.dto.SimilarityReportDetailDTO;
 import github.clone_code_detection.entity.highlight.request.SimilarityDetectRequest;
 import github.clone_code_detection.entity.index.IndexInstruction;
@@ -34,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.*;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
@@ -41,6 +43,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class ServiceQuery {
+    private static final DecimalFormat decimalFormat = new DecimalFormat("#.##");
     private final RepoElasticsearchQuery repoElasticsearchQuery;
     private final RepoReportSourceDocument repoReportSourceDocument;
     private final RepoSimilarityReport repoSimilarityReport;
@@ -51,9 +54,15 @@ public class ServiceQuery {
     private final ServiceHighlight serviceHighlight;
 
     @Autowired
-    public ServiceQuery(RepoElasticsearchQuery repoElasticsearchQuery, RepoReportSourceDocument repoHighlightSessionDocument, RepoSimilarityReport repoSimilarityReport, RepoFileDocument repoFileDocument,
+    public ServiceQuery(RepoElasticsearchQuery repoElasticsearchQuery,
+                        RepoReportSourceDocument repoHighlightSessionDocument,
+                        RepoSimilarityReport repoSimilarityReport,
+                        RepoFileDocument repoFileDocument,
 
-                        ServiceIndex serviceIndex, ThreadPoolExecutor threadPoolExecutor, @Lazy DetectSimilarityJobFactory detectSimilarityJobFactory, ServiceHighlight serviceHighlight) {
+                        ServiceIndex serviceIndex,
+                        ThreadPoolExecutor threadPoolExecutor,
+                        @Lazy DetectSimilarityJobFactory detectSimilarityJobFactory,
+                        ServiceHighlight serviceHighlight) {
         this.repoElasticsearchQuery = repoElasticsearchQuery;
         this.repoReportSourceDocument = repoHighlightSessionDocument;
         this.repoSimilarityReport = repoSimilarityReport;
@@ -65,16 +74,27 @@ public class ServiceQuery {
     }
 
     private static TargetMatchOverview extract(ReportTargetDocument document) {
-        UserImpl user = document.getTarget()
-                                .getUser();
-        String userName = user != null ? user.getUsername() : "anonymous";
-        String targetId = document.getId()
-                                  .toString();
-        Float score = document.getScore();
+        String userName = document.getTarget().getAuthor();
+        String targetId = document.getId().toString();
+        double score = Double.parseDouble(decimalFormat.format(document.getScore()));
+        String meta = String.join(", ",
+                                  document.getTarget()
+                                          .getMeta()
+                                          .entrySet()
+                                          .stream()
+                                          .map(map -> String.format("%s: %s", map.getKey(), map.getValue()))
+                                          .toList());
+        String filename = document.getTarget()
+                                  .getFileName()
+                                  .substring(document.getTarget().getFileName().lastIndexOf("/") + 1);
         return TargetMatchOverview.builder()
                                   .author(userName)
                                   .id(targetId)
                                   .score(score)
+                                  .origin(document.getTarget().getOrigin())
+                                  .originLink(document.getTarget().getOriginLink())
+                                  .fileName(filename)
+                                  .meta(meta)
                                   .build();
     }
 
@@ -127,7 +147,8 @@ public class ServiceQuery {
                 continue;
             }
             Optional<FileDocument> fileDocument = repoFileDocument.findById(fromString);
-            if (fileDocument.isEmpty()) continue;
+            if (fileDocument.isEmpty())
+                continue;
             ReportTargetDocument singleMatch = ReportTargetDocument.builder()
                                                                    .score(hit.getScore())
                                                                    .source(reportSourceDocument)
@@ -194,37 +215,12 @@ public class ServiceQuery {
         }
     }
 
-    @Builder
-    public static class TargetMatchOverview {
-        @JsonProperty("author")
-        private String author;
-
-        @JsonProperty("score")
-        private double score;
-
-        @JsonProperty("target_match_id")
-        private String id;
-    }
-
     // query
     @Transactional
     public SimilarityReport createSimilarityReport(SimilarityDetectRequest request, QueryInstruction queryInstruction) {
         SimilarityReport similarityReport = createEmptyReport(request);
         // Assign session id of empty highlight session into each source document
-        Collection<FileDocument> sourceDocuments = request.getSources();
-        // Save file linking id of session
-        sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
-        IndexInstruction indexInstruction = IndexInstruction.builder()
-                                                            .files(sourceDocuments)
-                                                            .build();
-        DetectSimilarityJob.DetectSimilarityJobBuilder builder = DetectSimilarityJob.builder()
-                                                                                    .reportId(similarityReport.getId())
-                                                                                    .instruction(indexInstruction)
-                                                                                    .queryInstruction(queryInstruction);
-        DetectSimilarityJob detectSimilarityJob = detectSimilarityJobFactory.newInstance(builder);
-
-        threadPoolExecutor.submit(detectSimilarityJob);
-        return similarityReport;
+        return detectAndFulfillReport(request, queryInstruction, similarityReport);
     }
 
     @NotNull
@@ -238,9 +234,18 @@ public class ServiceQuery {
     }
 
     @Transactional
-    public SimilarityReport createSimilarityReport(SimilarityDetectRequest request, QueryInstruction queryInstruction, UserImpl user) {
-        SimilarityReport similarityReport = createEmptyReport(request, user);
+    public SimilarityReport createSimilarityReport(SimilarityDetectRequest request,
+                                                   QueryInstruction queryInstruction,
+                                                   UserImpl user) {
+        SimilarityReport similarityReport = createEmptyReport(request, user, queryInstruction);
         // Assign session id of empty highlight session into each source document
+        return detectAndFulfillReport(request, queryInstruction, similarityReport);
+    }
+
+    @NotNull
+    private SimilarityReport detectAndFulfillReport(SimilarityDetectRequest request,
+                                                    QueryInstruction queryInstruction,
+                                                    SimilarityReport similarityReport) {
         Collection<FileDocument> sourceDocuments = request.getSources();
         // Save file linking id of session
         sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
@@ -249,8 +254,8 @@ public class ServiceQuery {
                                                             .build();
 
         DetectSimilarityJob.DetectSimilarityJobBuilder builder = DetectSimilarityJob.builder()
-                                                                                    .reportId(similarityReport.getId())
                                                                                     .instruction(indexInstruction)
+                                                                                    .report(similarityReport)
                                                                                     .queryInstruction(queryInstruction);
 
         DetectSimilarityJob detectSimilarityJob = detectSimilarityJobFactory.newInstance(builder);
@@ -259,12 +264,23 @@ public class ServiceQuery {
     }
 
     @NotNull
-    private SimilarityReport createEmptyReport(SimilarityDetectRequest request, UserImpl user) {
+    @Transactional
+    public SimilarityReport createEmptyReport(SimilarityDetectRequest request, UserImpl user,
+                                              QueryInstruction queryInstruction) {
+        // init meta
+        SimilarityReportMeta meta = SimilarityReportMeta.builder()
+                                                        .author(request.getAuthor())
+                                                        .origin(request.getOrigin())
+                                                        .minimumShouldMatch(queryInstruction.getMinimumShouldMatch())
+                                                        .type(queryInstruction.getType())
+                                                        .link(request.getLink())
+                                                        .build();
         // Create new empty highlight session
         SimilarityReport.SimilarityReportBuilder sessionBuilder = SimilarityReport.builder();
         SimilarityReport similarityReport = sessionBuilder.build();
         similarityReport.setUser(user);
         similarityReport.setName(request.getReportName());
+        similarityReport.setMeta(meta);
         return repoSimilarityReport.save(similarityReport);
     }
 
@@ -299,5 +315,29 @@ public class ServiceQuery {
         serviceIndex.indexAllDocuments(indexInstruction);
         calculatePercentageMatches(similarityReport);
         return SimilarityReportDetailDTO.from(similarityReport);
+    }
+
+    @Builder
+    public static class TargetMatchOverview {
+        @JsonProperty("author")
+        private String author;
+
+        @JsonProperty("score")
+        private double score;
+
+        @JsonProperty("origin")
+        private String origin;
+
+        @JsonProperty("origin_link")
+        private String originLink;
+
+        @JsonProperty("file_name")
+        private String fileName;
+
+        @JsonProperty("meta")
+        private String meta;
+
+        @JsonProperty("target_match_id")
+        private String id;
     }
 }

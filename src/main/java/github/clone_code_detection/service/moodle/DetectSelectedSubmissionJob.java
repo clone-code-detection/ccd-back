@@ -29,10 +29,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Builder
@@ -60,9 +57,17 @@ public class DetectSelectedSubmissionJob implements Runnable {
     private Map<String, List<RelationWithOwner>> classifySubmissions(List<Submission> submissions) {
         Map<String, List<RelationWithOwner>> mapRelationsByNeed = new HashMap<>();
         submissions.forEach(submission -> submission.getRelations().forEach(relation -> {
+            SubmissionMeta meta = SubmissionMeta.builder()
+                                                .link(relation.getFile()
+                                                              .getFileUri()
+                                                              .replace("/webservice", ""))
+                                                .courseName(submission.getCourseName())
+                                                .assignName(submission.getAssignName())
+                                                .build();
             RelationWithOwner relationWithOwner = RelationWithOwner.builder()
                                                                    .owner(submission.getOwner())
                                                                    .relation(relation)
+                                                                   .meta(meta)
                                                                    .build();
             // If session is null then this relation need to add
             // If submission relation has session id = null then add new
@@ -135,7 +140,14 @@ public class DetectSelectedSubmissionJob implements Runnable {
                                                                MoodleUser owner) {
         // Enrich zip file from moodle
         byte[] data = getSubmissionFileFromMoodle(relation.getRelation().getFile().getFileUri(), reference);
-        List<FileDocument> documents = parseFileDocuments(relation.getRelation().getFile(), data, owner);
+        Map<String, String> meta = new HashMap<>();
+        meta.put("Course", relation.getMeta().getCourseName());
+        meta.put("Assignment", relation.getMeta().getAssignName());
+        List<FileDocument> documents = parseFileDocuments(relation.getRelation().getFile(),
+                                                          data,
+                                                          owner,
+                                                          meta,
+                                                          relation.getMeta().getLink());
         return SimilarityDetectRequest.builder()
                                       .reportName(FileSystemUtil.getFileName(relation.getRelation()
                                                                                      .getFile()
@@ -143,17 +155,21 @@ public class DetectSelectedSubmissionJob implements Runnable {
                                       .sources(documents)
                                       .author(relation.getOwner().getEmail())
                                       .origin("moodle")
+                                      .link(relation.getMeta().getLink())
+                                      .meta(meta)
                                       .build();
     }
 
-    private List<FileDocument> parseFileDocuments(SubmissionFile file, byte[] data, MoodleUser owner) {
+    private List<FileDocument> parseFileDocuments(SubmissionFile file, byte[] data, MoodleUser owner,
+                                                  Map<String, String> meta, String uri) {
         String filename = file.getFilename();
         List<FileDocument> documents = new ArrayList<>();
         switch (FilenameUtils.getExtension(filename)) {
             case "" -> {
                 return documents;
             }
-            case "zip" -> documents.addAll(ZipUtil.getFileDocumentFromZipFile(data, owner.getFullname()));
+            case "zip" ->
+                    documents.addAll(ZipUtil.getFileDocumentFromZipFile(data, owner.getEmail(), meta, uri, "moodle"));
             default -> {
                 try {
                     languageUtil.getIndexFromFileName(filename);
@@ -161,7 +177,10 @@ public class DetectSelectedSubmissionJob implements Runnable {
                     documents.add(FileDocument.builder()
                                               .content(data)
                                               .fileName(filename)
-                                              .author(owner.getFullname())
+                                              .author(owner.getEmail())
+                                              .origin("moodle")
+                                              .originLink(uri)
+                                              .meta(meta)
                                               .build());
                 } catch (UnsupportedLanguage ignored) {
                 }
@@ -197,15 +216,10 @@ public class DetectSelectedSubmissionJob implements Runnable {
             handleNeedModifySubmissions(mapRelationWithOwnerByNeed.get("modify"), user.getReference());
             repoSubmission.saveAll(submissions);
         } catch (Exception e) {
-            log.error("[Detect selected submissions job] Error: {}. Submissions: {}",
+            log.error("[DetectSelectedSubmissionJob] Error: {}. Submissions: {}. Trace:\n{}",
                       e.getMessage(),
-                      submissions.stream().map(Submission::getId).toList());
-            for (StackTraceElement stackTraceElement : e.getStackTrace()) {
-                System.out.printf("Line %d: %s - %s\n",
-                                  stackTraceElement.getLineNumber(),
-                                  stackTraceElement.getClassName(),
-                                  stackTraceElement.getMethodName());
-            }
+                      submissions.stream().map(Submission::getId).toList(),
+                      Arrays.stream(e.getStackTrace()).findFirst().orElse(null));
             throw new RuntimeException(e);
         }
         log.info("[Detect selected submissions job] Detect successfully for submissions: {}",
@@ -217,5 +231,14 @@ public class DetectSelectedSubmissionJob implements Runnable {
     private static class RelationWithOwner {
         MoodleUser owner;
         RelationSubmissionReport relation;
+        SubmissionMeta meta;
+    }
+
+    @Builder
+    @Data
+    private static class SubmissionMeta {
+        String courseName;
+        String assignName;
+        String link;
     }
 }

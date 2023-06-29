@@ -1,12 +1,11 @@
 package github.clone_code_detection.entity.fs;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import github.clone_code_detection.entity.authenication.UserImpl;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.UUID;
 
 @Builder
@@ -30,14 +29,22 @@ public class FileDocument {
     @Column(name = "file_name", nullable = false)
     private String fileName;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id")
-    @JsonIgnore
-    private UserImpl user;
-
     @Builder.Default
     @Column(name = "author")
     private String author = "anonymous";
+
+    private String origin;
+
+    @Column(name = "origin_link")
+    private String originLink;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @MapKeyColumn(name = "key")
+    @Column(name = "value")
+    @CollectionTable(schema = "file",
+                     name = "file_meta",
+                     joinColumns = @JoinColumn(name = "file_id", referencedColumnName = "id"))
+    private Map<String, String> meta;
 
     @JsonProperty("content")
     public String getContentAsString() {

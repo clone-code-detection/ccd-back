@@ -26,16 +26,23 @@ public class QueryController {
         this.serviceQuery = serviceQuery;
     }
 
-    @RequestMapping(path = "/single-source-match/overview/{id}", method = RequestMethod.GET)
+    @GetMapping(path = "/single-source-match/overview/{id}")
     public Collection<ServiceQuery.TargetMatchOverview> handle(@PathVariable String id) {
         return serviceQuery.handle(id);
     }
 
-    @PostMapping(path = "/query", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
+    @PostMapping(path = "/query",
+                 consumes = {MediaType.APPLICATION_JSON_VALUE,
+                             MediaType.MULTIPART_FORM_DATA_VALUE,
+                             MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
     public SimilarityReportDetailDTO queryDocument(@RequestParam("source") MultipartFile source,
-                                                   @RequestParam(value = "type", required = false, defaultValue = "1") Integer type,
-                                                   @RequestParam(value = "minimum_should_match", required = false, defaultValue = "70%") String minimumShouldMatch) {
+                                                   @RequestParam(value = "type",
+                                                                 required = false,
+                                                                 defaultValue = "1") Integer type,
+                                                   @RequestParam(value = "minimum_should_match",
+                                                                 required = false,
+                                                                 defaultValue = "70%") String minimumShouldMatch) {
         QueryInstruction queryInstruction = QueryInstruction.builder()
                                                             .type(type)
                                                             .minimumShouldMatch(minimumShouldMatch)
@@ -43,11 +50,18 @@ public class QueryController {
         return serviceQuery.detectSync(source, queryInstruction);
     }
 
-    @PostMapping(path = "/detect", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
+    @PostMapping(path = "/detect",
+                 consumes = {MediaType.APPLICATION_JSON_VALUE,
+                             MediaType.MULTIPART_FORM_DATA_VALUE,
+                             MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
     public SimilarityReportInfoDTO createSimilarityReport(@RequestParam("source") MultipartFile source,
-                                                          @RequestParam(value = "type", required = false, defaultValue = "1") Integer type,
-                                                          @RequestParam(value = "minimum_should_match", required = false, defaultValue = "70%") String minimumShouldMatch) {
+                                                          @RequestParam(value = "type",
+                                                                        required = false,
+                                                                        defaultValue = "1") Integer type,
+                                                          @RequestParam(value = "minimum_should_match",
+                                                                        required = false,
+                                                                        defaultValue = "70%") String minimumShouldMatch) {
         QueryInstruction queryInstruction = QueryInstruction.builder()
                                                             .type(type)
                                                             .minimumShouldMatch(minimumShouldMatch)

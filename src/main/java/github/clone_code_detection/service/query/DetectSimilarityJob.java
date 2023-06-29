@@ -18,7 +18,10 @@ import org.elasticsearch.action.search.MultiSearchResponse;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 
 @Slf4j
 @Builder
@@ -28,8 +31,6 @@ public class DetectSimilarityJob implements Runnable {
     private RepoElasticsearchQuery repoElasticsearchQuery;
     private ServiceQuery serviceQuery;
     private ServiceIndex serviceIndex;
-
-    private UUID reportId;
 
     private IndexInstruction instruction;
     private QueryInstruction queryInstruction;
@@ -46,11 +47,9 @@ public class DetectSimilarityJob implements Runnable {
             List<ReportSourceDocument> hits = new ArrayList<>(multiHighlight(files));
             report.setSources(hits);
             report.setStatus(SimilarityReportStatus.DONE);
-            SimilarityReport savedSimilarityReport = repoSimilarityReport.save(report);
-
             serviceIndex.bulkIndexAllDocuments(instruction);
-            serviceQuery.calculatePercentageMatches(savedSimilarityReport);
-
+            serviceQuery.calculatePercentageMatches(report);
+            repoSimilarityReport.save(report);
         } catch (Exception e) {
             log.error("[Service highlight] detect report {} failed with error: {}. Method: {}",
                       report.getName(),
@@ -58,22 +57,19 @@ public class DetectSimilarityJob implements Runnable {
                       Arrays.stream(e.getStackTrace()).findFirst().orElse(null));
             // Update status to failed for future retry
             report.setStatus(SimilarityReportStatus.FAILED);
-            report.setException(new HighlightSessionException("[Service highlight] Error while processing highlight",
-                                                              e).toString());
+            report.setException(new HighlightSessionException(e).toString());
             repoSimilarityReport.save(report);
         }
     }
 
     @Transactional
     public void markSessionAsProcessing() {
-        report = repoSimilarityReport.findById(reportId).orElseThrow();
         try {
             repoSimilarityReport.updateStatusByIdEquals(SimilarityReportStatus.PROCESSING, report.getId());
         } catch (Exception e) {
             log.error("[Service highlight] Can't update session to PROCESSING");
             report.setStatus(SimilarityReportStatus.FAILED);
-            report.setException(new HighlightSessionException("[Service highlight] Can't update session to PROCESSING",
-                                                              e).toString());
+            report.setException(new HighlightSessionException(e).toString());
             repoSimilarityReport.save(report);
         }
     }

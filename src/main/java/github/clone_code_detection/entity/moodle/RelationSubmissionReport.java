@@ -1,6 +1,7 @@
 package github.clone_code_detection.entity.moodle;
 
 import github.clone_code_detection.entity.highlight.document.SimilarityReport;
+import github.clone_code_detection.entity.highlight.document.SimilarityReportStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -46,7 +47,7 @@ public class RelationSubmissionReport {
             @Override
             public Status getStatus() {
                 if (report == null) return Status.UN_DETECTED;
-                if (file.getUpdatedAt().isBefore(report.getUpdatedAt())) return Status.UP_TO_DATE;
+                if (file.getUpdatedAt().isBefore(report.getUpdatedAt()) && report.getStatus().equals(SimilarityReportStatus.DONE)) return Status.UP_TO_DATE;
                 return Status.OUT_DATE;
             }
         };

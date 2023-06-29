@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.Collection;
+import java.util.Map;
 
 @Data
 @Builder
@@ -17,4 +18,6 @@ public class SimilarityDetectRequest {
     private Collection<FileDocument> sources;
     private String author;
     private String origin;
+    private String link;
+    private Map<String, String> meta;
 }

@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoField;
 import java.util.List;
 
 @Builder
@@ -26,8 +27,14 @@ public class Submission {
     @Column(name = "course_id")
     private long courseId;
 
+    @Column(name = "course_name")
+    private String courseName;
+
     @Column(name = "assign_id")
     private long assignId;
+
+    @Column(name = "assign_name")
+    private String assignName;
 
     @Column(name = "reference_submission_id")
     private long referenceSubmissionId; // The submission id of moodle
@@ -58,12 +65,12 @@ public class Submission {
 
             @Override
             public long getCreatedAt() {
-                return createdAt.getSecond();
+                return createdAt.getLong(ChronoField.INSTANT_SECONDS);
             }
 
             @Override
             public long getUpdatedAt() {
-                return updatedAt.getSecond();
+                return updatedAt.getLong(ChronoField.INSTANT_SECONDS);
             }
 
             @Override

@@ -35,10 +35,13 @@ public class UserImpl implements UserDetails {
     private String password;
 
     @ManyToMany
-    @JoinTable(name = "relation_user_role", schema = "authen", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
+    @JoinTable(name = "relation_user_role",
+               schema = "authen",
+               joinColumns = @JoinColumn(name = "user_id"),
+               inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Collection<Role> roles;
 
-    @OneToOne(mappedBy = "internalUser", cascade = {CascadeType.ALL})
+    @OneToOne(cascade = {CascadeType.PERSIST, CascadeType.REMOVE, CascadeType.MERGE}, mappedBy = "internalUser")
     @Transient
     private UserReference reference;
 
