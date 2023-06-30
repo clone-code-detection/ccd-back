@@ -31,7 +31,7 @@ class GlobalAdvice {
         ObjectError message = ex.getAllErrors()
                                 .get(0);
 
-        return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
                 MessageFormat.format("{0} : {1}", message.getObjectName(),
                         message.getDefaultMessage()));
     }

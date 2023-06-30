@@ -1,18 +1,13 @@
 package github.clone_code_detection.entity.authenication;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 
 @Data
-public class SignUpRequest {
-    @NotNull
-    @NotBlank(message = "Username must not be blank")
-    private String email;
+public class ResetPasswordRequest {
+    @NotBlank(message = "token")
+    private String token;
 
     /**
      * @implNote https://stackoverflow.com/questions/19605150/regex-for-password-must-contain-at-least-eight-characters-at-least-one-number-a
@@ -24,11 +19,4 @@ public class SignUpRequest {
 
     @NotBlank(message = "Repeated password must not be blank")
     public String repeat;
-
-    @JsonProperty("is_standalone")
-    private Boolean isStandalone = true;
-
-    public Authentication toUsernamePasswordToken() {
-        return new UsernamePasswordAuthenticationToken(this.email, this.password);
-    }
 }
