@@ -11,6 +11,8 @@ import github.clone_code_detection.exceptions.authen.ResetPasswordException;
 import github.clone_code_detection.service.user.ServiceAuthentication;
 import github.clone_code_detection.util.ProblemDetailUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
@@ -19,11 +21,13 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.BindException;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.net.URI;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -98,12 +102,22 @@ public class AuthenticationController {
         return new UserAuthenticateResponse(userDetails);
     }
 
+    @GetMapping(value = "/signout")
+    public void loadApp(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        HttpSession session = request.getSession(false);
+        SecurityContextHolder.clearContext();
+        if (session != null) {
+            session.invalidate();
+        }
+        response.sendRedirect("/");
+    }
+
     @ExceptionHandler({InvalidOperationException.class})
-    @ResponseStatus(HttpStatus.FORBIDDEN)
+    @ResponseStatus(HttpStatus.CONFLICT)
     public ProblemDetail handleException(InvalidOperationException ex) {
         URI uri = URI.create(
                 "https://clone-code-detection.atlassian.net/wiki/spaces/CCD/pages/6914069/Authentication#Forbidden-request");
-        return ProblemDetailUtil.forTypeAndStatusAndDetail(uri, HttpStatus.FORBIDDEN, ex.getMessage());
+        return ProblemDetailUtil.forTypeAndStatusAndDetail(uri, HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(value = {AuthenticationException.class})
