@@ -19,7 +19,7 @@ import java.time.format.DateTimeFormatter;
 @Component
 public class AuthenticationHelper {
     public static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy - hh:mm");
-    @Value("spring.mail.username")
+    @Value("${spring.mail.sender}")
     String sender;
 
     @Value("${ccd.domain}")
