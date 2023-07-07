@@ -49,9 +49,9 @@ public class ApplicationSecurity {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         log.info("Authen: {}", authentication);
         if (authException instanceof InsufficientAuthenticationException) {
-            statusCode = HttpStatus.UNAUTHORIZED.value();
+            statusCode = HttpStatus.FORBIDDEN.value();
             problemDetail = ProblemDetailUtil.forTypeAndStatusAndDetail(URI.create("about:blank"),
-                                                                        HttpStatus.UNAUTHORIZED,
+                                                                        HttpStatus.FORBIDDEN,
                                                                         authException.getMessage());
         } else {
             problemDetail = ProblemDetailUtil.forTypeAndStatusAndDetail(URI.create("about:blank"),
