@@ -24,6 +24,7 @@ import org.springframework.validation.BindException;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Collection;
@@ -100,47 +101,48 @@ public class AuthenticationController {
     @ExceptionHandler({InvalidOperationException.class})
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ProblemDetail handleException(InvalidOperationException ex) {
-        return ProblemDetailUtil.forTypeAndStatusAndDetail(
-                "https://clone-code-detection.atlassian.net/wiki/spaces/CCD/pages/6914069/Authentication#Forbidden-request",
-                HttpStatus.FORBIDDEN, ex.getMessage());
+        URI uri = URI.create(
+                "https://clone-code-detection.atlassian.net/wiki/spaces/CCD/pages/6914069/Authentication#Forbidden-request");
+        return ProblemDetailUtil.forTypeAndStatusAndDetail(uri, HttpStatus.FORBIDDEN, ex.getMessage());
     }
 
     @ExceptionHandler(value = {AuthenticationException.class})
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ProblemDetail handleAuthentication(RuntimeException ex) {
-        return ProblemDetailUtil.forTypeAndStatusAndDetail(
-                "https://clone-code-detection.atlassian.net/wiki/spaces/CCD/pages/6914069/Authentication#Bad-credential",
-                HttpStatus.UNAUTHORIZED, ex.getMessage());
+        URI badCredentials = URI.create(
+                "https://clone-code-detection.atlassian.net/wiki/spaces/CCD/pages/6914069/Authentication#Bad-credential");
+        return ProblemDetailUtil.forTypeAndStatusAndDetail(badCredentials, HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 
-    @ExceptionHandler(value = {FieldValidationException.class})
+    @ExceptionHandler(value = {FieldValidationException.class, BindException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ProblemDetail handleValidationException(FieldValidationException ex) {
-        var field = ex.getField();
-        var message = ex.getMessage();
+    public ProblemDetail handleValidationException(Exception ex) {
+        String fieldName;
+        String message = "unknown";
+        if (ex instanceof FieldValidationException) {
+            var casted = (FieldValidationException) ex;
 
-        return ProblemDetailUtil.forTypeAndStatusAndDetail(
+
+            fieldName = casted.getField();
+            message = ex.getMessage();
+        } else {
+            var casted = (BindException) ex;
+            var fieldError = casted.getFieldError();
+
+            fieldName = fieldError.getField();
+            message = fieldError.getDefaultMessage();
+        }
+
+        return ProblemDetailUtil.forTypeAndStatusAndDetail(URI.create(
                 "https://clone-code-detection.atlassian.net/wiki/spaces/CCD/pages/6914069/Authentication#Bad-request-"
-                + field, HttpStatus.BAD_REQUEST, message);
-    }
-
-    @ExceptionHandler(value = {BindException.class})
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ProblemDetail handleBadBindingException(BindException ex) {
-        var fieldError = ex.getFieldError();
-        String fieldName = fieldError.getField();
-        String message = fieldError.getDefaultMessage();
-
-        return ProblemDetailUtil.forTypeAndStatusAndDetail(
-                "https://clone-code-detection.atlassian.net/wiki/spaces/CCD/pages/6914069/Authentication#Bad-request-"
-                + fieldName, HttpStatus.BAD_REQUEST, message);
+                + fieldName), HttpStatus.BAD_REQUEST, message);
     }
 
     @ExceptionHandler(value = {ActivateAccountException.class, ResetPasswordException.class})
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ResponseStatus(HttpStatus.NOT_ACCEPTABLE)
     public ProblemDetail handleOtherException(RuntimeException ex) {
-        return ProblemDetailUtil.forTypeAndStatusAndDetail(
-                "https://clone-code-detection.atlassian.net/wiki/spaces/CCD/pages/6914069/Authentication#Bad-request",
-                HttpStatus.UNAUTHORIZED, ex.getMessage());
+        return ProblemDetailUtil.forTypeAndStatusAndDetail(URI.create(
+                        "https://clone-code-detection.atlassian.net/wiki/spaces/CCD/pages/6914069/Authentication#Bad-request"),
+                HttpStatus.NOT_ACCEPTABLE, ex.getMessage());
     }
 }
