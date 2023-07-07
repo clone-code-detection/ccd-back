@@ -95,6 +95,7 @@ public class ServiceQuery {
                                   .originLink(document.getTarget().getOriginLink())
                                   .fileName(filename)
                                   .meta(meta)
+                                  .percentageMatch(document.getPercentageMatch())
                                   .build();
     }
 
@@ -339,5 +340,8 @@ public class ServiceQuery {
 
         @JsonProperty("target_match_id")
         private String id;
+
+        @JsonProperty("percentage_match")
+        private double percentageMatch;
     }
 }
