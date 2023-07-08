@@ -8,11 +8,11 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 @Data
 public class SignInRequest {
     @NotNull
-    private String username;
+    private String email;
     @NotNull
     private String password;
 
     public UsernamePasswordAuthenticationToken toUsernamePasswordToken() {
-        return new UsernamePasswordAuthenticationToken(this.username, this.password);
+        return new UsernamePasswordAuthenticationToken(this.email, this.password);
     }
 }

@@ -32,6 +32,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.net.URI;
 import java.util.List;
 
 @Configuration
@@ -48,12 +49,12 @@ public class ApplicationSecurity {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         log.info("Authen: {}", authentication);
         if (authException instanceof InsufficientAuthenticationException) {
-            statusCode = HttpStatus.UNAUTHORIZED.value();
-            problemDetail = ProblemDetailUtil.forTypeAndStatusAndDetail("undocumented",
-                                                                        HttpStatus.UNAUTHORIZED,
+            statusCode = HttpStatus.FORBIDDEN.value();
+            problemDetail = ProblemDetailUtil.forTypeAndStatusAndDetail(URI.create("about:blank"),
+                                                                        HttpStatus.FORBIDDEN,
                                                                         authException.getMessage());
         } else {
-            problemDetail = ProblemDetailUtil.forTypeAndStatusAndDetail("undocumented",
+            problemDetail = ProblemDetailUtil.forTypeAndStatusAndDetail(URI.create("about:blank"),
                                                                         HttpStatus.INTERNAL_SERVER_ERROR,
                                                                         authException.getMessage());
         }
@@ -109,7 +110,7 @@ public class ApplicationSecurity {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000"));
+        configuration.setAllowedOrigins(List.of("http://localhost:3000", "https://csdwebsite.link"));
         configuration.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type", "X-CSRF-TOKEN"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PUT", "OPTIONS", "PATCH", "DELETE"));
         configuration.setExposedHeaders(List.of("Set-Cookie"));

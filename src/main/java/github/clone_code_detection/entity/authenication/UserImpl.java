@@ -34,6 +34,10 @@ public class UserImpl implements UserDetails {
     @Column(name = "password")
     private String password;
 
+    @Column(name = "status")
+    @Builder.Default
+    private String status = "register";
+
     @ManyToMany
     @JoinTable(name = "relation_user_role",
                schema = "authen",
@@ -86,6 +90,6 @@ public class UserImpl implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return "active".equals(status);
     }
 }

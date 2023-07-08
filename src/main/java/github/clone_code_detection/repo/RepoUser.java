@@ -18,6 +18,7 @@ public interface RepoUser extends JpaRepository<UserImpl, UUID> {
     String saveUserWithNameAndPassword = """
             insert into authen."user"(username, password)
             values (:username, :password)
+            on conflict do nothing;
             """;
 
     // language=PostgresSQL
@@ -27,7 +28,9 @@ public interface RepoUser extends JpaRepository<UserImpl, UUID> {
             from authen."user",
                  authen."role"
             where username = (:username)
-            and role.name = (:role);""";
+            and role.name = (:role)
+            on conflict do nothing;
+            ;""";
 
     UserImpl findUserImplByUsername(@Nonnull String name);
 
