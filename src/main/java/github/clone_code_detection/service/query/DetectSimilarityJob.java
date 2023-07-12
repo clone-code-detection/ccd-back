@@ -6,8 +6,8 @@ import github.clone_code_detection.entity.highlight.document.SimilarityReport;
 import github.clone_code_detection.entity.highlight.document.SimilarityReportStatus;
 import github.clone_code_detection.entity.index.IndexInstruction;
 import github.clone_code_detection.entity.query.QueryInstruction;
-import github.clone_code_detection.exceptions.highlight.ElasticsearchMultiHighlightException;
-import github.clone_code_detection.exceptions.highlight.HighlightSessionException;
+import github.clone_code_detection.exceptions.elasticsearch.OperationException;
+import github.clone_code_detection.exceptions.report.HighlightSessionException;
 import github.clone_code_detection.repo.RepoElasticsearchQuery;
 import github.clone_code_detection.repo.RepoSimilarityReport;
 import github.clone_code_detection.service.index.ServiceIndex;
@@ -101,7 +101,7 @@ public class DetectSimilarityJob implements Runnable {
                 }
             } catch (IOException e) {
                 log.error("[Service highlight] Multi highlight failed. Error: {}", e.getMessage());
-                throw new ElasticsearchMultiHighlightException("Multi highlight failed", e);
+                throw new OperationException("Multi highlight failed", e);
             } finally {
                 startIndex = endIndex;
             }

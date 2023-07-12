@@ -1,11 +1,12 @@
 package github.clone_code_detection.controller.query;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import github.clone_code_detection.entity.highlight.document.SimilarityReport;
 import github.clone_code_detection.entity.highlight.dto.SimilarityReportDetailDTO;
 import github.clone_code_detection.entity.highlight.dto.SimilarityReportInfoDTO;
 import github.clone_code_detection.entity.highlight.request.SimilarityDetectRequest;
 import github.clone_code_detection.entity.query.QueryInstruction;
-import github.clone_code_detection.service.highlight.ServiceHighlight;
 import github.clone_code_detection.service.query.ServiceQuery;
 import github.clone_code_detection.util.FileSystemUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,10 +20,11 @@ import java.util.Collection;
 @RestController
 @RequestMapping("/api/query")
 public class QueryController {
+    private static final ObjectMapper mapper = new ObjectMapper();
     private final ServiceQuery serviceQuery;
 
     @Autowired
-    public QueryController(ServiceQuery serviceQuery, ServiceHighlight serviceHighlight) {
+    public QueryController(ServiceQuery serviceQuery) {
         this.serviceQuery = serviceQuery;
     }
 
@@ -56,12 +58,25 @@ public class QueryController {
                              MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
     public SimilarityReportInfoDTO createSimilarityReport(@RequestParam("source") MultipartFile source,
-                                                          @RequestParam(value = "type",
-                                                                        required = false,
+                                                          @RequestParam(value = "type", required = false,
                                                                         defaultValue = "1") Integer type,
                                                           @RequestParam(value = "minimum_should_match",
                                                                         required = false,
-                                                                        defaultValue = "70%") String minimumShouldMatch) {
+                                                                        defaultValue = "70%") String minimumShouldMatch,
+                                                          @RequestParam(value = "author", required = false,
+                                                                        defaultValue = "anonymous") String author,
+                                                          @RequestParam(value = "origin", required = false,
+                                                                        defaultValue = "local") String origin,
+                                                          @RequestParam(value = "origin_link", required = false,
+                                                                        defaultValue = "") String originLink,
+                                                          @RequestParam(value = "name", required = false,
+                                                                        defaultValue = "") String reportName) {
+        ObjectNode meta = mapper.createObjectNode();
+        meta.put("author", author);
+        meta.put("origin", origin);
+        meta.put("origin_link", originLink);
+        if (reportName.equals(""))
+            reportName = FileSystemUtil.getFileName(source);
         QueryInstruction queryInstruction = QueryInstruction.builder()
                                                             .type(type)
                                                             .minimumShouldMatch(minimumShouldMatch)
@@ -71,7 +86,10 @@ public class QueryController {
         // Create highlight session request
         SimilarityDetectRequest request = SimilarityDetectRequest.builder()
                                                                  .reportName(FileSystemUtil.getFileName(source))
-                                                                 .sources(FileSystemUtil.extractDocuments(source))
+                                                                 .sources(FileSystemUtil.extractDocuments(source, meta))
+                                                                 .author(author)
+                                                                 .link(originLink)
+                                                                 .origin(origin).reportName(reportName)
                                                                  .build();
         SimilarityReport similarityReport = serviceQuery.createSimilarityReport(request, queryInstruction);
         return SimilarityReportInfoDTO.from(similarityReport);

@@ -14,18 +14,19 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 
 @SpringBootApplication(scanBasePackages = {"github.clone_code_detection"})
-@EntityScan(basePackages=  "github.clone_code_detection")
+@EntityScan(basePackages = "github.clone_code_detection")
 public class App {
     private final JavaMailSender mailSender;
-
-    @Autowired
-    public App(JavaMailSender mailSender) {this.mailSender = mailSender;}
-
     @Value("${spring.mail.sender}")
     String sender;
 
+    @Autowired
+    public App(JavaMailSender mailSender) {
+        this.mailSender = mailSender;
+    }
+
     public static void main(String[] args) {
-        SpringApplication.run(App.class , args);
+        SpringApplication.run(App.class, args);
     }
 
 

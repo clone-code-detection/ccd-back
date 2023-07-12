@@ -3,7 +3,7 @@ package github.clone_code_detection.util;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import github.clone_code_detection.entity.LanguageInfo;
 import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
-import github.clone_code_detection.exceptions.UnsupportedLanguage;
+import github.clone_code_detection.exceptions.file.UnsupportedLanguageException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.stereotype.Component;
@@ -47,7 +47,6 @@ public class LanguageUtil {
     /**
      * @param matches list of single documents
      * @return the main language of project
-     *
      * @deprecated
      */
     @Deprecated(since = "2.0")
@@ -79,7 +78,7 @@ public class LanguageUtil {
     public String getIndexFromExtension(String extension) {
         String s = onMemExtensionLanguageMapping.get(extension);
         if (s == null) {
-            throw new UnsupportedLanguage("Unsupported language: " + extension);
+            throw new UnsupportedLanguageException("Unsupported language: " + extension);
         }
         return s;
     }

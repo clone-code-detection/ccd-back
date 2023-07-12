@@ -81,7 +81,6 @@ public class ApplicationSecurity {
      * @param http
      * @param authenticationManager
      * @return
-     *
      * @throws Exception
      * @implNote https://stackoverflow.com/questions/25230861/spring-security-get-user-info-in-rest-service-for-authenticated-and-not-authent/25280897#25280897
      */

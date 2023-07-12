@@ -2,7 +2,7 @@ package github.clone_code_detection.repo;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import github.clone_code_detection.entity.ElasticsearchDocument;
-import github.clone_code_detection.exceptions.es.ElasticsearchRequestBuildException;
+import github.clone_code_detection.exceptions.elasticsearch.OperationException;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -36,7 +36,7 @@ public class RepoElasticsearchIndex {
             if (doc.getId() != null) source.id(doc.getId());
             return source;
         } catch (JsonProcessingException e) {
-            throw new ElasticsearchRequestBuildException("Failed to build index request");
+            throw new OperationException("Failed to build index request");
         }
     }
 

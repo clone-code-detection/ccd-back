@@ -41,7 +41,10 @@ public class ServiceAuthentication {
     private final AuthenticationHelper authenticationHelper;
 
     @Autowired
-    public ServiceAuthentication(PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager, RepoResetPasswordToken repoResetPasswordToken, RepoActivationToken repoActivationToken, RepoUser repoUser, JavaMailSender javaMailSender, AuthenticationHelper authenticationHelper) {
+    public ServiceAuthentication(PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager,
+                                 RepoResetPasswordToken repoResetPasswordToken, RepoActivationToken repoActivationToken,
+                                 RepoUser repoUser, JavaMailSender javaMailSender,
+                                 AuthenticationHelper authenticationHelper) {
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.repoResetPasswordToken = repoResetPasswordToken;
@@ -71,7 +74,7 @@ public class ServiceAuthentication {
                              .setAuthentication(authentication);
         httpServletRequest.getSession()
                           .setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
-                                  SecurityContextHolder.getContext());
+                                        SecurityContextHolder.getContext());
         return (UserImpl) authentication.getPrincipal();
     }
 
@@ -112,15 +115,16 @@ public class ServiceAuthentication {
         if (user == null) return;
         // Check if user is in registered mode
         if ("register".equals(user.getStatus())) {
-            if (repoActivationToken.existsByUser_UsernameAndExpirationAfter(user.getUsername(),
-                    ZonedDateTime.now(ForgotPasswordToken.ZONE))) {
+            if (Boolean.TRUE.equals(repoActivationToken.existsByUser_UsernameAndExpirationAfter(user.getUsername(),
+                                                                                                ZonedDateTime.now(
+                                                                                                        ForgotPasswordToken.ZONE)))) {
                 throw new InvalidOperationException(MessageFormat.format(
                         "User {0} has pending account activation request, please check your email!",
                         request.getEmail()));
             } else {
                 throw new InvalidOperationException(
                         MessageFormat.format("User {0} has no pending account activation request, please sign up again",
-                                request.getEmail()));
+                                             request.getEmail()));
             }
         }
     }
@@ -155,7 +159,7 @@ public class ServiceAuthentication {
 
         repoActivationToken.save(accountActivationToken);
         MimeMessage mimeMessage = authenticationHelper.prepareAccountActivationEmail(user.getUsername(),
-                accountActivationToken);
+                                                                                     accountActivationToken);
         mailSender.send(mimeMessage);
     }
 

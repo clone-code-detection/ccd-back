@@ -1,8 +1,9 @@
 package github.clone_code_detection.util;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import github.clone_code_detection.entity.fs.FileDocument;
-import github.clone_code_detection.exceptions.UnsupportedLanguage;
-import github.clone_code_detection.exceptions.highlight.FileHandleException;
+import github.clone_code_detection.exceptions.file.FailHandleException;
+import github.clone_code_detection.exceptions.file.UnsupportedLanguageException;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,7 +25,7 @@ public class ZipUtil {
         throw new IllegalStateException("ZipUtil is utility class");
     }
 
-    public static Collection<FileDocument> unzipAndGetContents(MultipartFile file) {
+    public static Collection<FileDocument> unzipAndGetContents(MultipartFile file, JsonNode meta) {
         ArrayList<FileDocument> contents = new ArrayList<>();
         try {
             ZipInputStream zipInputStream = new ZipInputStream(file.getInputStream());
@@ -38,22 +39,29 @@ public class ZipUtil {
                 // Ignore file if the language is not supported
                 try {
                     languageUtil.getIndexFromFileName(zipEntry.getName());
-                } catch (UnsupportedLanguage e) {
+                } catch (UnsupportedLanguageException e) {
                     zipInputStream.closeEntry();
                     continue;
                 }
                 byteArrayOutputStream.reset();
                 zipInputStream.transferTo(byteArrayOutputStream);
+                String filename = zipEntry.getName();
+                int slashIndex = zipEntry.getName().lastIndexOf("/");
+                if (slashIndex > -1)
+                    filename = zipEntry.getName().substring(slashIndex + 1);
                 FileDocument fileDocument = FileDocument.builder()
                                                         .content(byteArrayOutputStream.toByteArray())
-                                                        .fileName(zipEntry.getName())
+                                                        .fileName(filename)
+                                                        .author(meta.get("author").asText("anonymous"))
+                                                        .origin(meta.get("origin").asText("local"))
+                                                        .originLink(meta.get("origin_link").asText(""))
                                                         .build();
                 contents.add(fileDocument);
             }
             zipInputStream.closeEntry();
             zipInputStream.close();
         } catch (IOException e) {
-            throw new FileHandleException("Error parsing zip file");
+            throw new FailHandleException("Error parsing zip file");
         }
         return contents;
     }
@@ -97,6 +105,7 @@ public class ZipUtil {
                                           .originLink(uri)
                                           .meta(meta)
                                           .build());
-        } catch (UnsupportedLanguage ignored) {}
+        } catch (UnsupportedLanguageException ignored) {
+        }
     }
 }
