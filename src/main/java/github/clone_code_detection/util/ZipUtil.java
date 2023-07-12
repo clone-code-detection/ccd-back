@@ -1,5 +1,6 @@
 package github.clone_code_detection.util;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.exceptions.file.FailHandleException;
 import github.clone_code_detection.exceptions.file.UnsupportedLanguageException;
@@ -24,7 +25,7 @@ public class ZipUtil {
         throw new IllegalStateException("ZipUtil is utility class");
     }
 
-    public static Collection<FileDocument> unzipAndGetContents(MultipartFile file) {
+    public static Collection<FileDocument> unzipAndGetContents(MultipartFile file, JsonNode meta) {
         ArrayList<FileDocument> contents = new ArrayList<>();
         try {
             ZipInputStream zipInputStream = new ZipInputStream(file.getInputStream());
@@ -51,9 +52,9 @@ public class ZipUtil {
                 FileDocument fileDocument = FileDocument.builder()
                                                         .content(byteArrayOutputStream.toByteArray())
                                                         .fileName(filename)
-//                                                        .origin(extra.get("origin").asText())
-//                                                        .originLink(extra.get("origin_link").asText())
-//                                                        .author(extra.get("author").asText())
+                                                        .author(meta.get("author").asText("anonymous"))
+                                                        .origin(meta.get("origin").asText("local"))
+                                                        .originLink(meta.get("origin_link").asText(""))
                                                         .build();
                 contents.add(fileDocument);
             }

@@ -1,5 +1,6 @@
 package github.clone_code_detection.util;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.exceptions.file.UnsupportedLanguageException;
 import org.apache.commons.io.FilenameUtils;
@@ -27,21 +28,25 @@ public class FileSystemUtil {
 
     /**
      * @param file the source code file or zip file
+     * @param meta the file metadata like author, origin, ...
      * @return Collection of file document extracted from file
      * @implNote extract from zip if exists or single-content-collection
      */
-    public static Collection<FileDocument> extractDocuments(MultipartFile file) {
+    public static Collection<FileDocument> extractDocuments(MultipartFile file, JsonNode meta) {
         String fileName = file.getOriginalFilename();
         String extension = FilenameUtils.getExtension(fileName);
         assert extension != null;
         if (extension.endsWith("zip")) {
-            return ZipUtil.unzipAndGetContents(file);
+            return ZipUtil.unzipAndGetContents(file, meta);
         } else {
             byte[] content;
             content = FileSystemUtil.getContent(file);
             return List.of(FileDocument.builder()
                                        .fileName(fileName)
                                        .content(content)
+                                       .author(meta.get("author").asText("anonymous"))
+                                       .origin(meta.get("origin").asText("local"))
+                                       .originLink(meta.get("origin_link").asText(""))
                                        .build());
         }
     }

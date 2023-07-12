@@ -1,5 +1,6 @@
 package github.clone_code_detection.service.index;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import github.clone_code_detection.entity.ElasticsearchDocument;
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.index.IndexInstruction;
@@ -26,6 +27,7 @@ import java.util.stream.Stream;
 @Service
 @Slf4j
 public class ServiceIndex implements IServiceIndex {
+    private static final ObjectMapper mapper = new ObjectMapper();
     private final RepoElasticsearchIndex repoElasticsearchIndex;
     @Value("${elasticsearch.index.batch-size}")
     private int batchSize;
@@ -56,7 +58,7 @@ public class ServiceIndex implements IServiceIndex {
     @Override
     public Collection<FileDocument> indexAllDocuments(MultipartFile file, IndexInstruction body) {
         FileSystemUtil.validate(file);
-        Collection<FileDocument> files = FileSystemUtil.extractDocuments(file);
+        Collection<FileDocument> files = FileSystemUtil.extractDocuments(file, mapper.createObjectNode());
         body.setFiles(files);
         return this.indexAllDocuments(body);
     }

@@ -1,6 +1,7 @@
 package github.clone_code_detection.service.query;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import github.clone_code_detection.entity.authenication.UserImpl;
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
@@ -44,6 +45,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ServiceQuery {
     private static final DecimalFormat decimalFormat = new DecimalFormat("#.##");
+    private static final ObjectMapper mapper = new ObjectMapper();
     private final RepoElasticsearchQuery repoElasticsearchQuery;
     private final RepoReportSourceDocument repoReportSourceDocument;
     private final RepoSimilarityReport repoSimilarityReport;
@@ -58,7 +60,6 @@ public class ServiceQuery {
                         RepoReportSourceDocument repoHighlightSessionDocument,
                         RepoSimilarityReport repoSimilarityReport,
                         RepoFileDocument repoFileDocument,
-
                         ServiceIndex serviceIndex,
                         ThreadPoolExecutor threadPoolExecutor,
                         @Lazy DetectSimilarityJobFactory detectSimilarityJobFactory,
@@ -219,18 +220,25 @@ public class ServiceQuery {
     // query
     @Transactional
     public SimilarityReport createSimilarityReport(SimilarityDetectRequest request, QueryInstruction queryInstruction) {
-        SimilarityReport similarityReport = createEmptyReport(request);
+        SimilarityReport similarityReport = createEmptyReport(request, queryInstruction);
         // Assign session id of empty highlight session into each source document
         return detectAndFulfillReport(request, queryInstruction, similarityReport);
     }
 
     @NotNull
-    private SimilarityReport createEmptyReport(SimilarityDetectRequest request) {
+    private SimilarityReport createEmptyReport(SimilarityDetectRequest request, QueryInstruction queryInstruction) {
         // Create new empty highlight session
         SimilarityReport.SimilarityReportBuilder sessionBuilder = SimilarityReport.builder();
         SimilarityReport similarityReport = sessionBuilder.build();
         similarityReport.setUser(ServiceAuthentication.getUserFromContext());
         similarityReport.setName(request.getReportName());
+        similarityReport.setMeta(SimilarityReportMeta.builder()
+                                                     .author(request.getAuthor())
+                                                     .origin(request.getOrigin())
+                                                     .link(request.getLink())
+                                                     .minimumShouldMatch(queryInstruction.getMinimumShouldMatch())
+                                                     .type(queryInstruction.getType())
+                                                     .build());
         return repoSimilarityReport.save(similarityReport);
     }
 
@@ -289,7 +297,7 @@ public class ServiceQuery {
     public SimilarityReportDetailDTO detectSync(@NotNull MultipartFile source, QueryInstruction queryInstruction) {
         // Validate and extract file from source
         FileSystemUtil.validate(source);
-        Collection<FileDocument> sourceDocuments = FileSystemUtil.extractDocuments(source);
+        Collection<FileDocument> sourceDocuments = FileSystemUtil.extractDocuments(source, mapper.createObjectNode());
         // Highlight source documents
         SimilarityReport.SimilarityReportBuilder sessionBuilder = SimilarityReport.builder();
         List<ReportSourceDocument> hits = new ArrayList<>();
