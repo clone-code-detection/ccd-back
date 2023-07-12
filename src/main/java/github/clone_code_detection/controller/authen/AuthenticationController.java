@@ -4,10 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import github.clone_code_detection.entity.authenication.ResetPasswordRequest;
 import github.clone_code_detection.entity.authenication.SignInRequest;
 import github.clone_code_detection.entity.authenication.SignUpRequest;
-import github.clone_code_detection.exceptions.authen.ActivateAccountException;
-import github.clone_code_detection.exceptions.authen.FieldValidationException;
-import github.clone_code_detection.exceptions.authen.InvalidOperationException;
-import github.clone_code_detection.exceptions.authen.ResetPasswordException;
 import github.clone_code_detection.service.user.ServiceAuthentication;
 import github.clone_code_detection.util.ProblemDetailUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,26 +39,6 @@ public class AuthenticationController {
     @Autowired
     public AuthenticationController(ServiceAuthentication serviceAuthentication) {
         this.serviceAuthentication = serviceAuthentication;
-    }
-
-    public static class UserAuthenticateResponse {
-        @JsonProperty("user")
-        private String username;
-        @JsonProperty("authorities")
-        private Collection<String> authorities;
-        @JsonProperty("authenticated_at")
-        private ZonedDateTime authenticated;
-
-        public UserAuthenticateResponse(UserDetails userDetails) {
-            this.username = userDetails.getUsername();
-            this.authorities = userDetails.getAuthorities()
-                                          .stream()
-                                          .map(GrantedAuthority::getAuthority)
-                                          .filter(s -> s.startsWith("ROLE_"))
-                                          .map(s -> s.replaceFirst("ROLE_", ""))
-                                          .toList();
-            this.authenticated = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
-        }
     }
 
     @PostMapping(path = "/signup", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
@@ -112,14 +88,6 @@ public class AuthenticationController {
         response.sendRedirect("/");
     }
 
-    @ExceptionHandler({InvalidOperationException.class})
-    @ResponseStatus(HttpStatus.CONFLICT)
-    public ProblemDetail handleException(InvalidOperationException ex) {
-        URI uri = URI.create(
-                "https://clone-code-detection.atlassian.net/wiki/spaces/CCD/pages/6914069/Authentication#Forbidden-request");
-        return ProblemDetailUtil.forTypeAndStatusAndDetail(uri, HttpStatus.CONFLICT, ex.getMessage());
-    }
-
     @ExceptionHandler(value = {AuthenticationException.class})
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ProblemDetail handleAuthentication(RuntimeException ex) {
@@ -128,35 +96,38 @@ public class AuthenticationController {
         return ProblemDetailUtil.forTypeAndStatusAndDetail(badCredentials, HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 
-    @ExceptionHandler(value = {FieldValidationException.class, BindException.class})
+    @ExceptionHandler(value = {BindException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ProblemDetail handleValidationException(Exception ex) {
+    public ProblemDetail handleValidationException(BindException ex) {
         String fieldName;
-        String message = "unknown";
-        if (ex instanceof FieldValidationException) {
-            var casted = (FieldValidationException) ex;
+        var fieldError = ex.getFieldError();
 
-
-            fieldName = casted.getField();
-            message = ex.getMessage();
-        } else {
-            var casted = (BindException) ex;
-            var fieldError = casted.getFieldError();
-
-            fieldName = fieldError.getField();
-            message = fieldError.getDefaultMessage();
-        }
+        fieldName = fieldError.getField();
+        String message = fieldError.getDefaultMessage();
 
         return ProblemDetailUtil.forTypeAndStatusAndDetail(URI.create(
                 "https://clone-code-detection.atlassian.net/wiki/spaces/CCD/pages/6914069/Authentication#Bad-request-"
                 + fieldName), HttpStatus.BAD_REQUEST, message);
     }
 
-    @ExceptionHandler(value = {ActivateAccountException.class, ResetPasswordException.class})
-    @ResponseStatus(HttpStatus.NOT_ACCEPTABLE)
-    public ProblemDetail handleOtherException(RuntimeException ex) {
-        return ProblemDetailUtil.forTypeAndStatusAndDetail(URI.create(
-                        "https://clone-code-detection.atlassian.net/wiki/spaces/CCD/pages/6914069/Authentication#Bad-request"),
-                HttpStatus.NOT_ACCEPTABLE, ex.getMessage());
+    public static class UserAuthenticateResponse {
+        @JsonProperty("user")
+        private String username;
+        @JsonProperty("authorities")
+        private Collection<String> authorities;
+        @JsonProperty("authenticated_at")
+        private ZonedDateTime authenticated;
+
+        public UserAuthenticateResponse(UserDetails userDetails) {
+            this.username = userDetails.getUsername();
+            this.authorities = userDetails.getAuthorities()
+                                          .stream()
+                                          .map(GrantedAuthority::getAuthority)
+                                          .filter(s -> s.startsWith("ROLE_"))
+                                          .map(s -> s.replaceFirst("ROLE_", ""))
+                                          .toList();
+            this.authenticated = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        }
     }
+
 }

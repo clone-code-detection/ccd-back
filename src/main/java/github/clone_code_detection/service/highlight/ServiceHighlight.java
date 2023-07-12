@@ -11,7 +11,7 @@ import github.clone_code_detection.entity.highlight.document.SimilarityReport;
 import github.clone_code_detection.entity.highlight.dto.ReportSourceDocumentDTO;
 import github.clone_code_detection.entity.highlight.dto.SimilarityReportDetailDTO;
 import github.clone_code_detection.entity.highlight.dto.SimilarityTextMatchDTO;
-import github.clone_code_detection.exceptions.highlight.ResourceNotFoundException;
+import github.clone_code_detection.exceptions.report.ResourceNotFoundException;
 import github.clone_code_detection.repo.RepoElasticsearchQuery;
 import github.clone_code_detection.repo.RepoReportSourceDocument;
 import github.clone_code_detection.repo.RepoReportTargetDocument;
@@ -183,7 +183,6 @@ public class ServiceHighlight {
 
     /**
      * @return list of extract return
-     *
      * @implNote: requires field mapping to have term vector position offset
      */
     public Collection<HighlightReturn> handleAdvancedHighlight(ReportTargetDocument targetMatchDocument) {

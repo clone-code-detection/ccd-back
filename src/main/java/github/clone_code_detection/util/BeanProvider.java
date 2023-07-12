@@ -45,6 +45,6 @@ public class BeanProvider {
     public ThreadPoolExecutor getThreadPoolExecutor() {
         ArrayBlockingQueue<Runnable> queue = new ArrayBlockingQueue<Runnable>(executorQueueCapacity);
         return new ThreadPoolExecutor(0, executorMaxThread, 60, TimeUnit.SECONDS, queue,
-                new ThreadPoolExecutor.AbortPolicy());
+                                      new ThreadPoolExecutor.AbortPolicy());
     }
 }

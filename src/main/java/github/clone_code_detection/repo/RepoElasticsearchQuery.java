@@ -2,7 +2,7 @@ package github.clone_code_detection.repo;
 
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.query.QueryInstruction;
-import github.clone_code_detection.exceptions.highlight.ElasticsearchQueryException;
+import github.clone_code_detection.exceptions.elasticsearch.BadRequestException;
 import github.clone_code_detection.util.LanguageUtil;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -59,14 +59,14 @@ public class RepoElasticsearchQuery {
         String minimumShouldMatch = queryInstruction.getMinimumShouldMatch();
         String field;
         log.debug("Querying with config: min match {} and field {} and language {}",
-                minimumShouldMatch,
-                queryInstruction.getType(),
-                queryInstruction.getLanguage());
+                  minimumShouldMatch,
+                  queryInstruction.getType(),
+                  queryInstruction.getLanguage());
         if (1 == queryInstruction.getType()) field = SOURCE_CODE_FIELD;
         else field = SOURCE_CODE_FIELD_NORMALIZED;
         return Collections.singletonList(QueryBuilders
-                .matchQuery(field, queryInstruction.getContent())
-                .minimumShouldMatch(minimumShouldMatch));
+                                                 .matchQuery(field, queryInstruction.getContent())
+                                                 .minimumShouldMatch(minimumShouldMatch));
     }
 
     protected static List<QueryBuilder> buildFilterQuery() {
@@ -101,7 +101,7 @@ public class RepoElasticsearchQuery {
             return elasticsearchClient.mtermvectors(multiTermVectorsRequest, RequestOptions.DEFAULT);
         } catch (IOException ex) {
             log.error("Error fetching from elasticsearch", ex);
-            throw new ElasticsearchQueryException("Error retrieving term vectors from ES");
+            throw new BadRequestException("Error retrieving term vectors from ES");
         }
     }
 

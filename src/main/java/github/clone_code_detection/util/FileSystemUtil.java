@@ -1,7 +1,7 @@
 package github.clone_code_detection.util;
 
 import github.clone_code_detection.entity.fs.FileDocument;
-import github.clone_code_detection.exceptions.highlight.FileNotSupportedException;
+import github.clone_code_detection.exceptions.file.UnsupportedLanguageException;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -28,7 +28,6 @@ public class FileSystemUtil {
     /**
      * @param file the source code file or zip file
      * @return Collection of file document extracted from file
-     *
      * @implNote extract from zip if exists or single-content-collection
      */
     public static Collection<FileDocument> extractDocuments(MultipartFile file) {
@@ -61,8 +60,8 @@ public class FileSystemUtil {
         try {
             LanguageUtil.getInstance().getIndexFromExtension(extension);
         } catch (Exception ignore) {
-            throw new FileNotSupportedException(MessageFormat.format("Extension of type {0} is not supported",
-                                                                     extension));
+            throw new UnsupportedLanguageException(MessageFormat.format("Extension of type {0} is not supported",
+                                                                        extension));
         }
     }
 

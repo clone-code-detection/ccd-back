@@ -1,6 +1,6 @@
 package github.clone_code_detection.repo;
 
-import github.clone_code_detection.exceptions.es.ElasticsearchDeleteException;
+import github.clone_code_detection.exceptions.elasticsearch.OperationException;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -18,7 +18,9 @@ import java.util.List;
 public class RepoElasticsearchDelete {
     private final RestHighLevelClient elasticsearchClient;
 
-    public RepoElasticsearchDelete(RestHighLevelClient elasticsearchClient) {this.elasticsearchClient = elasticsearchClient;}
+    public RepoElasticsearchDelete(RestHighLevelClient elasticsearchClient) {
+        this.elasticsearchClient = elasticsearchClient;
+    }
 
     public void bulkDeleteByIds(List<Pair<String, String>> pairIndexWithId) throws IOException {
         BulkRequest request = new BulkRequest();
@@ -29,7 +31,7 @@ public class RepoElasticsearchDelete {
                 log.error("[repo es delete] Document {} delete failed. Error: {}",
                           item.getId(),
                           item.getFailureMessage());
-                throw new ElasticsearchDeleteException("Failed to delete out date documents");
+                throw new OperationException("Failed to delete out date documents");
             }
         });
     }

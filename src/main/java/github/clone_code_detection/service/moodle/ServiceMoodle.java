@@ -9,10 +9,9 @@ import github.clone_code_detection.entity.moodle.dto.CourseDTO;
 import github.clone_code_detection.entity.moodle.dto.CourseOverviewDTO;
 import github.clone_code_detection.entity.moodle.dto.MoodleLinkRequest;
 import github.clone_code_detection.entity.query.QueryInstruction;
-import github.clone_code_detection.exceptions.moodle.MoodleAssignmentException;
-import github.clone_code_detection.exceptions.moodle.MoodleAuthenticationException;
-import github.clone_code_detection.exceptions.moodle.MoodleCourseException;
-import github.clone_code_detection.exceptions.moodle.MoodleSubmissionException;
+import github.clone_code_detection.exceptions.moodle.NotFoundException;
+import github.clone_code_detection.exceptions.moodle.UnauthorizedException;
+import github.clone_code_detection.exceptions.moodle.UnavailableException;
 import github.clone_code_detection.repo.RepoMoodleUser;
 import github.clone_code_detection.repo.RepoRelationSubmissionReport;
 import github.clone_code_detection.repo.RepoSubmission;
@@ -90,17 +89,17 @@ public class ServiceMoodle {
     }
 
     @NotNull
-    private UserImpl getUser() throws MoodleCourseException {
+    private UserImpl getUser() {
         UserImpl user = ServiceAuthentication.getUserFromContext();
         if (user == null || user.getId() == null) {
             log.error("[Service moodle] Fail to get user information");
-            throw new MoodleCourseException("Fail to get user information");
+            throw new UnavailableException("Fail to get user information");
         }
         if (user.getReference() == null) {
             UserReference reference = repoUserReference.findFirstByInternalUserId(user.getId());
             if (reference == null) {
                 log.error("[Service moodle] No user reference");
-                throw new MoodleCourseException("Fail to get user information");
+                throw new UnauthorizedException("Fail to get moodle account");
             }
             user.setReference(reference);
         }
@@ -124,7 +123,7 @@ public class ServiceMoodle {
         UserImpl user = ServiceAuthentication.getUserFromContext();
         if (user == null) {
             log.error("[Service moodle] Fail to get user information");
-            throw new MoodleCourseException("Fail to get user information");
+            throw new UnauthorizedException("Fail to get user information");
         }
         UserReference reference = repoUserReference.findFirstByInternalUserId(user.getId());
         if (reference != null) {
@@ -166,13 +165,9 @@ public class ServiceMoodle {
                                                                         .filter(e -> e.getId() == assignId)
                                                                         .findFirst()
                                                                         .orElse(null);
-        if (assign == null)
-            throw new MoodleAssignmentException("Assignment not found");
-        List<Submission> submissions = getSubmissionsInCourse(courseId,
-                                                              assign.getCourseName(),
-                                                              assign.getName(),
-                                                              List.of(assignId),
-                                                              user.getReference());
+        if (assign == null) throw new NotFoundException("Assignment not found");
+        List<Submission> submissions = getSubmissionsInCourse(courseId, assign.getCourseName(), assign.getName(),
+                                                              List.of(assignId), user.getReference());
         submissions = repoSubmission.saveAll(submissions);
         submissions.sort(Comparator.comparing(Submission::getId));
         assignDTO.setAssign(assign);
@@ -181,8 +176,8 @@ public class ServiceMoodle {
     }
 
     public MoodleResponse detectSelectedSubmissions(@NotNull List<Long> submissionIds,
-                                                    @NotNull QueryInstruction queryInstruction)
-            throws AuthenticationException {
+                                                    @NotNull QueryInstruction queryInstruction) throws
+                                                                                                AuthenticationException {
         UserImpl user = getUser();
         if (user.getReference() == null) {
             log.error("[Service moodle] User info not found");
@@ -194,7 +189,8 @@ public class ServiceMoodle {
                                                                                                             .submissionIds(
                                                                                                                     submissionIds)
                                                                                                             .user(user);
-        DetectSelectedSubmissionJob detectSelectedSubmissionJob = detectSelectedSubmissionJobFactory.newInstance(builder);
+        DetectSelectedSubmissionJob detectSelectedSubmissionJob = detectSelectedSubmissionJobFactory.newInstance(
+                builder);
         threadPoolExecutor.submit(detectSelectedSubmissionJob);
         return MoodleResponse.builder().message("Receive detect signal successfully").build();
     }
@@ -202,12 +198,11 @@ public class ServiceMoodle {
     private List<Assign> enrichAssignments(UserReference reference, long courseId) {
         UriComponentsBuilder builder = buildDefaultUriBuilder(reference, MOODLE_GET_ASSIGNS_FUNCTION);
         builder.queryParam("courseids[]", courseId);
-        ResponseEntity<JsonNode> entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
-                                                                                .expand(builder.toUriString())
-                                                                                .toString(), JsonNode.class);
+        ResponseEntity<JsonNode> entity = moodleClient.getForEntity(
+                moodleClient.getUriTemplateHandler().expand(builder.toUriString()).toString(), JsonNode.class);
         if (!entity.getStatusCode().is2xxSuccessful()) {
             log.error("[Service moodle] Fail to get assigns by course id");
-            throw new MoodleAssignmentException("Fail to enrich assignments from course id");
+            throw new UnavailableException("Fail to enrich assignments from course id");
         }
 
         return fulfillAssignments(Objects.requireNonNull(entity.getBody()));
@@ -220,32 +215,22 @@ public class ServiceMoodle {
         return assigns;
     }
 
-    private List<Submission> getSubmissionsInCourse(long courseId,
-                                                    String courseName,
-                                                    String assignName,
-                                                    List<Long> assignIds,
-                                                    UserReference reference) {
+    private List<Submission> getSubmissionsInCourse(long courseId, String courseName, String assignName,
+                                                    List<Long> assignIds, UserReference reference) {
         UriComponentsBuilder builder = buildDefaultUriBuilder(reference, MOODLE_GET_SUBMISSIONS_FUNCTION);
         assignIds.forEach(assignId -> builder.queryParam("assignmentids[]", assignId));
-        ResponseEntity<JsonNode> entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
-                                                                                .expand(builder.toUriString())
-                                                                                .toString(), JsonNode.class);
+        ResponseEntity<JsonNode> entity = moodleClient.getForEntity(
+                moodleClient.getUriTemplateHandler().expand(builder.toUriString()).toString(), JsonNode.class);
         if (!entity.getStatusCode().is2xxSuccessful()) {
             log.error("[Service moodle] Fail to get submissions by assignments");
-            throw new MoodleSubmissionException("Fail to enrich submissions");
+            throw new UnavailableException("Fail to enrich submissions");
         }
-        return parseSubmissions(Objects.requireNonNull(entity.getBody()).get("assignments"),
-                                courseId,
-                                courseName,
-                                assignName,
-                                reference);
+        return parseSubmissions(Objects.requireNonNull(entity.getBody()).get("assignments"), courseId, courseName,
+                                assignName, reference);
     }
 
-    private List<Submission> parseSubmissions(@NotNull JsonNode assignments,
-                                              long courseId,
-                                              String courseName,
-                                              String assignName,
-                                              UserReference reference) {
+    private List<Submission> parseSubmissions(@NotNull JsonNode assignments, long courseId, String courseName,
+                                              String assignName, UserReference reference) {
         List<Submission> submissions = new ArrayList<>();
         Set<Long> ownerIds = new HashSet<>();
         Map<Long, List<Long>> mapListSubmissionIdByOwnerId = new HashMap<>();
@@ -254,8 +239,7 @@ public class ServiceMoodle {
             assignment.get("submissions").forEach(inputSubmission -> {
                 long ownerId = inputSubmission.get("userid").asLong();
                 long submissionId = inputSubmission.get("id").asLong();
-                if (ownerId == reference.getReferenceUser().getReferenceUserId())
-                    return;
+                if (ownerId == reference.getReferenceUser().getReferenceUserId()) return;
 
                 MoodleUser owner = repoMoodleUser.findFirstByReferenceUserId(ownerId);
                 if (owner == null) {
@@ -268,10 +252,10 @@ public class ServiceMoodle {
                     // Case new submission
                     submission = Submission.builder()
                                            .referenceSubmissionId(submissionId)
-                                           .createdAt(TimeUtil.parseZoneDateTime(inputSubmission.get("timecreated")
-                                                                                                .asLong()))
-                                           .updatedAt(TimeUtil.parseZoneDateTime(inputSubmission.get("timemodified")
-                                                                                                .asLong()))
+                                           .createdAt(TimeUtil.parseZoneDateTime(
+                                                   inputSubmission.get("timecreated").asLong()))
+                                           .updatedAt(TimeUtil.parseZoneDateTime(
+                                                   inputSubmission.get("timemodified").asLong()))
                                            .courseId(courseId)
                                            .assignId(assignId)
                                            .courseName(courseName)
@@ -287,8 +271,7 @@ public class ServiceMoodle {
                 submissions.add(submission);
             });
         });
-        if (ownerIds.isEmpty())
-            return submissions;
+        if (ownerIds.isEmpty()) return submissions;
         // Enrich owner information
         Map<Long, MoodleUser> mapOwnerBySubmissionReferenceId = getCourseSubmissionOwners(ownerIds,
                                                                                           mapListSubmissionIdByOwnerId,
@@ -341,8 +324,7 @@ public class ServiceMoodle {
         List<MoodleUser> owners = getOwnersFromIds(ownerIds, reference);
         owners.forEach(owner -> mapListSubmissionIdByOwnerId.get(owner.getReferenceUserId())
                                                             .forEach(submissionId -> mapOwnerBySubmissionReferenceId.put(
-                                                                    submissionId,
-                                                                    owner)));
+                                                                    submissionId, owner)));
         return mapOwnerBySubmissionReferenceId;
     }
 
@@ -350,12 +332,11 @@ public class ServiceMoodle {
         UriComponentsBuilder builder = buildDefaultUriBuilder(reference, MOODLE_GET_OWNERS_FUNCTION).queryParam("field",
                                                                                                                 "id");
         ownerIds.forEach(id -> builder.queryParam("values[]", id));
-        ResponseEntity<JsonNode> entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
-                                                                                .expand(builder.toUriString()),
-                                                                    JsonNode.class);
+        ResponseEntity<JsonNode> entity = moodleClient.getForEntity(
+                moodleClient.getUriTemplateHandler().expand(builder.toUriString()), JsonNode.class);
         if (!entity.getStatusCode().is2xxSuccessful()) {
             log.error("[Service moodle] Fail to enrich submission owners");
-            throw new MoodleSubmissionException("Fail to enrich submission owners");
+            throw new UnavailableException("Fail to enrich submission owners");
         }
         return parseSubmissionOwners(Objects.requireNonNull(entity.getBody()));
     }
@@ -378,12 +359,11 @@ public class ServiceMoodle {
                                                                           .filename(file.get("filename").asText())
                                                                           .fileUri(file.get("fileurl").asText())
                                                                           .mimetype(file.get("mimetype").asText())
-                                                                          .updatedAt(TimeUtil.parseZoneDateTime(file.get(
-                                                                                  "timemodified").asLong()))
+                                                                          .updatedAt(TimeUtil.parseZoneDateTime(
+                                                                                  file.get("timemodified").asLong()))
                                                                           .build();
-                            relationSubmissionReports.add(RelationSubmissionReport.builder()
-                                                                                  .file(submissionFile)
-                                                                                  .build());
+                            relationSubmissionReports.add(
+                                    RelationSubmissionReport.builder().file(submissionFile).build());
                         });
                     }
                 });
@@ -395,14 +375,12 @@ public class ServiceMoodle {
     @NotNull
     private ResponseEntity<JsonNode> getCoursesOfUser(UserReference reference) {
         UriComponentsBuilder builder = buildDefaultUriBuilder(reference, MOODLE_GET_COURSES_FUNCTION).queryParam(
-                "userid",
-                reference.getReferenceUser().getReferenceUserId());
-        ResponseEntity<JsonNode> entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
-                                                                                .expand(builder.toUriString())
-                                                                                .toString(), JsonNode.class);
+                "userid", reference.getReferenceUser().getReferenceUserId());
+        ResponseEntity<JsonNode> entity = moodleClient.getForEntity(
+                moodleClient.getUriTemplateHandler().expand(builder.toUriString()).toString(), JsonNode.class);
         if (!entity.getStatusCode().is2xxSuccessful()) {
             log.error("[Service moodle] Fail to get courses from Moodle");
-            throw new MoodleCourseException("Fail to get courses from Moodle");
+            throw new UnavailableException("Fail to get courses from Moodle");
         }
         return entity;
     }
@@ -415,12 +393,11 @@ public class ServiceMoodle {
                                                                   .queryParam("username", request.getUsername())
                                                                   .queryParam("password", request.getPassword())
                                                                   .queryParam("service", webServiceName);
-        ResponseEntity<JsonNode> entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
-                                                                                .expand(getTokenParams.toUriString())
-                                                                                .toString(), JsonNode.class);
+        ResponseEntity<JsonNode> entity = moodleClient.getForEntity(
+                moodleClient.getUriTemplateHandler().expand(getTokenParams.toUriString()).toString(), JsonNode.class);
         if (!entity.getStatusCode().is2xxSuccessful() || entity.getBody() == null) {
             log.error("[Service moodle] Can sign in by moodle account");
-            throw new MoodleAuthenticationException("Fail to signin by moodle account " + request.getUsername());
+            throw new UnavailableException("Fail to signin by moodle account " + request.getUsername());
         }
         String token = entity.getBody().get("token").asText();
         // Enrich user id by token
@@ -430,8 +407,7 @@ public class ServiceMoodle {
         entity = moodleClient.getForEntity(getSiteInfoParams.toUriString(), JsonNode.class);
         if (!entity.getStatusCode().is2xxSuccessful() || entity.getBody() == null) {
             log.error("[Service moodle] Can enrich user info by moodle account");
-            throw new MoodleAuthenticationException(
-                    "Fail to enrich user info by moodle account " + request.getUsername());
+            throw new UnavailableException("Fail to enrich user info by moodle account " + request.getUsername());
         }
         long referenceUserId = entity.getBody().get("userid").asLong();
         MoodleUser userInfo = repoMoodleUser.findFirstByReferenceUserId(referenceUserId);
@@ -440,32 +416,26 @@ public class ServiceMoodle {
             UriComponentsBuilder enrichUserInfoParams = buildDefaultUriBuilder(token,
                                                                                request.getMoodleUrl(),
                                                                                MOODLE_GET_OWNERS_FUNCTION).queryParam(
-                    "field",
-                    "id").queryParam("values[]", referenceUserId);
+                    "field", "id").queryParam("values[]", referenceUserId);
             entity = moodleClient.getForEntity(enrichUserInfoParams.toUriString(), JsonNode.class);
             if (!entity.getStatusCode().is2xxSuccessful()) {
                 log.error("[Service moodle] Fail to enrich submission owners");
-                throw new MoodleSubmissionException("Fail to enrich submission owners");
+                throw new UnavailableException("Fail to enrich submission owners");
             }
             userInfo = MoodleUser.from(Objects.requireNonNull(entity.getBody()).get(0));
         }
-        return UserReference.builder()
-                            .token(token)
-                            .moodleUrl(request.getMoodleUrl())
-                            .referenceUser(userInfo)
-                            .build();
+        return UserReference.builder().token(token).moodleUrl(request.getMoodleUrl()).referenceUser(userInfo).build();
     }
 
     private Course enrichCourseDetail(long courseId, UserReference reference) {
         UriComponentsBuilder builder = buildDefaultUriBuilder(reference, MOODLE_GET_COURSE_DETAIL_FUNCTION);
         builder.queryParam("field", "id");
         builder.queryParam("value", courseId);
-        ResponseEntity<JsonNode> entity = moodleClient.getForEntity(moodleClient.getUriTemplateHandler()
-                                                                                .expand(builder.toUriString()),
-                                                                    JsonNode.class);
+        ResponseEntity<JsonNode> entity = moodleClient.getForEntity(
+                moodleClient.getUriTemplateHandler().expand(builder.toUriString()), JsonNode.class);
         if (!entity.getStatusCode().is2xxSuccessful()) {
             log.error("[Service moodle] Fail to enrich course detail content");
-            throw new MoodleCourseException("Fail to enrich course detail");
+            throw new UnavailableException("Fail to enrich course detail");
         }
         return Course.asDetail(Objects.requireNonNull(entity.getBody()).get("courses").get(0));
     }

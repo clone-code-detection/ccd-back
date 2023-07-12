@@ -3,7 +3,7 @@ package github.clone_code_detection.service.index;
 import github.clone_code_detection.entity.ElasticsearchDocument;
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.index.IndexInstruction;
-import github.clone_code_detection.exceptions.highlight.ElasticsearchIndexException;
+import github.clone_code_detection.exceptions.elasticsearch.OperationException;
 import github.clone_code_detection.repo.RepoElasticsearchIndex;
 import github.clone_code_detection.util.FileSystemUtil;
 import github.clone_code_detection.util.LanguageUtil;
@@ -38,7 +38,7 @@ public class ServiceIndex implements IServiceIndex {
     @NonNull
     private static Pair<String, ElasticsearchDocument> getLangAndElasticsearchDoc(@Nonnull FileDocument fileDocument) {
         String index = LanguageUtil.getInstance()
-                .getIndexFromFileName(fileDocument.getFileName());
+                                   .getIndexFromFileName(fileDocument.getFileName());
         ElasticsearchDocument document = ElasticsearchDocument.fromFileDocument(fileDocument);
         return Pair.of(index, document);
     }
@@ -47,7 +47,7 @@ public class ServiceIndex implements IServiceIndex {
         for (BulkItemResponse indexDocument : bulkResponse) {
             if (indexDocument.isFailed()) {
                 log.info("[Service index] index single document: {}", indexDocument.getFailureMessage());
-                throw new ElasticsearchIndexException(
+                throw new OperationException(
                         MessageFormat.format("Failed to index document with id {0}", indexDocument.getId()));
             }
         }
@@ -66,14 +66,14 @@ public class ServiceIndex implements IServiceIndex {
         //index
 
         Stream<Pair<String, ElasticsearchDocument>> stream = files.stream()
-                .map(ServiceIndex::getLangAndElasticsearchDoc);
+                                                                  .map(ServiceIndex::getLangAndElasticsearchDoc);
         try {
             BulkResponse bulkResponse = repoElasticsearchIndex.indexDocuments(stream);
             validateBulkResponse(bulkResponse);
             log.info("[Service index] index documents successfully");
         } catch (IOException e) {
             log.error("[Service index] index documents", e);
-            throw new ElasticsearchIndexException("Failed to index documents");
+            throw new OperationException("Failed to index documents");
         }
         return files;
     }
@@ -85,14 +85,15 @@ public class ServiceIndex implements IServiceIndex {
             int endIndex = Math.min(batchSize + startIndex, files.size());
             Collection<FileDocument> subFiles = files.stream().toList().subList(startIndex, endIndex);
 
-            Stream<Pair<String, ElasticsearchDocument>> stream = subFiles.stream().map(ServiceIndex::getLangAndElasticsearchDoc);
+            Stream<Pair<String, ElasticsearchDocument>> stream = subFiles.stream()
+                                                                         .map(ServiceIndex::getLangAndElasticsearchDoc);
             try {
                 BulkResponse bulkResponse = repoElasticsearchIndex.indexDocuments(stream);
                 validateBulkResponse(bulkResponse);
                 log.info("[Service index] index {} documents successfully", subFiles.size());
             } catch (IOException e) {
                 log.error("[Service index] index documents", e);
-                throw new ElasticsearchIndexException("Failed to index documents");
+                throw new OperationException("Failed to index documents");
             } finally {
                 startIndex = endIndex;
             }

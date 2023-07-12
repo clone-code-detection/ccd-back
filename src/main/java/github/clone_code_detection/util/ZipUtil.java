@@ -1,8 +1,8 @@
 package github.clone_code_detection.util;
 
 import github.clone_code_detection.entity.fs.FileDocument;
-import github.clone_code_detection.exceptions.UnsupportedLanguage;
-import github.clone_code_detection.exceptions.highlight.FileHandleException;
+import github.clone_code_detection.exceptions.file.FailHandleException;
+import github.clone_code_detection.exceptions.file.UnsupportedLanguageException;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.multipart.MultipartFile;
@@ -38,22 +38,29 @@ public class ZipUtil {
                 // Ignore file if the language is not supported
                 try {
                     languageUtil.getIndexFromFileName(zipEntry.getName());
-                } catch (UnsupportedLanguage e) {
+                } catch (UnsupportedLanguageException e) {
                     zipInputStream.closeEntry();
                     continue;
                 }
                 byteArrayOutputStream.reset();
                 zipInputStream.transferTo(byteArrayOutputStream);
+                String filename = zipEntry.getName();
+                int slashIndex = zipEntry.getName().lastIndexOf("/");
+                if (slashIndex > -1)
+                    filename = zipEntry.getName().substring(slashIndex + 1);
                 FileDocument fileDocument = FileDocument.builder()
                                                         .content(byteArrayOutputStream.toByteArray())
-                                                        .fileName(zipEntry.getName())
+                                                        .fileName(filename)
+//                                                        .origin(extra.get("origin").asText())
+//                                                        .originLink(extra.get("origin_link").asText())
+//                                                        .author(extra.get("author").asText())
                                                         .build();
                 contents.add(fileDocument);
             }
             zipInputStream.closeEntry();
             zipInputStream.close();
         } catch (IOException e) {
-            throw new FileHandleException("Error parsing zip file");
+            throw new FailHandleException("Error parsing zip file");
         }
         return contents;
     }
@@ -97,6 +104,7 @@ public class ZipUtil {
                                           .originLink(uri)
                                           .meta(meta)
                                           .build());
-        } catch (UnsupportedLanguage ignored) {}
+        } catch (UnsupportedLanguageException ignored) {
+        }
     }
 }

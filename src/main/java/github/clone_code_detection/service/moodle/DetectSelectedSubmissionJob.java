@@ -7,8 +7,8 @@ import github.clone_code_detection.entity.highlight.document.SimilarityReport;
 import github.clone_code_detection.entity.highlight.request.SimilarityDetectRequest;
 import github.clone_code_detection.entity.moodle.*;
 import github.clone_code_detection.entity.query.QueryInstruction;
-import github.clone_code_detection.exceptions.UnsupportedLanguage;
-import github.clone_code_detection.exceptions.moodle.MoodleSubmissionException;
+import github.clone_code_detection.exceptions.file.UnsupportedLanguageException;
+import github.clone_code_detection.exceptions.moodle.UnavailableException;
 import github.clone_code_detection.repo.RepoElasticsearchDelete;
 import github.clone_code_detection.repo.RepoSimilarityReport;
 import github.clone_code_detection.repo.RepoSubmission;
@@ -102,7 +102,8 @@ public class DetectSelectedSubmissionJob implements Runnable {
                                             .stream()
                                             .map(ReportSourceDocument::getSource)
                                             .map(source -> Pair.of(LanguageUtil.getInstance()
-                                                                               .getIndexFromFileName(source.getFileName()),
+                                                                               .getIndexFromFileName(
+                                                                                       source.getFileName()),
                                                                    source.getId().toString()))
                                             .toList());
             relation.getRelation().setReport(null);
@@ -182,7 +183,7 @@ public class DetectSelectedSubmissionJob implements Runnable {
                                               .originLink(uri)
                                               .meta(meta)
                                               .build());
-                } catch (UnsupportedLanguage ignored) {
+                } catch (UnsupportedLanguageException ignored) {
                 }
 
             }
@@ -196,7 +197,7 @@ public class DetectSelectedSubmissionJob implements Runnable {
         ResponseEntity<byte[]> entity = moodleClient.getForEntity(builder.toUriString(), byte[].class);
         if (!entity.getStatusCode().is2xxSuccessful()) {
             log.error("[Service moodle] Fail to get submission file at url: {}", fileUri);
-            throw new MoodleSubmissionException("Fail to get submission file at url " + fileUri);
+            throw new UnavailableException("Fail to get submission file at url " + fileUri);
         }
         return entity.getBody();
     }

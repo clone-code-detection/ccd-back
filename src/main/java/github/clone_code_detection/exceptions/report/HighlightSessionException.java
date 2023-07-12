@@ -1,12 +1,11 @@
-package github.clone_code_detection.exceptions.highlight;
+package github.clone_code_detection.exceptions.report;
 
-import github.clone_code_detection.exceptions.ExceptionBase;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.Arrays;
 import java.util.List;
 
-public class HighlightSessionException extends ExceptionBase {
+public class HighlightSessionException extends RuntimeException {
     private final Throwable cause;
 
     public HighlightSessionException(@NotNull Throwable cause) {

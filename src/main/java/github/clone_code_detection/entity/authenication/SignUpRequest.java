@@ -11,7 +11,7 @@ import org.springframework.security.core.Authentication;
 @Data
 public class SignUpRequest {
     @NotNull
-    @NotBlank(message = "Username must not be blank")
+    @NotBlank(message = "Email must not be blank")
     private String email;
 
     /**
