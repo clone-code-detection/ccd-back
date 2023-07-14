@@ -7,6 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -30,5 +32,6 @@ public class ReportSourceDocument {
     private FileDocument source;
 
     @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE}, fetch = FetchType.EAGER, mappedBy = "source")
+    @Fetch(FetchMode.SUBSELECT)
     private Collection<ReportTargetDocument> matches = new ArrayList<>();
 }

@@ -38,7 +38,7 @@ public class FileDocument {
     @Column(name = "origin_link")
     private String originLink;
 
-    @ElementCollection(fetch = FetchType.LAZY)
+    @ElementCollection(fetch = FetchType.EAGER)
     @MapKeyColumn(name = "key")
     @Column(name = "value")
     @CollectionTable(schema = "file",
