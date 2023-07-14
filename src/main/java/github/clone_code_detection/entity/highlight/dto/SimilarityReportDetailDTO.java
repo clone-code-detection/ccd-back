@@ -56,17 +56,17 @@ public class SimilarityReportDetailDTO {
         @JsonProperty("total_matches")
         private Integer totalMatches;
         @JsonProperty("max_percentage_match")
-        private Float maximumPercentageMatch;
-        @JsonProperty(value = "s", required = false)
+        private Double maximumPercentageMatch;
+        @JsonProperty(value = "max_score_source", required = false)
         private String source; // source of the document that has max score
 
         public static Document from(ReportSourceDocument document) {
             ReportTargetDocument maxScoreDocument = document
                     .getMatches()
                     .stream()
-                    .max(Comparator.comparing(ReportTargetDocument::getScore))
+                    .max(Comparator.comparing(ReportTargetDocument::getPercentageMatch))
                     .orElse(null);
-            Float maxScore = maxScoreDocument != null ? maxScoreDocument.getScore() : null;
+            Double maxScore = maxScoreDocument != null ? maxScoreDocument.getPercentageMatch() : null;
             String source = maxScoreDocument != null  && maxScoreDocument.getTarget() != null ? maxScoreDocument.getTarget().getOrigin() : null;
             return Document.builder()
                     .fileName(document.getSource().getFileName())
