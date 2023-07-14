@@ -44,12 +44,26 @@ public class QueryController {
                                                                  defaultValue = "1") Integer type,
                                                    @RequestParam(value = "minimum_should_match",
                                                                  required = false,
-                                                                 defaultValue = "70%") String minimumShouldMatch) {
+                                                                 defaultValue = "70%") String minimumShouldMatch,
+                                                   @RequestParam(value = "author", required = false,
+                                                                 defaultValue = "anonymous") String author,
+                                                   @RequestParam(value = "origin", required = false,
+                                                                 defaultValue = "local") String origin,
+                                                   @RequestParam(value = "origin_link", required = false,
+                                                                 defaultValue = "") String originLink,
+                                                   @RequestParam(value = "name", required = false,
+                                                                 defaultValue = "") String reportName) {
+        ObjectNode meta = mapper.createObjectNode();
+        meta.put("author", author);
+        meta.put("origin", origin);
+        meta.put("origin_link", originLink);
+        if (reportName.equals(""))
+            reportName = FileSystemUtil.getFileName(source);
         QueryInstruction queryInstruction = QueryInstruction.builder()
                                                             .type(type)
                                                             .minimumShouldMatch(minimumShouldMatch)
                                                             .build();
-        return serviceQuery.detectSync(source, queryInstruction);
+        return serviceQuery.detectSync(source, queryInstruction, reportName, meta);
     }
 
     @PostMapping(path = "/detect",
