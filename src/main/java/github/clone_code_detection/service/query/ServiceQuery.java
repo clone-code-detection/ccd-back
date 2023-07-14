@@ -1,7 +1,7 @@
 package github.clone_code_detection.service.query;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import github.clone_code_detection.entity.authenication.UserImpl;
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
@@ -45,7 +45,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ServiceQuery {
     private static final DecimalFormat decimalFormat = new DecimalFormat("#.##");
-    private static final ObjectMapper mapper = new ObjectMapper();
     private final RepoElasticsearchQuery repoElasticsearchQuery;
     private final RepoReportSourceDocument repoReportSourceDocument;
     private final RepoSimilarityReport repoSimilarityReport;
@@ -294,10 +293,11 @@ public class ServiceQuery {
     }
 
     @Transactional
-    public SimilarityReportDetailDTO detectSync(@NotNull MultipartFile source, QueryInstruction queryInstruction) {
+    public SimilarityReportDetailDTO detectSync(@NotNull MultipartFile source, QueryInstruction queryInstruction,
+                                                String reportName, JsonNode meta) {
         // Validate and extract file from source
         FileSystemUtil.validate(source);
-        Collection<FileDocument> sourceDocuments = FileSystemUtil.extractDocuments(source, mapper.createObjectNode());
+        Collection<FileDocument> sourceDocuments = FileSystemUtil.extractDocuments(source, meta);
         // Highlight source documents
         SimilarityReport.SimilarityReportBuilder sessionBuilder = SimilarityReport.builder();
         List<ReportSourceDocument> hits = new ArrayList<>();
@@ -312,7 +312,15 @@ public class ServiceQuery {
         sessionBuilder.sources(hits);
         SimilarityReport similarityReport = sessionBuilder.build();
         similarityReport.setUser(ServiceAuthentication.getUserFromContext());
-        similarityReport.setName(FileSystemUtil.getFileName(source));
+        similarityReport.setName(reportName);
+        similarityReport.setMeta(SimilarityReportMeta.builder()
+                                                     .type(queryInstruction.getType())
+                                                     .minimumShouldMatch(
+                                                             queryInstruction.getMinimumShouldMatch())
+                                                     .link(meta.get("origin_link").asText())
+                                                     .origin(meta.get("origin").asText())
+                                                     .author(meta.get("author").asText())
+                                                     .build());
         similarityReport = repoSimilarityReport.save(similarityReport);
 
         // Save source files before indexing
