@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -46,8 +48,9 @@ public class SimilarityReport {
     @OneToOne(cascade = {CascadeType.ALL}, fetch = FetchType.LAZY)
     private SimilarityReportMeta meta;
 
-    @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE}, fetch = FetchType.EAGER)
+    @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE})
     @JoinColumn(name = "report_id", referencedColumnName = "id")
+    @Fetch(FetchMode.SUBSELECT)
     private Collection<ReportSourceDocument> sources = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
