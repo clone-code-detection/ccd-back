@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import github.clone_code_detection.entity.authenication.UserImpl;
-import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
 import github.clone_code_detection.entity.highlight.document.ReportTargetDocument;
 import github.clone_code_detection.entity.highlight.document.SimilarityReport;
@@ -29,7 +28,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
-import javax.annotation.Nonnull;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -308,14 +306,6 @@ public class ServiceHighlight {
         SimilarityReport resource = sessionDocumentById.orElseThrow(() -> new ResourceNotFoundException(
                 "Resource with uuid not found"));
         return SimilarityReportDetailDTO.from(resource);
-    }
-
-    @Nonnull
-    private List<SimilarityTextMatchDTO> getReportTextMatch(ReportTargetDocument singleDocument) {
-        FileDocument source = singleDocument.getSource().getSource();
-        FileDocument target = singleDocument.getTarget();
-        MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(source, target);
-        return extractTermVectorsResponse(multiTermVectors);
     }
 
     @Transactional

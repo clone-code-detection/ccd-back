@@ -27,7 +27,7 @@ public class ReportSourceDocumentDTO {
     @JsonProperty("matches")
     private Collection<ReportTargetDocumentDTO> matches;
 
-    public static ReportSourceDocumentDTO frsourceom(ReportSourceDocument document) {
+    public static ReportSourceDocumentDTO from(ReportSourceDocument document) {
         ReportSourceDocumentDTO sourceDTO = ModelMapperUtil.getMapper().map(document, ReportSourceDocumentDTO.class);
         sourceDTO.matches = document.getMatches()
                                     .stream()

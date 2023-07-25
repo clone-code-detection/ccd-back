@@ -42,12 +42,6 @@ public class HighlightController {
         return serviceHighlight.getReportSourceDocumentById(id);
     }
 
-    @GetMapping(path = "/advance-target-highlight/{id}")
-    @ResponseStatus(HttpStatus.OK)
-    public Collection<ServiceHighlight.HighlightReturn> advanceHighlightById(@PathVariable(name = "id") String id) {
-        return serviceHighlight.handleAdvancedHighlightById(id);
-    }
-
     @GetMapping(path = "/advance-source-highlight/{id}")
     @ResponseStatus(HttpStatus.OK)
     public Collection<ServiceAdvancedHighlight.ExtendHighlightReturn> advanceHighlightBySourceId(@PathVariable(name = "id") String id) {
