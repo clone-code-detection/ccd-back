@@ -299,7 +299,7 @@ public class ServiceHighlight {
     @Transactional
     public ReportSourceDocumentDTO getReportSourceDocumentById(String uuid) {
         ReportSourceDocument singleDocument = repoReportSourceDocument.findById(UUID.fromString(uuid)).orElseThrow();
-        return ReportSourceDocumentDTO.from(singleDocument, this::getReportTextMatch);
+        return ReportSourceDocumentDTO.from(singleDocument);
     }
 
     @Transactional

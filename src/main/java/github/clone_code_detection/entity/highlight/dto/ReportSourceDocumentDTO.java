@@ -3,7 +3,6 @@ package github.clone_code_detection.entity.highlight.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
-import github.clone_code_detection.entity.highlight.document.ReportTargetDocument;
 import github.clone_code_detection.util.ModelMapperUtil;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,7 +11,6 @@ import lombok.NoArgsConstructor;
 
 import java.util.Collection;
 import java.util.UUID;
-import java.util.function.Function;
 
 @Builder
 @Data
@@ -29,12 +27,11 @@ public class ReportSourceDocumentDTO {
     @JsonProperty("matches")
     private Collection<ReportTargetDocumentDTO> matches;
 
-    public static ReportSourceDocumentDTO from(ReportSourceDocument document,
-                                               Function<ReportTargetDocument, Collection<SimilarityTextMatchDTO>> resolver) {
+    public static ReportSourceDocumentDTO frsourceom(ReportSourceDocument document) {
         ReportSourceDocumentDTO sourceDTO = ModelMapperUtil.getMapper().map(document, ReportSourceDocumentDTO.class);
         sourceDTO.matches = document.getMatches()
                                     .stream()
-                                    .map(target -> ReportTargetDocumentDTO.from(target, resolver))
+                                    .map(ReportTargetDocumentDTO::from)
                                     .toList();
         return sourceDTO;
     }
