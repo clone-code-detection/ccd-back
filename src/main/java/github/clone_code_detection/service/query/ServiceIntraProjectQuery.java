@@ -15,7 +15,6 @@ import github.clone_code_detection.repo.RepoElasticsearchIndex;
 import github.clone_code_detection.repo.RepoElasticsearchQuery;
 import github.clone_code_detection.repo.RepoFileDocument;
 import github.clone_code_detection.repo.intra_project.RepoUserEsIndex;
-import github.clone_code_detection.service.index.ServiceIndex;
 import github.clone_code_detection.service.user.ServiceAuthentication;
 import github.clone_code_detection.util.FileSystemUtil;
 import github.clone_code_detection.util.ZipUtil;
@@ -37,6 +36,7 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -95,23 +95,24 @@ public class ServiceIntraProjectQuery {
     private final RepoFileDocument repoFileDocument;
     private final RepoElasticsearchIndex repoElasticsearchIndex;
     private final RepoElasticsearchQuery repoElasticsearchQuery;
-    private final ServiceIndex serviceIndex;
     private final ServiceQuery serviceQuery;
     private final RepoUserEsIndex repoUserEsIndex;
 
+
+    private final ServiceIntraProjectQuery proxy;
 
     @Autowired
     public ServiceIntraProjectQuery(RepoFileDocument repoFileDocument,
                                     RepoElasticsearchIndex repoElasticsearchQuery,
                                     RepoElasticsearchQuery repoElasticsearchQuery1,
-                                    ServiceIndex serviceIndex,
+                                    @Lazy ServiceIntraProjectQuery proxy, // https://stackoverflow.com/questions/73000572/spring-async-method-called-from-within-the-class/73007337#73007337
                                     ServiceQuery serviceQuery, RepoUserEsIndex repoUserEsIndex) {
         this.repoUserEsIndex = repoUserEsIndex;
         this.repoFileDocument = repoFileDocument;
         this.repoElasticsearchIndex = repoElasticsearchQuery;
         this.repoElasticsearchQuery = repoElasticsearchQuery1;
-        this.serviceIndex = serviceIndex;
         this.serviceQuery = serviceQuery;
+        this.proxy = proxy;
     }
 
     @Data
@@ -127,7 +128,7 @@ public class ServiceIntraProjectQuery {
         validateZipFiles(request);
         IntraProjectReport report = createIntraProjectReport();
         List<FileDocument> fileDocuments = persistFile(request);
-        handleQuery(report, fileDocuments, queryInstruction);
+        proxy.handleQuery(report, fileDocuments, queryInstruction);
     }
 
     private static void validateZipFiles(IntraProjectQueryRequest request) {
