@@ -1,4 +1,4 @@
-package github.clone_code_detection.entity.highlight_intra.document;
+package github.clone_code_detection.entity.highlight_intra.document.dao;
 
 import github.clone_code_detection.entity.authenication.UserImpl;
 import jakarta.persistence.*;

@@ -1,4 +1,4 @@
-package github.clone_code_detection.entity.highlight_intra.document;
+package github.clone_code_detection.entity.highlight_intra.document.dao;
 
 import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
 import jakarta.persistence.*;
@@ -30,8 +30,8 @@ public class AuthorReport {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "author")
-    String author;
+    @Column(name = "name")
+    String name;
 
     @Column(name = "total_files")
     int totalFiles;

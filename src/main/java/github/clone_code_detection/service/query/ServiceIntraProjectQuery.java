@@ -8,13 +8,16 @@ import github.clone_code_detection.entity.authenication.UserImpl;
 import github.clone_code_detection.entity.fs.FileDocument;
 import github.clone_code_detection.entity.highlight.document.ReportSourceDocument;
 import github.clone_code_detection.entity.highlight.document.ReportTargetDocument;
-import github.clone_code_detection.entity.highlight_intra.document.AuthorReport;
-import github.clone_code_detection.entity.highlight_intra.document.IntraProjectReport;
+import github.clone_code_detection.entity.highlight_intra.document.dao.AuthorReport;
+import github.clone_code_detection.entity.highlight_intra.document.dao.IntraProjectReport;
+import github.clone_code_detection.entity.highlight_intra.document.dto.IntraProjectReportDTO;
+import github.clone_code_detection.entity.highlight_intra.document.dto.IntraProjectReportOverviewDTO;
 import github.clone_code_detection.entity.query.QueryInstruction;
+import github.clone_code_detection.exceptions.report.ResourceNotFoundException;
 import github.clone_code_detection.repo.RepoElasticsearchIndex;
 import github.clone_code_detection.repo.RepoElasticsearchQuery;
 import github.clone_code_detection.repo.RepoFileDocument;
-import github.clone_code_detection.repo.intra_project.RepoUserEsIndex;
+import github.clone_code_detection.repo.intra_project.RepoIntraProjectReport;
 import github.clone_code_detection.service.user.ServiceAuthentication;
 import github.clone_code_detection.util.FileSystemUtil;
 import github.clone_code_detection.util.ZipUtil;
@@ -96,7 +99,7 @@ public class ServiceIntraProjectQuery {
     private final RepoElasticsearchIndex repoElasticsearchIndex;
     private final RepoElasticsearchQuery repoElasticsearchQuery;
     private final ServiceQuery serviceQuery;
-    private final RepoUserEsIndex repoUserEsIndex;
+    private final RepoIntraProjectReport repoIntraProjectReport;
 
 
     private final ServiceIntraProjectQuery proxy;
@@ -106,13 +109,27 @@ public class ServiceIntraProjectQuery {
                                     RepoElasticsearchIndex repoElasticsearchQuery,
                                     RepoElasticsearchQuery repoElasticsearchQuery1,
                                     @Lazy ServiceIntraProjectQuery proxy, // https://stackoverflow.com/questions/73000572/spring-async-method-called-from-within-the-class/73007337#73007337
-                                    ServiceQuery serviceQuery, RepoUserEsIndex repoUserEsIndex) {
-        this.repoUserEsIndex = repoUserEsIndex;
+                                    ServiceQuery serviceQuery, RepoIntraProjectReport repoUserEsIndex) {
+        this.repoIntraProjectReport = repoUserEsIndex;
         this.repoFileDocument = repoFileDocument;
         this.repoElasticsearchIndex = repoElasticsearchQuery;
         this.repoElasticsearchQuery = repoElasticsearchQuery1;
         this.serviceQuery = serviceQuery;
         this.proxy = proxy;
+    }
+
+    public IntraProjectReportDTO getSimilarityReportById(String id) {
+        Optional<IntraProjectReport> sessionDocumentById = repoIntraProjectReport.findById(UUID.fromString(id));
+        IntraProjectReport resource = sessionDocumentById.orElseThrow(() -> new ResourceNotFoundException(
+                "Resource with uuid not found"));
+        return IntraProjectReportDTO.from(resource);
+    }
+
+    public List<IntraProjectReportOverviewDTO> getAllReports() {
+        UserImpl user = ServiceAuthentication.getUserFromContext();
+        assert user != null;
+        UUID id = user.getId();
+        return repoIntraProjectReport.getAllByUserId(id).stream().map(IntraProjectReportOverviewDTO::from).toList();
     }
 
     @Data
@@ -142,7 +159,7 @@ public class ServiceIntraProjectQuery {
         IntraProjectReport progress = IntraProjectReport.builder().build();
         UserImpl user = ServiceAuthentication.getUserFromContext();
         progress.setUser(user);
-        progress = repoUserEsIndex.save(progress);
+        progress = repoIntraProjectReport.save(progress);
         return progress;
     }
 
@@ -241,7 +258,7 @@ public class ServiceIntraProjectQuery {
                 AuthorReport authorReport = builder.build();
                 progress.addAuthorReport(authorReport);
             }
-            progress = repoUserEsIndex.save(progress);
+            progress = repoIntraProjectReport.save(progress);
 
             // step 7. done
             updateStatus(progress, "done");
@@ -274,7 +291,7 @@ public class ServiceIntraProjectQuery {
     private void updateStatus(IntraProjectReport progress, String status) {
         progress.setStatus(status);
         progress.setUpdatedAt(ZonedDateTime.now(CURRENT_ZONE));
-        repoUserEsIndex.save(progress);
+        repoIntraProjectReport.save(progress);
     }
 
     TermVectorsRequest buildTermVectorsRequest(String index, String id) {
