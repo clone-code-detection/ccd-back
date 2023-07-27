@@ -55,7 +55,7 @@ public class RepoElasticsearchQuery {
         return template;
     }
 
-    protected static List<QueryBuilder> buildMustQuery(@Validated QueryInstruction queryInstruction) {
+    public static List<QueryBuilder> buildMustQuery(@Validated QueryInstruction queryInstruction) {
         String minimumShouldMatch = queryInstruction.getMinimumShouldMatch();
         String field;
         log.debug("Querying with config: min match {} and field {} and language {}",
@@ -82,6 +82,10 @@ public class RepoElasticsearchQuery {
         MultiSearchRequest multiSearchRequest = buildMultisearchRequest(instructions);
         log.info("[Repo es query] Start multi search for {} documents", multiSearchRequest.requests()
                                                                                           .size());
+        return multiQuery(multiSearchRequest);
+    }
+
+    public MultiSearchResponse multiQuery(MultiSearchRequest multiSearchRequest) throws IOException {
         return elasticsearchClient.msearch(multiSearchRequest, RequestOptions.DEFAULT);
     }
 
@@ -98,11 +102,15 @@ public class RepoElasticsearchQuery {
                 TermVectorsRequest template = buildTermVectorsRequest(fileDocument);
                 multiTermVectorsRequest.add(template);
             }
-            return elasticsearchClient.mtermvectors(multiTermVectorsRequest, RequestOptions.DEFAULT);
+            return getMultiTermVectorsResponse(multiTermVectorsRequest);
         } catch (IOException ex) {
             log.error("Error fetching from elasticsearch", ex);
             throw new BadRequestException("Error retrieving term vectors from ES");
         }
+    }
+
+    public MultiTermVectorsResponse getMultiTermVectorsResponse(MultiTermVectorsRequest multiTermVectorsRequest) throws IOException {
+        return elasticsearchClient.mtermvectors(multiTermVectorsRequest, RequestOptions.DEFAULT);
     }
 
     private SearchRequest buildSearchRequest(QueryInstruction queryInstruction) {

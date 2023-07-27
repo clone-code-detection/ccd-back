@@ -78,25 +78,25 @@ public class ServiceQuery {
         String targetId = document.getId().toString();
         double score = Double.parseDouble(decimalFormat.format(document.getScore()));
         String meta = String.join(", ",
-                                  document.getTarget()
-                                          .getMeta()
-                                          .entrySet()
-                                          .stream()
-                                          .map(map -> String.format("%s: %s", map.getKey(), map.getValue()))
-                                          .toList());
+                document.getTarget()
+                        .getMeta()
+                        .entrySet()
+                        .stream()
+                        .map(map -> String.format("%s: %s", map.getKey(), map.getValue()))
+                        .toList());
         String filename = document.getTarget()
-                                  .getFileName()
-                                  .substring(document.getTarget().getFileName().lastIndexOf("/") + 1);
+                .getFileName()
+                .substring(document.getTarget().getFileName().lastIndexOf("/") + 1);
         return TargetMatchOverview.builder()
-                                  .author(userName)
-                                  .id(targetId)
-                                  .score(score)
-                                  .origin(document.getTarget().getOrigin())
-                                  .originLink(document.getTarget().getOriginLink())
-                                  .fileName(filename)
-                                  .meta(meta)
-                                  .percentageMatch(document.getPercentageMatch())
-                                  .build();
+                .author(userName)
+                .id(targetId)
+                .score(score)
+                .origin(document.getTarget().getOrigin())
+                .originLink(document.getTarget().getOriginLink())
+                .fileName(filename)
+                .meta(meta)
+                .percentageMatch(document.getPercentageMatch())
+                .build();
     }
 
     public Collection<TargetMatchOverview> handle(String id) {
@@ -107,11 +107,11 @@ public class ServiceQuery {
             throw new RuntimeException("Invalid id", ig);
         }
         ReportSourceDocument singleDocument = repoReportSourceDocument.findById(fromString)
-                                                                      .orElseThrow();
+                .orElseThrow();
         return singleDocument.getMatches()
-                             .stream()
-                             .map(ServiceQuery::extract)
-                             .toList();
+                .stream()
+                .map(ServiceQuery::extract)
+                .toList();
     }
 
     /**
@@ -135,10 +135,10 @@ public class ServiceQuery {
     public ReportSourceDocument parseResponse(FileDocument source, SearchResponse search) {
         ReportSourceDocument.ReportSourceDocumentBuilder builder = ReportSourceDocument.builder();
         // get hits
-        Collection<ReportTargetDocument> matches = new ArrayList<>();
+        List<ReportTargetDocument> matches = new ArrayList<>();
         ReportSourceDocument reportSourceDocument = builder.source(source)
-                                                           .matches(matches)
-                                                           .build();
+                .matches(matches)
+                .build();
         for (SearchHit hit : search.getHits()) {
             String id = hit.getId();
             UUID fromString;
@@ -151,10 +151,10 @@ public class ServiceQuery {
             if (fileDocument.isEmpty())
                 continue;
             ReportTargetDocument singleMatch = ReportTargetDocument.builder()
-                                                                   .score(hit.getScore())
-                                                                   .source(reportSourceDocument)
-                                                                   .target(fileDocument.get())
-                                                                   .build();
+                    .score(hit.getScore())
+                    .source(reportSourceDocument)
+                    .target(fileDocument.get())
+                    .build();
             matches.add(singleMatch);
         }
         return reportSourceDocument;
@@ -169,44 +169,47 @@ public class ServiceQuery {
 
         MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(array);
         List<TermVectorsResponse> termVectorsResponses = multiTermVectors.getTermVectorsResponses();
-        var sourceTermVectorResponse = termVectorsResponses.get(0);
+        return calculatePercentageMatch(termVectorsResponses.get(0), termVectorsResponses.subList(1, termVectorsResponses.size() - 1));
+    }
+
+    public Double[] calculatePercentageMatch(TermVectorsResponse sourceTermVectorResponse, List<TermVectorsResponse> target) {
         int sourceCount = sourceTermVectorResponse.getTermVectorsList()
-                                                  .stream()
-                                                  .filter(Objects::nonNull)
-                                                  .flatMap(termVector -> termVector.getTerms()
-                                                                                   .stream())
-                                                  .filter(Objects::nonNull)
-                                                  .flatMap(term -> term.getTokens()
-                                                                       .stream())
-                                                  .map(TermVectorsResponse.TermVector.Token::getPosition)
-                                                  .collect(Collectors.toSet())
-                                                  .size();
+                .stream()
+                .filter(Objects::nonNull)
+                .flatMap(termVector -> termVector.getTerms()
+                        .stream())
+                .filter(Objects::nonNull)
+                .flatMap(term -> term.getTokens()
+                        .stream())
+                .map(TermVectorsResponse.TermVector.Token::getPosition)
+                .collect(Collectors.toSet())
+                .size();
         Map<String, List<Integer>> sourceMap = serviceHighlight.mapTokensByValue(sourceTermVectorResponse);
-        Double[] matchPercentage = new Double[queryMatches.size()];
-        for (int i = 1; i < termVectorsResponses.size(); i++) {
-            var queryTermVectorResponse = termVectorsResponses.get(i);
+        Double[] matchPercentage = new Double[target.size()];
+        for (int i = 0; i < target.size(); i++) {
+            var queryTermVectorResponse = target.get(i);
             Map<String, List<Integer>> queryMap = serviceHighlight.mapTokensByValue(queryTermVectorResponse);
             int matchCount = Sets.intersection(sourceMap.keySet(), queryMap.keySet())
-                                 .stream()
-                                 .flatMap(s -> sourceMap.get(s)
-                                                        .stream())
-                                 .collect(Collectors.toSet())
-                                 .size();
-            matchPercentage[i - 1] = (matchCount * 1.0 / sourceCount);
+                    .stream()
+                    .flatMap(s -> sourceMap.get(s)
+                            .stream())
+                    .collect(Collectors.toSet())
+                    .size();
+            matchPercentage[i] = (matchCount * 1.0 / sourceCount);
         }
         return matchPercentage;
     }
 
     /**
-     * @param similarityReport: Requires persisted object and requires index documents
+     * @param sourceDocuments: Requires persisted objects
      */
-    public void calculatePercentageMatches(SimilarityReport similarityReport) {
-        for (ReportSourceDocument source : similarityReport.getSources()) {
+    public void calculatePercentageMatches(Collection<ReportSourceDocument> sourceDocuments) {
+        for (ReportSourceDocument source : sourceDocuments) {
             FileDocument sourceSource = source.getSource();
             List<FileDocument> queryMatches = source.getMatches()
-                                                    .stream()
-                                                    .map(ReportTargetDocument::getTarget)
-                                                    .toList();
+                    .stream()
+                    .map(ReportTargetDocument::getTarget)
+                    .toList();
             assert sourceSource != null;
             Double[] calculatePercentageMatch = calculatePercentageMatch(sourceSource, queryMatches);
             int i = 0;
@@ -232,12 +235,12 @@ public class ServiceQuery {
         similarityReport.setUser(ServiceAuthentication.getUserFromContext());
         similarityReport.setName(request.getReportName());
         similarityReport.setMeta(SimilarityReportMeta.builder()
-                                                     .author(request.getAuthor())
-                                                     .origin(request.getOrigin())
-                                                     .link(request.getLink())
-                                                     .minimumShouldMatch(queryInstruction.getMinimumShouldMatch())
-                                                     .type(queryInstruction.getType())
-                                                     .build());
+                .author(request.getAuthor())
+                .origin(request.getOrigin())
+                .link(request.getLink())
+                .minimumShouldMatch(queryInstruction.getMinimumShouldMatch())
+                .type(queryInstruction.getType())
+                .build());
         return repoSimilarityReport.save(similarityReport);
     }
 
@@ -258,13 +261,13 @@ public class ServiceQuery {
         // Save file linking id of session
         sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
         IndexInstruction indexInstruction = IndexInstruction.builder()
-                                                            .files(sourceDocuments)
-                                                            .build();
+                .files(sourceDocuments)
+                .build();
 
         DetectSimilarityJob.DetectSimilarityJobBuilder builder = DetectSimilarityJob.builder()
-                                                                                    .instruction(indexInstruction)
-                                                                                    .report(similarityReport)
-                                                                                    .queryInstruction(queryInstruction);
+                .instruction(indexInstruction)
+                .report(similarityReport)
+                .queryInstruction(queryInstruction);
 
         DetectSimilarityJob detectSimilarityJob = detectSimilarityJobFactory.newInstance(builder);
         threadPoolExecutor.submit(detectSimilarityJob);
@@ -277,12 +280,12 @@ public class ServiceQuery {
                                               QueryInstruction queryInstruction) {
         // init meta
         SimilarityReportMeta meta = SimilarityReportMeta.builder()
-                                                        .author(request.getAuthor())
-                                                        .origin(request.getOrigin())
-                                                        .minimumShouldMatch(queryInstruction.getMinimumShouldMatch())
-                                                        .type(queryInstruction.getType())
-                                                        .link(request.getLink())
-                                                        .build();
+                .author(request.getAuthor())
+                .origin(request.getOrigin())
+                .minimumShouldMatch(queryInstruction.getMinimumShouldMatch())
+                .type(queryInstruction.getType())
+                .link(request.getLink())
+                .build();
         // Create new empty highlight session
         SimilarityReport.SimilarityReportBuilder sessionBuilder = SimilarityReport.builder();
         SimilarityReport similarityReport = sessionBuilder.build();
@@ -314,23 +317,24 @@ public class ServiceQuery {
         similarityReport.setUser(ServiceAuthentication.getUserFromContext());
         similarityReport.setName(reportName);
         similarityReport.setMeta(SimilarityReportMeta.builder()
-                                                     .type(queryInstruction.getType())
-                                                     .minimumShouldMatch(
-                                                             queryInstruction.getMinimumShouldMatch())
-                                                     .link(meta.get("origin_link").asText())
-                                                     .origin(meta.get("origin").asText())
-                                                     .author(meta.get("author").asText())
-                                                     .build());
+                .type(queryInstruction.getType())
+                .minimumShouldMatch(
+                        queryInstruction.getMinimumShouldMatch())
+                .link(meta.get("origin_link").asText())
+                .origin(meta.get("origin").asText())
+                .author(meta.get("author").asText())
+                .build());
         similarityReport = repoSimilarityReport.save(similarityReport);
 
         // Save source files before indexing
         sourceDocuments = repoFileDocument.saveAll(sourceDocuments);
         // Index the file into es
         IndexInstruction indexInstruction = IndexInstruction.builder()
-                                                            .files(sourceDocuments)
-                                                            .build();
+                .files(sourceDocuments)
+                .build();
         serviceIndex.indexAllDocuments(indexInstruction);
-        calculatePercentageMatches(similarityReport);
+        Collection<ReportSourceDocument> sources = similarityReport.getSources();
+        calculatePercentageMatches(sources);
         return SimilarityReportDetailDTO.from(similarityReport);
     }
 

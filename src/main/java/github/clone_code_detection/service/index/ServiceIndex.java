@@ -101,4 +101,27 @@ public class ServiceIndex implements IServiceIndex {
             }
         }
     }
+
+    public void bulkIndexAllDocuments(IndexInstruction indexInstruction, String indexName) {
+        Collection<FileDocument> files = indexInstruction.getFiles();
+        int startIndex = 0;
+        while (startIndex < files.size()) {
+            int endIndex = Math.min(batchSize + startIndex, files.size());
+            Collection<FileDocument> subFiles = files.stream().toList().subList(startIndex, endIndex);
+            Stream<Pair<String, ElasticsearchDocument>> stream = subFiles.stream()
+                    .map(ElasticsearchDocument::fromFileDocument)
+                    .map(elasticsearchDocument -> Pair.of(indexName, elasticsearchDocument));
+
+            try {
+                BulkResponse bulkResponse = repoElasticsearchIndex.indexDocuments(stream);
+                validateBulkResponse(bulkResponse);
+                log.info("[Service index] index {} documents successfully", subFiles.size());
+            } catch (IOException e) {
+                log.error("[Service index] index documents", e);
+                throw new OperationException("Failed to index documents");
+            } finally {
+                startIndex = endIndex;
+            }
+        }
+    }
 }

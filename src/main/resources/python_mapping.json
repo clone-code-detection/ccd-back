@@ -1,0 +1,50 @@
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "source_code_analyzer": {
+          "filter": [
+            "lowercase"
+          ],
+          "tokenizer": "source_code_tokenizer"
+        },
+        "source_code_normalized_analyzer": {
+          "filter": [
+            "lowercase"
+          ],
+          "tokenizer": "source_code_normalized_tokenizer"
+        }
+      },
+      "tokenizer": {
+        "source_code_tokenizer": {
+          "type": "python_experiment",
+          "version": 2
+        },
+        "source_code_normalized_tokenizer": {
+          "type": "python_experiment",
+          "version": 2
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "_source": {
+      "enabled": false
+    },
+    "properties": {
+      "meta": {
+        "type": "object",
+        "dynamic": "true"
+      },
+      "source_code": {
+        "type": "text",
+        "analyzer": "source_code_analyzer"
+      },
+      "source_code_normalized": {
+        "type": "text",
+        "analyzer": "source_code_normalized_analyzer"
+      }
+    }
+  }
+}
