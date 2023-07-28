@@ -246,7 +246,7 @@ public class ServiceIntraProjectQuery {
                     otherAuthorCount.put(otherAuthor, otherAuthorCount.get(otherAuthor) + 1);
                 }
                 AuthorReport.AuthorReportBuilder builder = AuthorReport.builder()
-                        .author(author)
+                        .name(author)
                         .totalFiles(sources.size())
                         .sources(sources);
                 Optional<String> max = otherAuthorCount.keySet().stream().max(Comparator.comparing(otherAuthorCount::get));
