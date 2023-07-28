@@ -44,7 +44,7 @@ public class RepoElasticsearchIndex {
     }
 
     public BulkResponse indexDocuments(Stream<Pair<String, ElasticsearchDocument>> requests) throws IOException {
-        BulkRequest request = new BulkRequest().setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+        BulkRequest request = new BulkRequest().setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE).timeout(TimeValue.timeValueSeconds(120));
         requests.map(RepoElasticsearchIndex::getIndexAndDoc)
                 .forEach(request::add);
         request.timeout(TimeValue.timeValueSeconds(120));

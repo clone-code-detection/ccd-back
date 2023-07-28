@@ -169,7 +169,7 @@ public class ServiceQuery {
 
         MultiTermVectorsResponse multiTermVectors = repoElasticsearchQuery.getMultiTermVectors(array);
         List<TermVectorsResponse> termVectorsResponses = multiTermVectors.getTermVectorsResponses();
-        return calculatePercentageMatch(termVectorsResponses.get(0), termVectorsResponses.subList(1, termVectorsResponses.size() - 1));
+        return calculatePercentageMatch(termVectorsResponses.get(0), termVectorsResponses.subList(1, termVectorsResponses.size()));
     }
 
     public Double[] calculatePercentageMatch(TermVectorsResponse sourceTermVectorResponse, List<TermVectorsResponse> target) {

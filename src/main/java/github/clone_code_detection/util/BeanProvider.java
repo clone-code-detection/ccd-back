@@ -32,7 +32,9 @@ public class BeanProvider {
 
     @Bean
     public RestHighLevelClient getElasticsearchClient() {
-        return new RestHighLevelClient(RestClient.builder(new HttpHost(host, port, "http")));
+        return new RestHighLevelClient(RestClient.builder(new HttpHost(host, port, "http")).setRequestConfigCallback(builder -> builder
+                .setConnectTimeout(60000)
+                .setSocketTimeout(120000)));
     }
 
     @Bean
