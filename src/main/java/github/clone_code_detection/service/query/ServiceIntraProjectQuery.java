@@ -33,6 +33,7 @@ import org.elasticsearch.client.core.MultiTermVectorsRequest;
 import org.elasticsearch.client.core.MultiTermVectorsResponse;
 import org.elasticsearch.client.core.TermVectorsRequest;
 import org.elasticsearch.client.core.TermVectorsResponse;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -322,6 +323,7 @@ public class ServiceIntraProjectQuery {
         // build source
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(boolQueryBuilder);
+        searchSourceBuilder.timeout(TimeValue.timeValueSeconds(120));
 
         SearchRequest searchRequest = new SearchRequest();
         log.info("[Intra project query es] Search request: {}", searchRequest);

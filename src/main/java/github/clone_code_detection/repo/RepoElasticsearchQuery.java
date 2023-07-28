@@ -15,6 +15,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.core.MultiTermVectorsRequest;
 import org.elasticsearch.client.core.MultiTermVectorsResponse;
 import org.elasticsearch.client.core.TermVectorsRequest;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -44,9 +45,9 @@ public class RepoElasticsearchQuery {
     @NonNull
     private static TermVectorsRequest buildTermVectorsRequest(FileDocument fileDocument) {
         String index = LanguageUtil.getInstance()
-                                   .getIndexFromFileName(fileDocument.getFileName());
+                .getIndexFromFileName(fileDocument.getFileName());
         String uuid = fileDocument.getId()
-                                  .toString();
+                .toString();
         TermVectorsRequest template = new TermVectorsRequest(index, uuid);
         template.setOffsets(true);
         template.setPositions(true);
@@ -59,14 +60,14 @@ public class RepoElasticsearchQuery {
         String minimumShouldMatch = queryInstruction.getMinimumShouldMatch();
         String field;
         log.debug("Querying with config: min match {} and field {} and language {}",
-                  minimumShouldMatch,
-                  queryInstruction.getType(),
-                  queryInstruction.getLanguage());
+                minimumShouldMatch,
+                queryInstruction.getType(),
+                queryInstruction.getLanguage());
         if (1 == queryInstruction.getType()) field = SOURCE_CODE_FIELD;
         else field = SOURCE_CODE_FIELD_NORMALIZED;
         return Collections.singletonList(QueryBuilders
-                                                 .matchQuery(field, queryInstruction.getContent())
-                                                 .minimumShouldMatch(minimumShouldMatch));
+                .matchQuery(field, queryInstruction.getContent())
+                .minimumShouldMatch(minimumShouldMatch));
     }
 
     protected static List<QueryBuilder> buildFilterQuery() {
@@ -81,7 +82,7 @@ public class RepoElasticsearchQuery {
     public MultiSearchResponse multiquery(Collection<QueryInstruction> instructions) throws IOException {
         MultiSearchRequest multiSearchRequest = buildMultisearchRequest(instructions);
         log.info("[Repo es query] Start multi search for {} documents", multiSearchRequest.requests()
-                                                                                          .size());
+                .size());
         return multiQuery(multiSearchRequest);
     }
 
@@ -125,12 +126,13 @@ public class RepoElasticsearchQuery {
 
         // build source
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        searchSourceBuilder.query(boolQueryBuilder);
+        searchSourceBuilder.query(boolQueryBuilder)
+                .timeout(TimeValue.timeValueSeconds(120));
 
         SearchRequest searchRequest = new SearchRequest();
         log.debug("[Repo es] Search request: {}", searchRequest);
         searchRequest.source(searchSourceBuilder)
-                     .indices(indexes);
+                .indices(indexes);
         return searchRequest;
     }
 }
