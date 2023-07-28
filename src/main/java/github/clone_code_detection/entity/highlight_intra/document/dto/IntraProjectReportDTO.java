@@ -31,15 +31,15 @@ public class IntraProjectReportDTO {
     private String name;
 
     @JsonProperty("projects")
-    private Collection<IntraProjectAuthorDTO> authors;
+    private Collection<IntraProjectAuthorDTO> projects;
 
     @Builder
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class IntraProjectAuthorDTO {
-        @JsonProperty("author")
-        private String author;
+        @JsonProperty("name")
+        private String name;
 
         @JsonProperty(value = "total_files")
         int totalFiles;
@@ -65,7 +65,7 @@ public class IntraProjectReportDTO {
         ModelMapper mapper = ModelMapperUtil.getMapper();
         IntraProjectReportDTO res = mapper
                 .map(document, IntraProjectReportDTO.class);
-        res.authors = document.getAuthorReports().stream().map(IntraProjectAuthorDTO::from).toList();
+        res.projects = document.getAuthorReports().stream().map(IntraProjectAuthorDTO::from).toList();
         return res;
     }
 }

@@ -142,9 +142,9 @@ public class ServiceIntraProjectQuery {
     }
 
     @Transactional(propagation = Propagation.NEVER)
-    public void queryIntraProject(IntraProjectQueryRequest request, QueryInstruction queryInstruction) throws IOException {
+    public void queryIntraProject(IntraProjectQueryRequest request, QueryInstruction queryInstruction) {
         validateZipFiles(request);
-        IntraProjectReport report = createIntraProjectReport();
+        IntraProjectReport report = createIntraProjectReport(request);
         List<FileDocument> fileDocuments = persistFile(request);
         proxy.handleQuery(report, fileDocuments, queryInstruction);
     }
@@ -156,10 +156,12 @@ public class ServiceIntraProjectQuery {
         }
     }
 
-    private IntraProjectReport createIntraProjectReport() {
+    private IntraProjectReport createIntraProjectReport(IntraProjectQueryRequest request) {
         IntraProjectReport progress = IntraProjectReport.builder().build();
         UserImpl user = ServiceAuthentication.getUserFromContext();
         progress.setUser(user);
+        progress.setName(request.getProjectName());
+        progress.setNote(request.getNote());
         progress = repoIntraProjectReport.save(progress);
         return progress;
     }

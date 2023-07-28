@@ -34,11 +34,16 @@ public class IntraProjectReportOverviewDTO {
     public static IntraProjectReportOverviewDTO from(IntraProjectReport document) {
         ModelMapper mapper = ModelMapperUtil.getMapper();
         IntraProjectReportOverviewDTO mapped = mapper.map(document, IntraProjectReportOverviewDTO.class);
-        mapped.totalProjects = 0;
         mapped.created = document.getCreatedAt().toEpochSecond();
+        mapped.totalProjects = document.getAuthorReports().size();
+        int totalFiles = 0;
+        int totalMatches = 0;
         for (AuthorReport authorReport : document.getAuthorReports()) {
-            mapped.totalProjects += authorReport.getTotalFiles();
+            totalFiles += authorReport.getTotalFiles();
+            totalMatches += authorReport.getTotalMatches() == null ? 0 : authorReport.getTotalMatches();
         }
+        mapped.totalFiles = totalFiles;
+        mapped.matchedFiles = totalMatches;
         return mapped;
     }
 }

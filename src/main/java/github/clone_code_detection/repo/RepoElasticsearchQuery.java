@@ -43,11 +43,11 @@ public class RepoElasticsearchQuery {
     }
 
     @NonNull
-    private static TermVectorsRequest buildTermVectorsRequest(FileDocument fileDocument) {
-        String index = LanguageUtil.getInstance()
-                .getIndexFromFileName(fileDocument.getFileName());
+    private static TermVectorsRequest buildTermVectorsRequest(String index, FileDocument fileDocument) {
+        if (index == null)
+            index = LanguageUtil.getInstance().getIndexFromFileName(fileDocument.getFileName());
         String uuid = fileDocument.getId()
-                .toString();
+                                  .toString();
         TermVectorsRequest template = new TermVectorsRequest(index, uuid);
         template.setOffsets(true);
         template.setPositions(true);
@@ -60,14 +60,14 @@ public class RepoElasticsearchQuery {
         String minimumShouldMatch = queryInstruction.getMinimumShouldMatch();
         String field;
         log.debug("Querying with config: min match {} and field {} and language {}",
-                minimumShouldMatch,
-                queryInstruction.getType(),
-                queryInstruction.getLanguage());
+                  minimumShouldMatch,
+                  queryInstruction.getType(),
+                  queryInstruction.getLanguage());
         if (1 == queryInstruction.getType()) field = SOURCE_CODE_FIELD;
         else field = SOURCE_CODE_FIELD_NORMALIZED;
         return Collections.singletonList(QueryBuilders
-                .matchQuery(field, queryInstruction.getContent())
-                .minimumShouldMatch(minimumShouldMatch));
+                                                 .matchQuery(field, queryInstruction.getContent())
+                                                 .minimumShouldMatch(minimumShouldMatch));
     }
 
     protected static List<QueryBuilder> buildFilterQuery() {
@@ -82,7 +82,7 @@ public class RepoElasticsearchQuery {
     public MultiSearchResponse multiquery(Collection<QueryInstruction> instructions) throws IOException {
         MultiSearchRequest multiSearchRequest = buildMultisearchRequest(instructions);
         log.info("[Repo es query] Start multi search for {} documents", multiSearchRequest.requests()
-                .size());
+                                                                                          .size());
         return multiQuery(multiSearchRequest);
     }
 
@@ -96,11 +96,11 @@ public class RepoElasticsearchQuery {
         return multiSearchRequest;
     }
 
-    public MultiTermVectorsResponse getMultiTermVectors(FileDocument... fileDocuments) {
+    public MultiTermVectorsResponse getMultiTermVectors(String index, FileDocument... fileDocuments) {
         try {
             MultiTermVectorsRequest multiTermVectorsRequest = new MultiTermVectorsRequest();
             for (FileDocument fileDocument : fileDocuments) {
-                TermVectorsRequest template = buildTermVectorsRequest(fileDocument);
+                TermVectorsRequest template = buildTermVectorsRequest(index, fileDocument);
                 multiTermVectorsRequest.add(template);
             }
             return getMultiTermVectorsResponse(multiTermVectorsRequest);
@@ -110,7 +110,8 @@ public class RepoElasticsearchQuery {
         }
     }
 
-    public MultiTermVectorsResponse getMultiTermVectorsResponse(MultiTermVectorsRequest multiTermVectorsRequest) throws IOException {
+    public MultiTermVectorsResponse getMultiTermVectorsResponse(MultiTermVectorsRequest multiTermVectorsRequest) throws
+                                                                                                                 IOException {
         return elasticsearchClient.mtermvectors(multiTermVectorsRequest, RequestOptions.DEFAULT);
     }
 
@@ -126,13 +127,11 @@ public class RepoElasticsearchQuery {
 
         // build source
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        searchSourceBuilder.query(boolQueryBuilder)
-                .timeout(TimeValue.timeValueSeconds(120));
+        searchSourceBuilder.query(boolQueryBuilder).timeout(TimeValue.timeValueSeconds(120));
 
         SearchRequest searchRequest = new SearchRequest();
         log.debug("[Repo es] Search request: {}", searchRequest);
-        searchRequest.source(searchSourceBuilder)
-                .indices(indexes);
+        searchRequest.source(searchSourceBuilder).indices(indexes);
         return searchRequest;
     }
 }
