@@ -12,6 +12,7 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.CreateIndexResponse;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.util.Pair;
@@ -46,6 +47,7 @@ public class RepoElasticsearchIndex {
         BulkRequest request = new BulkRequest().setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
         requests.map(RepoElasticsearchIndex::getIndexAndDoc)
                 .forEach(request::add);
+        request.timeout(TimeValue.timeValueSeconds(120));
         return bulkIndex(request);
     }
 
