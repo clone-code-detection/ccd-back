@@ -16,7 +16,6 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.Collection;
 
 @RestController
@@ -118,9 +117,9 @@ public class QueryController {
             MediaType.APPLICATION_OCTET_STREAM_VALUE})
     @ResponseStatus(HttpStatus.OK)
     public void queryIntraProject(@RequestParam("source") MultipartFile[] source,
-                                  @RequestParam(value = "name", required = true) String projectName,
+                                  @RequestParam(value = "name") String projectName,
                                   @RequestParam(value = "note", required = false) String note
-    ) throws IOException {
+    ) {
         QueryInstruction queryInstruction = QueryInstruction.builder()
                 .type(1)
                 .build();

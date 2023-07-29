@@ -36,6 +36,7 @@ import org.elasticsearch.client.core.TermVectorsResponse;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -255,7 +256,7 @@ public class ServiceIntraProjectQuery {
                 Optional<String> max = otherAuthorCount.keySet().stream().max(Comparator.comparing(otherAuthorCount::get));
                 if (max.isPresent()) {
                     String otherAuthor = max.get();
-                    builder.other_author(otherAuthor);
+                    builder.otherAuthor(otherAuthor);
                     builder.totalMatches(otherAuthorCount.get(otherAuthor));
                 }
                 AuthorReport authorReport = builder.build();
@@ -287,7 +288,7 @@ public class ServiceIntraProjectQuery {
                         return fileDocument;
                     });
                 })
-                .filter(fileDocument -> fileDocument.getFileName().endsWith(".java")) // TODO get java only
+                .filter(fileDocument -> fileDocument.getFileName().endsWith(".java"))
                 .toList();
     }
 
@@ -328,7 +329,7 @@ public class ServiceIntraProjectQuery {
         searchSourceBuilder.timeout(TimeValue.timeValueSeconds(120));
 
         SearchRequest searchRequest = new SearchRequest();
-        log.info("[Intra project query es] Search request: {}", searchRequest);
+        log.info("[Intra project query es] Search request: {}", boolQueryBuilder);
         searchRequest.source(searchSourceBuilder).indices(indexName);
         return searchRequest;
     }
@@ -360,14 +361,18 @@ public class ServiceIntraProjectQuery {
                 queryInstruction.getLanguage());
         if (1 == queryInstruction.getType()) field = SOURCE_CODE_FIELD;
         else field = SOURCE_CODE_FIELD_NORMALIZED;
-        return Collections.singletonList(QueryBuilders
-                .matchQuery(field, queryInstruction.getContent())
-                .minimumShouldMatch("10 < 40%")
+        return Collections.singletonList(buildMatchQuery(queryInstruction, field)
         );
+    }
+
+    private static MatchQueryBuilder buildMatchQuery(QueryInstruction queryInstruction, String field) {
+        return QueryBuilders
+                .matchQuery(field, queryInstruction.getContent())
+                .minimumShouldMatch("5 < 40% 25 < 20%");
     }
 
     public static List<QueryBuilder> buildFilterQuery(FileDocument fileDocument) {
         return Collections.singletonList(QueryBuilders
-                .matchQuery("author", fileDocument.getAuthor()));
+                .termQuery("author", fileDocument.getAuthor()));
     }
 }

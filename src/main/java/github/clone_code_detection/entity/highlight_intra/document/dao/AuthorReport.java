@@ -37,7 +37,7 @@ public class AuthorReport {
     int totalFiles;
 
     @Column(name = "most_likely_match")
-    String other_author;
+    String otherAuthor;
 
     @Column(name = "total_other_matches")
     Integer totalMatches;
