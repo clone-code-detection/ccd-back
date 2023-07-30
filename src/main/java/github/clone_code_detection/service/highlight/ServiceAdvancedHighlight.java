@@ -40,7 +40,6 @@ public class ServiceAdvancedHighlight {
         ReportSourceDocument singleDocument = repoReportSourceDocument.findById(UUID.fromString(id)).orElseThrow();
         // Get intra project report
         String index = repoIntraProjectReport.getEsIndexBySourceId(singleDocument.getId());
-        if (index == null) return new ArrayList<>();
         List<FileDocument> documents = new ArrayList<>(singleDocument.getMatches()
                                                                      .stream()
                                                                      .map(ReportTargetDocument::getTarget)
