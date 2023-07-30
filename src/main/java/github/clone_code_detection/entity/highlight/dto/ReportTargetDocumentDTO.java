@@ -9,7 +9,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.function.Function;
@@ -26,22 +25,9 @@ public class ReportTargetDocumentDTO {
     @JsonProperty("target")
     private FileDocument target;
 
-    @JsonProperty("matches")
-    @Builder.Default
-    private Collection<SimilarityTextMatchDTO> matches = new ArrayList<>();
 
-
-    public static ReportTargetDocumentDTO from(ReportTargetDocument document,
-                                               Collection<SimilarityTextMatchDTO> matches) {
-        ReportTargetDocumentDTO targetMatchDTO = ModelMapperUtil.getMapper()
-                                                                .map(document, ReportTargetDocumentDTO.class);
-        targetMatchDTO.matches = matches;
-        return targetMatchDTO;
-    }
-
-    public static ReportTargetDocumentDTO from(ReportTargetDocument document,
-                                               Function<ReportTargetDocument, Collection<SimilarityTextMatchDTO>> resolver) {
-        Collection<SimilarityTextMatchDTO> similarityTextMatchDTOS = resolver.apply(document);
-        return from(document, similarityTextMatchDTOS);
+    public static ReportTargetDocumentDTO from(ReportTargetDocument document) {
+        return ModelMapperUtil.getMapper()
+                .map(document, ReportTargetDocumentDTO.class);
     }
 }

@@ -11,7 +11,7 @@ import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
 
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 @Builder
@@ -33,5 +33,5 @@ public class ReportSourceDocument {
 
     @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE}, fetch = FetchType.EAGER, mappedBy = "source")
     @Fetch(FetchMode.SUBSELECT)
-    private Collection<ReportTargetDocument> matches = new ArrayList<>();
+    private List<ReportTargetDocument> matches = new ArrayList<>();
 }

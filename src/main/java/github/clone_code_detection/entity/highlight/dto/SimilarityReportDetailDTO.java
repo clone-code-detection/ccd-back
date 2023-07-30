@@ -49,7 +49,7 @@ public class SimilarityReportDetailDTO {
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
-    private static class Document {
+    public static class Document {
         private UUID id;
         @JsonProperty("file_name")
         private String fileName;

@@ -10,6 +10,9 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.indices.CreateIndexRequest;
+import org.elasticsearch.client.indices.CreateIndexResponse;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.util.Pair;
@@ -41,9 +44,21 @@ public class RepoElasticsearchIndex {
     }
 
     public BulkResponse indexDocuments(Stream<Pair<String, ElasticsearchDocument>> requests) throws IOException {
-        BulkRequest request = new BulkRequest().setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+        BulkRequest request = new BulkRequest().setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE).timeout(TimeValue.timeValueSeconds(120));
         requests.map(RepoElasticsearchIndex::getIndexAndDoc)
                 .forEach(request::add);
+        request.timeout(TimeValue.timeValueSeconds(120));
+        return bulkIndex(request);
+    }
+
+    public BulkResponse bulkIndex(BulkRequest request) throws IOException {
         return elasticsearchClient.bulk(request, RequestOptions.DEFAULT);
+    }
+
+    public void createIndex(String indexName) throws IOException {
+        CreateIndexRequest request = new CreateIndexRequest(indexName);
+        CreateIndexResponse createIndexResponse = elasticsearchClient.indices().create(request, RequestOptions.DEFAULT);
+        if (!createIndexResponse.isShardsAcknowledged() || !createIndexResponse.isAcknowledged())
+            throw new RuntimeException();
     }
 }

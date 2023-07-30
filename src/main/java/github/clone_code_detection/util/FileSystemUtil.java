@@ -42,12 +42,12 @@ public class FileSystemUtil {
             byte[] content;
             content = FileSystemUtil.getContent(file);
             return List.of(FileDocument.builder()
-                                       .fileName(fileName)
-                                       .content(content)
-                                       .author(meta.get("author").asText("anonymous"))
-                                       .origin(meta.get("origin").asText("local"))
-                                       .originLink(meta.get("origin_link").asText(""))
-                                       .build());
+                    .fileName(fileName)
+                    .content(content)
+                    .author(meta.get("author").asText("anonymous"))
+                    .origin(meta.get("origin").asText("local"))
+                    .originLink(meta.get("origin_link").asText(""))
+                    .build());
         }
     }
 
@@ -66,7 +66,7 @@ public class FileSystemUtil {
             LanguageUtil.getInstance().getIndexFromExtension(extension);
         } catch (Exception ignore) {
             throw new UnsupportedLanguageException(MessageFormat.format("Extension of type {0} is not supported",
-                                                                        extension));
+                    extension));
         }
     }
 
@@ -86,5 +86,19 @@ public class FileSystemUtil {
     public static String getFileName(String originalFilename) {
         if (originalFilename == null) return "";
         return originalFilename.substring(0, originalFilename.lastIndexOf("."));
+    }
+
+    /**
+     * @param file the zip file or source code file
+     * @implNote accept zip and single file
+     */
+    public static void validateZip(MultipartFile file) {
+        String fileName = file.getOriginalFilename();
+        String extension = FilenameUtils.getExtension(fileName);
+        assert extension != null;
+        if (extension.endsWith("zip")) {
+            return;
+        }
+        throw new UnsupportedLanguageException(MessageFormat.format("Only zip file is supported", extension));
     }
 }

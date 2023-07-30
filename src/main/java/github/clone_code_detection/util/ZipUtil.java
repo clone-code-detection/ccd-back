@@ -25,6 +25,44 @@ public class ZipUtil {
         throw new IllegalStateException("ZipUtil is utility class");
     }
 
+    public static Collection<FileDocument> unzipAndGetContents(byte[] data) {
+        ArrayList<FileDocument> contents = new ArrayList<>();
+        try {
+            ZipInputStream zipInputStream = new ZipInputStream(new ByteArrayInputStream(data));
+            ZipEntry zipEntry;
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            while ((zipEntry = zipInputStream.getNextEntry()) != null) {
+                if (zipEntry.isDirectory()) {
+                    zipInputStream.closeEntry();
+                    continue;
+                }
+                // Ignore file if the language is not supported
+                try {
+                    languageUtil.getIndexFromFileName(zipEntry.getName());
+                } catch (UnsupportedLanguageException e) {
+                    zipInputStream.closeEntry();
+                    continue;
+                }
+                byteArrayOutputStream.reset();
+                zipInputStream.transferTo(byteArrayOutputStream);
+                String filename = zipEntry.getName();
+                int slashIndex = zipEntry.getName().lastIndexOf("/");
+                if (slashIndex > -1)
+                    filename = zipEntry.getName().substring(slashIndex + 1);
+                FileDocument fileDocument = FileDocument.builder()
+                        .content(byteArrayOutputStream.toByteArray())
+                        .fileName(filename)
+                        .build();
+                contents.add(fileDocument);
+            }
+            zipInputStream.closeEntry();
+            zipInputStream.close();
+        } catch (IOException e) {
+            throw new FailHandleException("Error parsing zip file");
+        }
+        return contents;
+    }
+
     public static Collection<FileDocument> unzipAndGetContents(MultipartFile file, JsonNode meta) {
         ArrayList<FileDocument> contents = new ArrayList<>();
         try {
@@ -50,12 +88,12 @@ public class ZipUtil {
                 if (slashIndex > -1)
                     filename = zipEntry.getName().substring(slashIndex + 1);
                 FileDocument fileDocument = FileDocument.builder()
-                                                        .content(byteArrayOutputStream.toByteArray())
-                                                        .fileName(filename)
-                                                        .author(meta.get("author").asText("anonymous"))
-                                                        .origin(meta.get("origin").asText("local"))
-                                                        .originLink(meta.get("origin_link").asText(""))
-                                                        .build();
+                        .content(byteArrayOutputStream.toByteArray())
+                        .fileName(filename)
+                        .author(meta.get("author").asText("anonymous"))
+                        .origin(meta.get("origin").asText("local"))
+                        .originLink(meta.get("origin_link").asText(""))
+                        .build();
                 contents.add(fileDocument);
             }
             zipInputStream.closeEntry();
@@ -93,18 +131,18 @@ public class ZipUtil {
                                   ByteArrayOutputStream byteArrayOutputStream,
                                   ZipInputStream zipInputStream,
                                   ZipEntry zipEntry, Map<String, String> meta, String uri, String origin) throws
-                                                                                                          IOException {
+            IOException {
         try {
             languageUtil.getIndexFromFileName(zipEntry.getName());
             zipInputStream.transferTo(byteArrayOutputStream);
             fileDocuments.add(FileDocument.builder()
-                                          .author(author)
-                                          .fileName(zipEntry.getName())
-                                          .content(byteArrayOutputStream.toByteArray())
-                                          .origin(origin)
-                                          .originLink(uri)
-                                          .meta(meta)
-                                          .build());
+                    .author(author)
+                    .fileName(zipEntry.getName())
+                    .content(byteArrayOutputStream.toByteArray())
+                    .origin(origin)
+                    .originLink(uri)
+                    .meta(meta)
+                    .build());
         } catch (UnsupportedLanguageException ignored) {
         }
     }
